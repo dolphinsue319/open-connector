@@ -113,6 +113,18 @@ export const gitlabActionHandlers: Record<GitlabActionName, GitlabActionHandler>
       per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
     });
   },
+  list_repository_tree(input, context) {
+    return listGitlabCollection("tree", `/projects/${readProjectId(input)}/repository/tree`, context, {
+      path: trimOptionalString(input.path),
+      ref: trimOptionalString(input.ref),
+      recursive: optionalBoolean(input.recursive),
+      page: asOptionalPositiveInteger(input.page, "page"),
+      per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
+    });
+  },
+  get_file(input, context) {
+    return getGitlabFile(input, context);
+  },
 };
 
 export const executors: ProviderExecutors = defineProviderExecutors<GitlabActionContext>({
@@ -214,6 +226,20 @@ async function listGitlabCollection(
     throw new ProviderRequestError(502, `gitlab ${key} response is not an array`, payload);
   }
   return { [key]: payload, ...readPagination(response.headers) };
+}
+
+async function getGitlabFile(input: GitlabActionInput, context: GitlabActionContext): Promise<unknown> {
+  const projectId = readProjectId(input);
+  const filePath = encodeURIComponent(readRequiredString(input.filePath, "filePath"));
+  const ref = readRequiredString(input.ref, "ref");
+  const payload = await gitlabRequestJson(`/projects/${projectId}/repository/files/${filePath}`, context, "execute", {
+    query: { ref },
+  });
+  const file = asGitlabObject(payload);
+  if (file.encoding === "base64" && typeof file.content === "string") {
+    return { ...file, content_decoded: Buffer.from(file.content, "base64").toString("utf-8") };
+  }
+  return payload;
 }
 
 function readIssueIid(input: GitlabActionInput): number {

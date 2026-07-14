@@ -157,6 +157,35 @@ const branch = s.looseObject(
 );
 const paginatedCommits = paginated("commits", commit, "commits");
 const paginatedBranches = paginated("branches", branch, "branches");
+const treeEntry = s.looseObject(
+  {
+    id: s.string({ description: "The object ID (blob or tree SHA)." }),
+    name: s.string({ description: "The entry name." }),
+    type: s.string({ description: "The entry type: tree (directory) or blob (file)." }),
+    path: s.string({ description: "The full path of the entry within the repository." }),
+    mode: s.string({ description: "The Unix file mode." }),
+  },
+  { description: "A GitLab repository tree entry." },
+);
+const paginatedTree = paginated("tree", treeEntry, "tree entries", "repository tree");
+const file = s.looseObject(
+  {
+    file_name: s.string({ description: "The file name." }),
+    file_path: s.string({ description: "The full file path within the repository." }),
+    size: s.integer({ description: "The file size in bytes." }),
+    encoding: s.string({ description: "The content encoding as reported by GitLab (typically base64)." }),
+    content: s.string({ description: "The raw file content in the reported encoding." }),
+    content_decoded: s.string({
+      description: "The file content decoded to UTF-8 text (best-effort; may be lossy for binary files).",
+    }),
+    content_sha256: s.string({ description: "The SHA-256 of the file content." }),
+    ref: s.string({ description: "The branch, tag, or commit the file was read from." }),
+    blob_id: s.string({ description: "The blob object ID." }),
+    commit_id: s.string({ description: "The commit ID the file content is from." }),
+    last_commit_id: s.string({ description: "The last commit ID that touched the file." }),
+  },
+  { description: "A GitLab repository file, including its decoded text content." },
+);
 const projectId = s.string({
   minLength: 1,
   description: "The GitLab project ID or URL-encoded path with namespace, such as 123 or group%2Fproject.",
@@ -338,6 +367,40 @@ const actions: GitlabActionSource[] = [
       ["projectId"],
     ),
     outputSchema: paginatedBranches,
+  },
+  {
+    name: "list_repository_tree",
+    description: "List files and directories in a GitLab project's repository tree.",
+    inputSchema: input(
+      {
+        projectId,
+        path: s.string({ minLength: 1, description: "The path inside the repository to list. Defaults to the root." }),
+        ref: s.string({
+          minLength: 1,
+          description: "The branch, tag, or commit to read. Defaults to the project's default branch.",
+        }),
+        recursive: s.boolean({ description: "Recurse into sub-directories." }),
+        ...pagination,
+      },
+      ["projectId"],
+    ),
+    outputSchema: paginatedTree,
+  },
+  {
+    name: "get_file",
+    description: "Get a single file from a GitLab project's repository, including its decoded text content.",
+    inputSchema: input(
+      {
+        projectId,
+        filePath: s.string({
+          minLength: 1,
+          description: "The file path within the repository, e.g. src/app.ts (not URL-encoded).",
+        }),
+        ref: s.string({ minLength: 1, description: "The branch, tag, or commit to read the file from." }),
+      },
+      ["projectId", "filePath", "ref"],
+    ),
+    outputSchema: file,
   },
 ];
 

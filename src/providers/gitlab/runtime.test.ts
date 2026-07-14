@@ -262,6 +262,79 @@ describe("gitlab repository read actions — commits + branches", () => {
   });
 });
 
+describe("gitlab repository read actions — files", () => {
+  const cred = async () => apiKeyCredential("glpat-token", { baseUrl: "https://gl.thread.tw" });
+
+  it("lists the repository tree with query params and header pagination", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        new Response(JSON.stringify([{ id: "a1", name: "src", type: "tree", path: "src", mode: "040000" }]), {
+          status: 200,
+          headers: { "content-type": "application/json", "x-total": "1", "x-next-page": "" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["gitlab.list_repository_tree"]?.(
+      { projectId: "30", path: "src", ref: "main", recursive: true, perPage: 10 },
+      { getCredential: cred },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      output: {
+        tree: [{ id: "a1", name: "src", type: "tree", path: "src", mode: "040000" }],
+        total: 1,
+        nextPage: null,
+      },
+    });
+    expect(fetcher.mock.calls[0]![0].toString()).toBe(
+      "https://gl.thread.tw/api/v4/projects/30/repository/tree?path=src&ref=main&recursive=true&per_page=10",
+    );
+  });
+
+  it("gets a file, url-encodes the path, and decodes base64 content", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({
+          file_name: "b.swift",
+          file_path: "a/b.swift",
+          size: 5,
+          encoding: "base64",
+          content: "aGVsbG8=",
+          ref: "main",
+        }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["gitlab.get_file"]?.(
+      { projectId: "30", filePath: "a/b.swift", ref: "main" },
+      { getCredential: cred },
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      output: { file_path: "a/b.swift", encoding: "base64", content: "aGVsbG8=", content_decoded: "hello" },
+    });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url.toString()).toBe("https://gl.thread.tw/api/v4/projects/30/repository/files/a%2Fb.swift?ref=main");
+    expect(init!.method).toBe("GET");
+  });
+
+  it("rejects get_file without a ref", async () => {
+    const result = await executors["gitlab.get_file"]?.(
+      { projectId: "30", filePath: "a/b.swift" },
+      { getCredential: cred },
+    );
+    expect(result).toMatchObject({ ok: false, error: { message: expect.stringContaining("ref") } });
+  });
+
+  it("rejects get_file without a filePath", async () => {
+    const result = await executors["gitlab.get_file"]?.({ projectId: "30", ref: "main" }, { getCredential: cred });
+    expect(result).toMatchObject({ ok: false, error: { message: expect.stringContaining("filePath") } });
+  });
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
