@@ -32,6 +32,9 @@ type FirecrawlLocalActionHandler = (
  * `FirecrawlLocalActionName` in actions.ts.
  */
 export const firecrawlLocalActionHandlers: Record<FirecrawlLocalActionName, FirecrawlLocalActionHandler> = {
+  scrape: firecrawlLocalPostAction("/v2/scrape", buildDirectBody),
+  search: firecrawlLocalPostAction("/v2/search", buildSearchBody),
+  map: firecrawlLocalPostAction("/v2/map", buildDirectBody),
   crawl_list_active: firecrawlLocalGetAction(() => firecrawlLocalValidationPath),
 };
 
@@ -159,6 +162,48 @@ function firecrawlLocalGetAction(buildPath: (input: Record<string, unknown>) => 
       path: buildPath(input),
       phase: "execute",
     });
+}
+
+function firecrawlLocalPostAction(
+  path: string,
+  buildBody: (input: Record<string, unknown>) => Record<string, unknown>,
+): FirecrawlLocalActionHandler {
+  return (input, context) =>
+    firecrawlLocalRequest({
+      baseUrl: context.baseUrl,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      method: "POST",
+      path,
+      body: buildBody(input),
+      phase: "execute",
+    });
+}
+
+function buildDirectBody(input: Record<string, unknown>): Record<string, unknown> {
+  return compactObject(input);
+}
+
+// Firecrawl's search endpoint applies scrape formats via `scrapeOptions`. Accept a
+// top-level `formats` alias and fold it into `scrapeOptions.formats` for convenience.
+function buildSearchBody(input: Record<string, unknown>): Record<string, unknown> {
+  const { formats, ...rest } = input;
+  const formatsArray = Array.isArray(formats) ? formats : undefined;
+  return compactObject({
+    ...rest,
+    scrapeOptions: mergeRecords(
+      optionalRecord(rest.scrapeOptions),
+      formatsArray ? { formats: formatsArray } : undefined,
+    ),
+  });
+}
+
+function mergeRecords(...records: Array<Record<string, unknown> | undefined>): Record<string, unknown> | undefined {
+  const merged = Object.assign(
+    {},
+    ...records.filter((record): record is Record<string, unknown> => record !== undefined),
+  );
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
 async function readFirecrawlLocalPayload(response: Response): Promise<unknown> {

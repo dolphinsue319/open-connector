@@ -120,6 +120,75 @@ describe("firecrawl_local.crawl_list_active", () => {
   });
 });
 
+describe("firecrawl_local scrape / search / map", () => {
+  it("POSTs scrape to the local base URL with no auth header and forwards the input body", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ success: true, data: { markdown: "# hi" } }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["firecrawl_local.scrape"]?.(
+      { url: "https://example.com", formats: ["markdown"], onlyMainContent: true },
+      { getCredential: async () => customCredential({}) },
+    );
+
+    expect(result).toEqual({ ok: true, output: { success: true, data: { markdown: "# hi" } } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe("http://host.docker.internal:3002/v2/scrape");
+    expect(init!.method).toBe("POST");
+    expect((init!.headers as Headers).get("authorization")).toBeNull();
+    expect((init!.headers as Headers).get("content-type")).toBe("application/json");
+    expect(JSON.parse(init!.body as string)).toEqual({
+      url: "https://example.com",
+      formats: ["markdown"],
+      onlyMainContent: true,
+    });
+  });
+
+  it("POSTs search and folds top-level formats into scrapeOptions, honoring a configured baseUrl", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ success: true, data: [{ url: "https://a" }] }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["firecrawl_local.search"]?.(
+      { query: "claude", limit: 3, formats: ["markdown"] },
+      { getCredential: async () => customCredential({ baseUrl: "http://192.168.1.50:3002/" }) },
+    );
+
+    expect(result).toEqual({ ok: true, output: { success: true, data: [{ url: "https://a" }] } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe("http://192.168.1.50:3002/v2/search");
+    expect(init!.method).toBe("POST");
+    expect(JSON.parse(init!.body as string)).toEqual({
+      query: "claude",
+      limit: 3,
+      scrapeOptions: { formats: ["markdown"] },
+    });
+  });
+
+  it("POSTs map with the input body", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ success: true, links: ["https://a", "https://b"] }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["firecrawl_local.map"]?.(
+      { url: "https://example.com", limit: 100 },
+      { getCredential: async () => customCredential({}) },
+    );
+
+    expect(result).toEqual({ ok: true, output: { success: true, links: ["https://a", "https://b"] } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe("http://host.docker.internal:3002/v2/map");
+    expect(init!.method).toBe("POST");
+    expect(JSON.parse(init!.body as string)).toEqual({ url: "https://example.com", limit: 100 });
+  });
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
