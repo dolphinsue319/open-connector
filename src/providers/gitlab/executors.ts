@@ -125,6 +125,26 @@ export const gitlabActionHandlers: Record<GitlabActionName, GitlabActionHandler>
   get_file(input, context) {
     return getGitlabFile(input, context);
   },
+  list_merge_requests(input, context) {
+    return listGitlabCollection("merge_requests", `/projects/${readProjectId(input)}/merge_requests`, context, {
+      state: asOptionalString(input.state),
+      labels: trimOptionalString(input.labels),
+      author_id: asOptionalPositiveInteger(input.authorId, "authorId"),
+      assignee_id: asOptionalPositiveInteger(input.assigneeId, "assigneeId"),
+      source_branch: trimOptionalString(input.sourceBranch),
+      target_branch: trimOptionalString(input.targetBranch),
+      search: trimOptionalString(input.search),
+      order_by: asOptionalString(input.orderBy),
+      sort: asOptionalString(input.sort),
+      page: asOptionalPositiveInteger(input.page, "page"),
+      per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
+    });
+  },
+  get_merge_request(input, context) {
+    const projectId = readProjectId(input);
+    const mergeRequestIid = readRequiredIid(input, "mergeRequestIid");
+    return gitlabRequestJson(`/projects/${projectId}/merge_requests/${mergeRequestIid}`, context);
+  },
 };
 
 export const executors: ProviderExecutors = defineProviderExecutors<GitlabActionContext>({
@@ -242,12 +262,16 @@ async function getGitlabFile(input: GitlabActionInput, context: GitlabActionCont
   return payload;
 }
 
-function readIssueIid(input: GitlabActionInput): number {
-  const iid = optionalIntegerLike(input.issueIid, "issueIid", (message) => new ProviderRequestError(400, message));
+function readRequiredIid(input: GitlabActionInput, field: string): number {
+  const iid = optionalIntegerLike(input[field], field, (message) => new ProviderRequestError(400, message));
   if (iid === undefined || iid < 1) {
-    throw new ProviderRequestError(400, "issueIid is required and must be a positive integer");
+    throw new ProviderRequestError(400, `${field} is required and must be a positive integer`);
   }
   return iid;
+}
+
+function readIssueIid(input: GitlabActionInput): number {
+  return readRequiredIid(input, "issueIid");
 }
 
 function readRequiredString(value: unknown, fieldName: string): string {

@@ -335,6 +335,64 @@ describe("gitlab repository read actions — files", () => {
   });
 });
 
+describe("gitlab repository read actions — merge requests", () => {
+  const cred = async () => apiKeyCredential("glpat-token", { baseUrl: "https://gl.thread.tw" });
+
+  it("lists merge requests with mapped query params and header pagination", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        new Response(JSON.stringify([{ id: 1, iid: 5, title: "Add feature", state: "opened" }]), {
+          status: 200,
+          headers: { "content-type": "application/json", "x-total": "3", "x-next-page": "" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["gitlab.list_merge_requests"]?.(
+      { projectId: "30", state: "opened", sourceBranch: "develop", perPage: 20 },
+      { getCredential: cred },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      output: {
+        merge_requests: [{ id: 1, iid: 5, title: "Add feature", state: "opened" }],
+        total: 3,
+        nextPage: null,
+      },
+    });
+    expect(fetcher.mock.calls[0]![0].toString()).toBe(
+      "https://gl.thread.tw/api/v4/projects/30/merge_requests?state=opened&source_branch=develop&per_page=20",
+    );
+  });
+
+  it("gets a single merge request by iid", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ id: 1, iid: 5, title: "Add feature", state: "merged" }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["gitlab.get_merge_request"]?.(
+      { projectId: "30", mergeRequestIid: 5 },
+      { getCredential: cred },
+    );
+
+    expect(result).toMatchObject({ ok: true, output: { iid: 5, state: "merged" } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url.toString()).toBe("https://gl.thread.tw/api/v4/projects/30/merge_requests/5");
+    expect(init!.method).toBe("GET");
+  });
+
+  it("rejects get_merge_request with a mergeRequestIid of 0", async () => {
+    const result = await executors["gitlab.get_merge_request"]?.(
+      { projectId: "30", mergeRequestIid: 0 },
+      { getCredential: cred },
+    );
+    expect(result).toMatchObject({ ok: false, error: { message: expect.stringContaining("mergeRequestIid") } });
+  });
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }

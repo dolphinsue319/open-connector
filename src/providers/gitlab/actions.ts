@@ -186,12 +186,44 @@ const file = s.looseObject(
   },
   { description: "A GitLab repository file, including its decoded text content." },
 );
+const mergeRequest = s.looseObject(
+  {
+    id: s.integer({ description: "The merge request ID." }),
+    iid: s.integer({ description: "The internal merge request ID within the project." }),
+    project_id: s.integer({ description: "The project ID." }),
+    title: s.string({ description: "The merge request title." }),
+    description: s.nullableString("The merge request description."),
+    state: s.string({ description: "The merge request state (opened, closed, merged, or locked)." }),
+    source_branch: s.string({ description: "The source branch name." }),
+    target_branch: s.string({ description: "The target branch name." }),
+    author: user,
+    assignees: s.array(user, { description: "Users assigned to the merge request." }),
+    reviewers: s.array(user, { description: "Users requested to review the merge request." }),
+    labels: s.array(s.string({ description: "A label name." }), {
+      description: "Labels attached to the merge request.",
+    }),
+    draft: s.boolean({ description: "Whether the merge request is a draft." }),
+    merge_status: s.string({ description: "The merge status." }),
+    sha: s.nullableString("The HEAD SHA of the source branch."),
+    web_url: s.string({ description: "The merge request URL." }),
+    created_at: s.string({ description: "The creation timestamp." }),
+    updated_at: s.string({ description: "The update timestamp." }),
+    merged_at: s.nullableString("The timestamp when the merge request was merged."),
+    closed_at: s.nullableString("The timestamp when the merge request was closed."),
+  },
+  { description: "A GitLab merge request record." },
+);
+const paginatedMergeRequests = paginated("merge_requests", mergeRequest, "merge requests");
 const projectId = s.string({
   minLength: 1,
   description: "The GitLab project ID or URL-encoded path with namespace, such as 123 or group%2Fproject.",
 });
 const sha = s.string({ minLength: 1, description: "The commit hash (SHA) or a branch/tag name that resolves to one." });
 const issueIid = s.integer({ minimum: 1, description: "The internal issue ID (iid) within the project." });
+const mergeRequestIid = s.integer({
+  minimum: 1,
+  description: "The internal merge request ID (iid) within the project.",
+});
 
 function input(properties: Record<string, JsonSchema>, required: string[] = []): JsonSchema {
   return s.actionInput(properties, required, "GitLab action input.");
@@ -401,6 +433,37 @@ const actions: GitlabActionSource[] = [
       ["projectId", "filePath", "ref"],
     ),
     outputSchema: file,
+  },
+  {
+    name: "list_merge_requests",
+    description: "List merge requests for a GitLab project with common state, branch, author, and search filters.",
+    inputSchema: input(
+      {
+        projectId,
+        state: s.stringEnum(["opened", "closed", "locked", "merged", "all"], {
+          description: "Merge request state filter.",
+        }),
+        labels: s.string({ minLength: 1, description: "Comma-separated label names to filter by." }),
+        authorId: s.integer({ description: "Filter by author user ID." }),
+        assigneeId: s.integer({ description: "Filter by assignee user ID." }),
+        sourceBranch: s.string({ minLength: 1, description: "Filter by source branch name." }),
+        targetBranch: s.string({ minLength: 1, description: "Filter by target branch name." }),
+        search: s.string({ minLength: 1, description: "Search merge requests by title or description." }),
+        orderBy: s.stringEnum(["created_at", "updated_at", "title"], {
+          description: "Sort merge requests by a GitLab-supported field.",
+        }),
+        sort: s.stringEnum(["asc", "desc"], { description: "Sort direction." }),
+        ...pagination,
+      },
+      ["projectId"],
+    ),
+    outputSchema: paginatedMergeRequests,
+  },
+  {
+    name: "get_merge_request",
+    description: "Get a single merge request in a GitLab project by its internal ID (iid).",
+    inputSchema: input({ projectId, mergeRequestIid }, ["projectId", "mergeRequestIid"]),
+    outputSchema: mergeRequest,
   },
 ];
 
