@@ -100,6 +100,77 @@ describe("gitlab credential validation", () => {
   });
 });
 
+describe("gitlab issue workflow actions", () => {
+  const cred = async () => apiKeyCredential("glpat-token", { baseUrl: "https://gl.thread.tw" });
+
+  it("updates an issue via PUT with mapped fields", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ id: 1, iid: 12, title: "New", state: "closed" }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["gitlab.update_project_issue"]?.(
+      { projectId: "42", issueIid: 12, title: "New", stateEvent: "close", addLabels: "bug" },
+      { getCredential: cred },
+    );
+
+    expect(result).toMatchObject({ ok: true, output: { iid: 12, state: "closed" } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url.toString()).toBe("https://gl.thread.tw/api/v4/projects/42/issues/12");
+    expect(init!.method).toBe("PUT");
+    expect(JSON.parse(init!.body as string)).toEqual({ title: "New", add_labels: "bug", state_event: "close" });
+  });
+
+  it("creates an issue note via POST", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ id: 99, body: "Hello", system: false, noteable_iid: 12 }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["gitlab.create_issue_note"]?.(
+      { projectId: "42", issueIid: 12, body: "Hello" },
+      { getCredential: cred },
+    );
+
+    expect(result).toMatchObject({ ok: true, output: { id: 99, body: "Hello" } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url.toString()).toBe("https://gl.thread.tw/api/v4/projects/42/issues/12/notes");
+    expect(init!.method).toBe("POST");
+    expect(JSON.parse(init!.body as string)).toEqual({ body: "Hello" });
+  });
+
+  it("lists issue notes with pagination parsed from headers", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        new Response(JSON.stringify([{ id: 1, body: "a" }]), {
+          status: 200,
+          headers: { "content-type": "application/json", "x-total": "1", "x-next-page": "" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["gitlab.list_issue_notes"]?.(
+      { projectId: "42", issueIid: 12, sort: "asc", perPage: 20 },
+      { getCredential: cred },
+    );
+
+    expect(result).toEqual({ ok: true, output: { notes: [{ id: 1, body: "a" }], total: 1, nextPage: null } });
+    expect(fetcher.mock.calls[0]![0].toString()).toBe(
+      "https://gl.thread.tw/api/v4/projects/42/issues/12/notes?sort=asc&per_page=20",
+    );
+  });
+
+  it("rejects a missing issueIid", async () => {
+    const result = await executors["gitlab.create_issue_note"]?.(
+      { projectId: "42", body: "Hello" },
+      { getCredential: cred },
+    );
+    expect(result).toMatchObject({ ok: false, error: { message: expect.stringContaining("issueIid") } });
+  });
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
