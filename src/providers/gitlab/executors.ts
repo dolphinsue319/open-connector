@@ -1,6 +1,7 @@
 import type { CredentialValidators, ExecutionContext, ProviderExecutors } from "../../core/types.ts";
 import type { GitlabActionName } from "./actions.ts";
 
+import { Buffer } from "node:buffer";
 import {
   compactObject,
   optionalBoolean,
