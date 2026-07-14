@@ -6,7 +6,6 @@ import {
   optionalBoolean,
   optionalIntegerLike,
   optionalString as asOptionalString,
-  optionalString,
 } from "../../core/cast.ts";
 import { assertPublicHttpUrl } from "../../core/request.ts";
 import {
@@ -442,7 +441,7 @@ export function resolveGitlabBaseUrl(input: {
   values: Record<string, string>;
   metadata: Record<string, unknown>;
 }): string {
-  const raw = optionalString(input.metadata.apiBaseUrl) ?? optionalString(input.values.baseUrl);
+  const raw = asOptionalString(input.metadata.apiBaseUrl) ?? asOptionalString(input.values.baseUrl);
   return normalizeGitlabBaseUrl(raw);
 }
 

@@ -169,6 +169,22 @@ describe("gitlab issue workflow actions", () => {
     );
     expect(result).toMatchObject({ ok: false, error: { message: expect.stringContaining("issueIid") } });
   });
+
+  it("rejects a whitespace-only note body", async () => {
+    const result = await executors["gitlab.create_issue_note"]?.(
+      { projectId: "42", issueIid: 12, body: "   " },
+      { getCredential: cred },
+    );
+    expect(result).toMatchObject({ ok: false, error: { message: expect.stringContaining("body") } });
+  });
+
+  it("rejects an issueIid of 0", async () => {
+    const result = await executors["gitlab.update_project_issue"]?.(
+      { projectId: "42", issueIid: 0, title: "x" },
+      { getCredential: cred },
+    );
+    expect(result).toMatchObject({ ok: false, error: { message: expect.stringContaining("issueIid") } });
+  });
 });
 
 function jsonResponse(body: unknown, status = 200): Response {
