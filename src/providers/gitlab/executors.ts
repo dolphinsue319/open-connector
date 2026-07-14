@@ -1,5 +1,4 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
-import type { ApiKeyProviderContext } from "../provider-runtime.ts";
+import type { CredentialValidators, ExecutionContext, ProviderExecutors } from "../../core/types.ts";
 import type { GitlabActionName } from "./actions.ts";
 
 import {
@@ -7,17 +6,29 @@ import {
   optionalBoolean,
   optionalIntegerLike,
   optionalString as asOptionalString,
+  optionalString,
 } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
+import { assertPublicHttpUrl } from "../../core/request.ts";
+import {
+  defineProviderExecutors,
+  ProviderRequestError,
+  providerUserAgent,
+  requireApiKeyCredential,
+} from "../provider-runtime.ts";
 
-const gitlabApiBaseUrl = "https://gitlab.com/api/v4";
+const defaultGitlabApiBaseUrl = "https://gitlab.com/api/v4";
 const service = "gitlab";
+
+export interface GitlabActionContext {
+  apiKey: string;
+  baseUrl: string;
+  fetcher: typeof fetch;
+  signal?: AbortSignal;
+}
 
 type GitlabRequestPhase = "validate" | "execute";
 type GitlabActionInput = Record<string, unknown>;
 type GitlabActionHandler = (input: GitlabActionInput, context: GitlabActionContext) => Promise<unknown>;
-
-type GitlabActionContext = ApiKeyProviderContext;
 
 interface GitlabRequestOptions {
   method?: "GET" | "POST";
@@ -44,11 +55,25 @@ export const gitlabActionHandlers: Record<GitlabActionName, GitlabActionHandler>
   },
 };
 
-export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, gitlabActionHandlers);
+export const executors: ProviderExecutors = defineProviderExecutors<GitlabActionContext>({
+  service,
+  handlers: gitlabActionHandlers,
+  async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<GitlabActionContext> {
+    const credential = await requireApiKeyCredential(context, service);
+    return {
+      apiKey: credential.apiKey,
+      baseUrl: resolveGitlabBaseUrl({ values: credential.values, metadata: credential.metadata }),
+      fetcher,
+      signal: context.signal,
+    };
+  },
+  fallbackMessage: "GitLab request failed.",
+});
 
 export const credentialValidators: CredentialValidators = {
   async apiKey(input, { fetcher }) {
-    const user = await gitlabRequestJson("/user", { apiKey: input.apiKey, fetcher }, "validate");
+    const baseUrl = normalizeGitlabBaseUrl(input.values.baseUrl);
+    const user = await gitlabRequestJson("/user", { apiKey: input.apiKey, baseUrl, fetcher }, "validate");
     const userObject = asGitlabObject(user);
     const userId = readOptionalPrimitive(userObject.id);
     const username = asOptionalString(userObject.username);
@@ -60,7 +85,7 @@ export const credentialValidators: CredentialValidators = {
         displayName: name ?? username ?? "GitLab User",
       },
       metadata: compactObject({
-        apiBaseUrl: gitlabApiBaseUrl,
+        apiBaseUrl: baseUrl,
         validationEndpoint: "/user",
         userId,
         username,
@@ -175,13 +200,7 @@ async function gitlabRequest(
   context: GitlabActionContext,
   options: GitlabRequestOptions = {},
 ): Promise<Response> {
-  const url = new URL(`${gitlabApiBaseUrl}${path}`);
-  for (const [key, value] of Object.entries(options.query ?? {})) {
-    if (value !== undefined) {
-      url.searchParams.set(key, String(value));
-    }
-  }
-
+  const url = buildGitlabApiUrl(context.baseUrl, path, options.query ?? {});
   const headers = gitlabHeaders(context.apiKey, Boolean(options.body));
 
   try {
@@ -299,6 +318,54 @@ function readPagination(headers: Headers): {
     total: readOptionalHeaderInteger(headers, "x-total"),
     nextPage: readOptionalHeaderInteger(headers, "x-next-page"),
   };
+}
+
+export function normalizeGitlabBaseUrl(value: string | undefined): string {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return defaultGitlabApiBaseUrl;
+  }
+
+  const parsed = assertPublicHttpUrl(trimmed, {
+    fieldName: "baseUrl",
+    createError: (message) => new ProviderRequestError(400, message),
+  });
+
+  if (parsed.protocol !== "https:") {
+    throw new ProviderRequestError(400, "Base URL must use https");
+  }
+
+  parsed.search = "";
+  parsed.hash = "";
+
+  let pathname = parsed.pathname;
+  while (pathname.endsWith("/") && pathname !== "/") {
+    pathname = pathname.slice(0, -1);
+  }
+  if (pathname.endsWith("/api/v4")) {
+    pathname = pathname.slice(0, -"/api/v4".length);
+  }
+
+  const base = pathname === "/" || pathname === "" ? parsed.origin : `${parsed.origin}${pathname}`;
+  return `${base}/api/v4`;
+}
+
+export function buildGitlabApiUrl(apiBaseUrl: string, path: string, query: Record<string, unknown> = {}): string {
+  const url = new URL(`${apiBaseUrl}${path}`);
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined) {
+      url.searchParams.set(key, String(value));
+    }
+  }
+  return url.toString();
+}
+
+export function resolveGitlabBaseUrl(input: {
+  values: Record<string, string>;
+  metadata: Record<string, unknown>;
+}): string {
+  const raw = optionalString(input.metadata.apiBaseUrl) ?? optionalString(input.values.baseUrl);
+  return normalizeGitlabBaseUrl(raw);
 }
 
 function readOptionalHeaderInteger(headers: Headers, name: string): number | null {

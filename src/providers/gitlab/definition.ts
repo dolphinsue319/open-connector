@@ -19,6 +19,18 @@ export const provider: ProviderDefinition = {
       placeholder: "glpat-xxxxxxxxxxxxxxxxxxxx",
       description:
         "GitLab personal access token sent with the PRIVATE-TOKEN header. Create one in GitLab user preferences under Access tokens.",
+      extraFields: [
+        {
+          key: "baseUrl",
+          label: "Base URL",
+          inputType: "text",
+          required: false,
+          secret: false,
+          placeholder: "https://gitlab.com",
+          description:
+            "Your GitLab instance base URL, e.g. https://gitlab.example.com. Leave blank to use gitlab.com. Must be https.",
+        },
+      ],
     },
   ],
   homepageUrl: "https://gitlab.com",
