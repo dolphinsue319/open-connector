@@ -120,6 +120,74 @@ describe("searxng.config", () => {
   });
 });
 
+describe("searxng.search", () => {
+  it("GETs /search with q and format=json on the default base URL and no auth header", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ query: "claude", results: [{ url: "https://a", title: "A" }] }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["searxng.search"]?.(
+      { q: "claude" },
+      { getCredential: async () => customCredential({}) },
+    );
+
+    expect(result).toMatchObject({ ok: true, output: { query: "claude" } });
+    const [rawUrl, init] = fetcher.mock.calls[0]!;
+    const url = new URL(rawUrl as string);
+    expect(`${url.origin}${url.pathname}`).toBe("http://host.docker.internal:8080/search");
+    expect(url.searchParams.get("q")).toBe("claude");
+    expect(url.searchParams.get("format")).toBe("json");
+    expect(init!.method ?? "GET").toBe("GET");
+    expect((init!.headers as Headers).get("authorization")).toBeNull();
+  });
+
+  it("joins array categories into a comma list, forwards scalar params, and honors a configured baseUrl", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ query: "cats", results: [] }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await executors["searxng.search"]?.(
+      {
+        q: "cats",
+        categories: ["general", "news"],
+        engines: "google,bing",
+        language: "zh-TW",
+        pageno: 2,
+        safesearch: 0,
+      },
+      { getCredential: async () => customCredential({ baseUrl: "http://192.168.1.50:8080/" }) },
+    );
+
+    const url = new URL(fetcher.mock.calls[0]![0] as string);
+    expect(url.origin).toBe("http://192.168.1.50:8080");
+    expect(url.searchParams.get("categories")).toBe("general,news");
+    expect(url.searchParams.get("engines")).toBe("google,bing");
+    expect(url.searchParams.get("language")).toBe("zh-TW");
+    expect(url.searchParams.get("pageno")).toBe("2");
+    // safesearch=0 must survive (0 is a meaningful "off", not an absent param).
+    expect(url.searchParams.get("safesearch")).toBe("0");
+    expect(url.searchParams.get("format")).toBe("json");
+  });
+
+  it("forwards a whitespace-padded query verbatim instead of trimming it away", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ query: "  spaced  ", results: [] }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await executors["searxng.search"]?.({ q: "  spaced  " }, { getCredential: async () => customCredential({}) });
+
+    const url = new URL(fetcher.mock.calls[0]![0] as string);
+    // The required q must always reach SearXNG (never dropped to a query-less request).
+    expect(url.searchParams.get("q")).toBe("  spaced  ");
+  });
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }

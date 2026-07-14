@@ -1,7 +1,7 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
 import type { SearxngActionName } from "./actions.ts";
 
-import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
+import { compactObject, optionalNumber, optionalRawString, optionalRecord, optionalString } from "../../core/cast.ts";
 import { providerUserAgent, ProviderRequestError, setSearchParams } from "../provider-runtime.ts";
 
 // Both the connector container and the self-hosted SearXNG run in the same
@@ -33,6 +33,7 @@ type SearxngActionHandler = (input: Record<string, unknown>, context: SearxngAct
  */
 export const searxngActionHandlers: Record<SearxngActionName, SearxngActionHandler> = {
   config: searxngGetAction(() => ({ path: searxngValidationPath })),
+  search: searxngGetAction((input) => ({ path: "/search", query: buildSearchQuery(input) })),
 };
 
 export async function validateSearxngCredential(
@@ -160,6 +161,36 @@ function searxngGetAction(
       phase: "execute",
     });
   };
+}
+
+/**
+ * Map the search action input onto SearXNG `/search` query parameters. Absent
+ * values are dropped by `setSearchParams`; `format` is always forced to json.
+ * `categories`/`engines` accept either a string or an array (joined with commas,
+ * SearXNG's list convention).
+ */
+function buildSearchQuery(input: Record<string, unknown>): Record<string, string | undefined> {
+  return {
+    // Forward the query verbatim (SearXNG trims internally): the schema guarantees
+    // q is a non-empty string, and optionalRawString keeps it even when it is only
+    // whitespace, so the required q is never silently dropped from the request.
+    q: optionalRawString(input.q),
+    format: "json",
+    categories: joinCsv(input.categories),
+    engines: joinCsv(input.engines),
+    language: optionalString(input.language),
+    pageno: optionalNumber(input.pageno)?.toString(),
+    time_range: optionalString(input.time_range),
+    safesearch: optionalNumber(input.safesearch)?.toString(),
+  };
+}
+
+function joinCsv(value: unknown): string | undefined {
+  if (Array.isArray(value)) {
+    const items = value.map((item) => optionalString(item) ?? "").filter((item) => item.length > 0);
+    return items.length > 0 ? items.join(",") : undefined;
+  }
+  return optionalString(value);
 }
 
 async function readSearxngPayload(response: Response): Promise<unknown> {
