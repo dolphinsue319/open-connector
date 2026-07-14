@@ -287,6 +287,163 @@ describe("evermem add_memory / flush_memory", () => {
   });
 });
 
+describe("evermem search_memory / list_memories", () => {
+  const searchEnvelope = {
+    request_id: "r",
+    data: {
+      episodes: [{ id: "e1", summary: "tea" }],
+      profiles: [],
+      agent_cases: [],
+      agent_skills: [],
+      unprocessed_messages: [],
+    },
+  };
+  const listEnvelope = {
+    request_id: "r",
+    data: { episodes: [], profiles: [], agent_cases: [], agent_skills: [], total_count: 0, count: 0 },
+  };
+
+  it("search_memory posts the default owner, method and topK and returns the data envelope", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse(searchEnvelope),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["evermem.search_memory"]?.(
+      { query: "tea" },
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    expect(result).toEqual({ ok: true, output: searchEnvelope.data });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe("https://evercore.incandgold.cc/api/v1/memory/search");
+    expect(init!.method).toBe("POST");
+    expect((init!.headers as Headers).get("Authorization")).toBe("Bearer secret");
+    expect(JSON.parse(init!.body as string)).toEqual({
+      user_id: "kedia",
+      app_id: "evermem",
+      project_id: "global",
+      query: "tea",
+      method: "hybrid",
+      top_k: 10,
+      include_profile: true,
+    });
+  });
+
+  it("search_memory sends agent_id instead of user_id and defaults include_profile false for an agent", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse(searchEnvelope),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await executors["evermem.search_memory"]?.(
+      { query: "x", agentId: "agent-7", method: "keyword", topK: 5 },
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    expect(JSON.parse(fetcher.mock.calls[0]![1]!.body as string)).toEqual({
+      agent_id: "agent-7",
+      app_id: "evermem",
+      project_id: "global",
+      query: "x",
+      method: "keyword",
+      top_k: 5,
+      include_profile: false,
+    });
+  });
+
+  it("search_memory rejects a missing query without calling the API", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse({}),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["evermem.search_memory"]?.(
+      {},
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    expect(result).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("list_memories posts the default pagination and sort and returns the data envelope", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse(listEnvelope),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["evermem.list_memories"]?.(
+      {},
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    expect(result).toEqual({ ok: true, output: listEnvelope.data });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe("https://evercore.incandgold.cc/api/v1/memory/get");
+    expect(init!.method).toBe("POST");
+    expect(JSON.parse(init!.body as string)).toEqual({
+      user_id: "kedia",
+      app_id: "evermem",
+      project_id: "global",
+      memory_type: "episode",
+      page: 1,
+      page_size: 20,
+      sort_by: "timestamp",
+      sort_order: "desc",
+    });
+  });
+
+  it("list_memories defaults memory_type to agent_case for an agent owner", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse(listEnvelope),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await executors["evermem.list_memories"]?.(
+      { agentId: "a1" },
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    const body = JSON.parse(fetcher.mock.calls[0]![1]!.body as string);
+    expect(body.agent_id).toBe("a1");
+    expect(body.user_id).toBeUndefined();
+    expect(body.memory_type).toBe("agent_case");
+  });
+
+  it("list_memories honors agent, memoryType, pagination and sort overrides", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse(listEnvelope),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await executors["evermem.list_memories"]?.(
+      {
+        agentId: "a1",
+        appId: "app1",
+        projectId: "p1",
+        memoryType: "agent_case",
+        page: 2,
+        pageSize: 5,
+        sortBy: "updated_at",
+        sortOrder: "asc",
+      },
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    expect(JSON.parse(fetcher.mock.calls[0]![1]!.body as string)).toEqual({
+      agent_id: "a1",
+      app_id: "app1",
+      project_id: "p1",
+      memory_type: "agent_case",
+      page: 2,
+      page_size: 5,
+      sort_by: "updated_at",
+      sort_order: "asc",
+    });
+  });
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,

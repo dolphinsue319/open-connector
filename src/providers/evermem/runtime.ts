@@ -21,6 +21,11 @@ const evermemValidationPath = "/api/v1/knowledge/categories";
 
 const memoryAddPath = "/api/v1/memory/add";
 const memoryFlushPath = "/api/v1/memory/flush";
+const memorySearchPath = "/api/v1/memory/search";
+const memoryGetPath = "/api/v1/memory/get";
+
+// EverOS caps both top_k and page_size at 100.
+const maxListSize = 100;
 
 // Soft cap on the auto-flush leg of add_memory. Flush is a synchronous LLM
 // extraction; the add is already durably buffered, so if extraction runs past
@@ -57,6 +62,12 @@ export const evermemActionHandlers: Record<EvermemActionName, EvermemActionHandl
   },
   flush_memory(input, context) {
     return requestFlush(resolveSessionScope(input), context);
+  },
+  search_memory(input, context) {
+    return searchMemory(input, context);
+  },
+  list_memories(input, context) {
+    return listMemories(input, context);
   },
 };
 
@@ -155,6 +166,83 @@ async function requestFlush(scope: EvermemSessionScope, context: EvermemActionCo
     path: memoryFlushPath,
     method: "POST",
     body: scope,
+    fetcher: context.fetcher,
+    signal: context.signal,
+    phase: "execute",
+  });
+  return unwrapData(payload);
+}
+
+// EverOS memory queries are scoped to exactly one owner: a user XOR an agent.
+// An explicit agentId selects the agent; otherwise the (defaulted) user applies.
+interface EvermemOwner {
+  user_id?: string;
+  agent_id?: string;
+  isAgent: boolean;
+}
+
+function resolveOwner(input: Record<string, unknown>): EvermemOwner {
+  const agentId = optionalString(input.agentId);
+  if (agentId) {
+    return { agent_id: agentId, isAgent: true };
+  }
+  return { user_id: optionalString(input.userId) ?? defaultUserId, isAgent: false };
+}
+
+async function searchMemory(input: Record<string, unknown>, context: EvermemActionContext): Promise<unknown> {
+  const owner = resolveOwner(input);
+  const body = compactObject({
+    user_id: owner.user_id,
+    agent_id: owner.agent_id,
+    app_id: optionalString(input.appId) ?? defaultAppId,
+    project_id: optionalString(input.projectId) ?? defaultProjectId,
+    query: requireInputString(input.query, "query"),
+    method: optionalString(input.method) ?? "hybrid",
+    top_k: readOptionalTopK(input.topK) ?? 10,
+    radius: readOptionalNumber(input.radius, "radius"),
+    min_score: readOptionalNumber(input.minScore, "minScore"),
+    // A profile only exists for a user owner; default it off for an agent.
+    include_profile: optionalBoolean(input.includeProfile) ?? !owner.isAgent,
+    enable_llm_rerank: optionalBoolean(input.enableLlmRerank),
+    filters: optionalRecord(input.filters),
+  });
+
+  const { payload } = await requestEvermemJson<unknown>({
+    apiKey: context.apiKey,
+    baseUrl: context.baseUrl,
+    path: memorySearchPath,
+    method: "POST",
+    body,
+    fetcher: context.fetcher,
+    signal: context.signal,
+    phase: "execute",
+  });
+  return unwrapData(payload);
+}
+
+async function listMemories(input: Record<string, unknown>, context: EvermemActionContext): Promise<unknown> {
+  const owner = resolveOwner(input);
+  const body = compactObject({
+    user_id: owner.user_id,
+    agent_id: owner.agent_id,
+    app_id: optionalString(input.appId) ?? defaultAppId,
+    project_id: optionalString(input.projectId) ?? defaultProjectId,
+    // memory_type must match the owner, so default it to the owner's episodic
+    // type (episode for a user, agent_case for an agent) when unset.
+    memory_type: optionalString(input.memoryType) ?? (owner.isAgent ? "agent_case" : "episode"),
+    page: readOptionalPositiveInteger(input.page, "page") ?? 1,
+    page_size: readOptionalListSize(input.pageSize, "pageSize") ?? 20,
+    sort_by: optionalString(input.sortBy) ?? "timestamp",
+    sort_order: optionalString(input.sortOrder) ?? "desc",
+    filters: optionalRecord(input.filters),
+  });
+
+  const { payload } = await requestEvermemJson<unknown>({
+    apiKey: context.apiKey,
+    baseUrl: context.baseUrl,
+    path: memoryGetPath,
+    method: "POST",
+    body,
     fetcher: context.fetcher,
     signal: context.signal,
     phase: "execute",
@@ -327,6 +415,39 @@ function readOptionalPositiveInteger(value: unknown, fieldName: string): number 
     throw new ProviderRequestError(400, `${fieldName} must be a positive integer`);
   }
   return parsed;
+}
+
+function readOptionalListSize(value: unknown, fieldName: string): number | undefined {
+  const parsed = readOptionalPositiveInteger(value, fieldName);
+  if (parsed !== undefined && parsed > maxListSize) {
+    throw new ProviderRequestError(400, `${fieldName} must be between 1 and ${maxListSize}`);
+  }
+  return parsed;
+}
+
+// EverOS accepts top_k of -1 (server default) or 1..100.
+function readOptionalTopK(value: unknown): number | undefined {
+  const parsed = optionalIntegerLike(value, "topK", (message) => new ProviderRequestError(400, message));
+  if (parsed !== undefined && parsed !== -1 && (parsed < 1 || parsed > maxListSize)) {
+    throw new ProviderRequestError(400, `topK must be -1 or between 1 and ${maxListSize}`);
+  }
+  return parsed;
+}
+
+function readOptionalNumber(value: unknown, fieldName: string): number | undefined {
+  if (value == null || value === "") {
+    return undefined;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  throw new ProviderRequestError(400, `${fieldName} must be a number`);
 }
 
 function ensureLeadingSlash(path: string): string {
