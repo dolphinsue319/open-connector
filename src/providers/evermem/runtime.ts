@@ -1,9 +1,16 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
 import type { EvermemActionName } from "./actions.ts";
 
-import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
+import {
+  compactObject,
+  optionalBoolean,
+  optionalIntegerLike,
+  optionalRecord,
+  optionalString,
+  requiredString,
+} from "../../core/cast.ts";
 import { assertPublicHttpUrl } from "../../core/request.ts";
-import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import { createProviderTimeout, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
 
 // EverOS ships no authentication of its own; the bearer token is enforced by
 // the reverse proxy in front of it. Validate against a cheap, parameter-free
@@ -11,6 +18,21 @@ import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts"
 // open for liveness probes — so a wrong or empty bearer token is rejected (401
 // at the proxy) instead of silently validating.
 const evermemValidationPath = "/api/v1/knowledge/categories";
+
+const memoryAddPath = "/api/v1/memory/add";
+const memoryFlushPath = "/api/v1/memory/flush";
+
+// Soft cap on the auto-flush leg of add_memory. Flush is a synchronous LLM
+// extraction; the add is already durably buffered, so if extraction runs past
+// this we stop waiting and report the flush as pending rather than blocking.
+const flushTimeoutMs = 45_000;
+
+// Default memory scope, mirroring the claude.ai EverMem MCP bridge so this
+// provider reads and writes the same memory brain. Every field is overridable.
+const defaultSessionId = "mcp-global";
+const defaultUserId = "kedia";
+const defaultAppId = "evermem";
+const defaultProjectId = "global";
 
 type EvermemRequestPhase = "validate" | "execute";
 type EvermemQueryValue = string | number | boolean | undefined;
@@ -29,7 +51,14 @@ type EvermemActionHandler = (input: Record<string, unknown>, context: EvermemAct
  * are added per implementation phase and must stay in sync with
  * `EvermemActionName` in actions.ts.
  */
-export const evermemActionHandlers: Record<EvermemActionName, EvermemActionHandler> = {};
+export const evermemActionHandlers: Record<EvermemActionName, EvermemActionHandler> = {
+  add_memory(input, context) {
+    return addMemory(input, context);
+  },
+  flush_memory(input, context) {
+    return requestFlush(resolveSessionScope(input), context);
+  },
+};
 
 export async function validateEvermemCredential(
   input: { apiKey: string; values: Record<string, string> },
@@ -59,6 +88,78 @@ export async function validateEvermemCredential(
       validationEndpoint: evermemValidationPath,
     }),
   };
+}
+
+// The EverOS request-body shape shared by the add and flush endpoints. Resolved
+// straight into snake_case so it can be spread into request bodies verbatim.
+type EvermemSessionScope = {
+  session_id: string;
+  app_id: string;
+  project_id: string;
+};
+
+function resolveSessionScope(input: Record<string, unknown>): EvermemSessionScope {
+  return {
+    session_id: optionalString(input.sessionId) ?? defaultSessionId,
+    app_id: optionalString(input.appId) ?? defaultAppId,
+    project_id: optionalString(input.projectId) ?? defaultProjectId,
+  };
+}
+
+async function addMemory(input: Record<string, unknown>, context: EvermemActionContext): Promise<unknown> {
+  const scope = resolveSessionScope(input);
+  const message = compactObject({
+    sender_id: optionalString(input.userId) ?? defaultUserId,
+    sender_name: optionalString(input.senderName),
+    role: optionalString(input.role) ?? "user",
+    timestamp: readOptionalPositiveInteger(input.timestamp, "timestamp") ?? Date.now(),
+    content: requireInputString(input.content, "content"),
+  });
+
+  const { payload } = await requestEvermemJson<unknown>({
+    apiKey: context.apiKey,
+    baseUrl: context.baseUrl,
+    path: memoryAddPath,
+    method: "POST",
+    body: { ...scope, messages: [message] },
+    fetcher: context.fetcher,
+    signal: context.signal,
+    phase: "execute",
+  });
+  const addResult = optionalRecord(unwrapData(payload)) ?? {};
+
+  const autoFlush = optionalBoolean(input.autoFlush) ?? true;
+  if (!autoFlush || optionalString(addResult.status) === "extracted") {
+    return addResult;
+  }
+
+  // The message is already durably buffered by /memory/add. Bound the optional
+  // flush with its own timeout, and if the flush fails or times out for ANY
+  // reason, never fail the whole call — a retry would double-write the memory.
+  // Report the flush as pending; EverOS extracts the buffered message later.
+  const timeout = createProviderTimeout(context.signal, flushTimeoutMs);
+  try {
+    const flushResult = optionalRecord(await requestFlush(scope, { ...context, signal: timeout.signal })) ?? {};
+    return compactObject({ ...addResult, flush_status: optionalString(flushResult.status) });
+  } catch {
+    return { ...addResult, flush_status: "pending" };
+  } finally {
+    timeout.cleanup();
+  }
+}
+
+async function requestFlush(scope: EvermemSessionScope, context: EvermemActionContext): Promise<unknown> {
+  const { payload } = await requestEvermemJson<unknown>({
+    apiKey: context.apiKey,
+    baseUrl: context.baseUrl,
+    path: memoryFlushPath,
+    method: "POST",
+    body: scope,
+    fetcher: context.fetcher,
+    signal: context.signal,
+    phase: "execute",
+  });
+  return unwrapData(payload);
 }
 
 interface EvermemRequestInput {
@@ -208,6 +309,24 @@ function extractEvermemMessage(payload: unknown): string | undefined {
   }
 
   return optionalString(record.message) ?? optionalString(record.detail);
+}
+
+/** Unwrap the `{ request_id, data }` envelope EverOS wraps its responses in. */
+function unwrapData(payload: unknown): unknown {
+  const record = optionalRecord(payload);
+  return record && record.data !== undefined ? record.data : payload;
+}
+
+function requireInputString(value: unknown, fieldName: string): string {
+  return requiredString(value, fieldName, (message) => new ProviderRequestError(400, message));
+}
+
+function readOptionalPositiveInteger(value: unknown, fieldName: string): number | undefined {
+  const parsed = optionalIntegerLike(value, fieldName, (message) => new ProviderRequestError(400, message));
+  if (parsed !== undefined && parsed <= 0) {
+    throw new ProviderRequestError(400, `${fieldName} must be a positive integer`);
+  }
+  return parsed;
 }
 
 function ensureLeadingSlash(path: string): string {
