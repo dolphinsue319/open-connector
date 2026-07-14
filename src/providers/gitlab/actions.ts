@@ -18,6 +18,18 @@ const pagination = {
   page: s.integer({ minimum: 1, description: "The page number to fetch." }),
   perPage: s.integer({ minimum: 1, maximum: 100, description: "The number of results per page." }),
 };
+
+function paginated(key: string, item: JsonSchema, plural: string, responsePlural: string = plural): JsonSchema {
+  const capitalized = plural.charAt(0).toUpperCase() + plural.slice(1);
+  return s.object(
+    {
+      [key]: s.array(item, { description: `${capitalized} returned by GitLab.` }),
+      total: s.nullable(s.integer({ description: `The total number of ${plural} when GitLab returns it.` })),
+      nextPage: s.nullable(s.integer({ description: "The next page number when another page exists." })),
+    },
+    { required: [key, "total", "nextPage"], description: `A paginated GitLab ${responsePlural} response.` },
+  );
+}
 const user = s.looseObject(
   {
     id: s.integer({ description: "The GitLab user ID." }),
@@ -101,22 +113,8 @@ const issue = s.looseObject(
   },
   { description: "A GitLab issue record." },
 );
-const paginatedProjects = s.object(
-  {
-    projects: s.array(project, { description: "Projects returned by GitLab." }),
-    total: s.nullable(s.integer({ description: "The total number of projects when GitLab returns it." })),
-    nextPage: s.nullable(s.integer({ description: "The next page number when another page exists." })),
-  },
-  { required: ["projects", "total", "nextPage"], description: "A paginated GitLab projects response." },
-);
-const paginatedIssues = s.object(
-  {
-    issues: s.array(issue, { description: "Issues returned by GitLab." }),
-    total: s.nullable(s.integer({ description: "The total number of issues when GitLab returns it." })),
-    nextPage: s.nullable(s.integer({ description: "The next page number when another page exists." })),
-  },
-  { required: ["issues", "total", "nextPage"], description: "A paginated GitLab issues response." },
-);
+const paginatedProjects = paginated("projects", project, "projects");
+const paginatedIssues = paginated("issues", issue, "issues");
 const note = s.looseObject(
   {
     id: s.integer({ description: "The note ID." }),
@@ -129,18 +127,41 @@ const note = s.looseObject(
   },
   { description: "A GitLab issue note record." },
 );
-const paginatedNotes = s.object(
+const paginatedNotes = paginated("notes", note, "notes", "issue notes");
+const commit = s.looseObject(
   {
-    notes: s.array(note, { description: "Notes returned by GitLab." }),
-    total: s.nullable(s.integer({ description: "The total number of notes when GitLab returns it." })),
-    nextPage: s.nullable(s.integer({ description: "The next page number when another page exists." })),
+    id: s.string({ description: "The full commit SHA." }),
+    short_id: s.string({ description: "The abbreviated commit SHA." }),
+    title: s.string({ description: "The commit title (first line of the message)." }),
+    message: s.string({ description: "The full commit message." }),
+    author_name: s.string({ description: "The commit author name." }),
+    author_email: s.string({ description: "The commit author email." }),
+    authored_date: s.string({ description: "The authoring timestamp." }),
+    committer_name: s.string({ description: "The committer name." }),
+    committed_date: s.string({ description: "The commit timestamp." }),
+    web_url: s.string({ description: "The commit URL." }),
+    parent_ids: s.array(s.string({ description: "A parent commit SHA." }), { description: "Parent commit SHAs." }),
   },
-  { required: ["notes", "total", "nextPage"], description: "A paginated GitLab issue notes response." },
+  { description: "A GitLab commit record." },
 );
+const branch = s.looseObject(
+  {
+    name: s.string({ description: "The branch name." }),
+    merged: s.boolean({ description: "Whether the branch is merged into the default branch." }),
+    protected: s.boolean({ description: "Whether the branch is protected." }),
+    default: s.boolean({ description: "Whether this is the default branch." }),
+    web_url: s.string({ description: "The branch URL." }),
+    commit,
+  },
+  { description: "A GitLab branch record." },
+);
+const paginatedCommits = paginated("commits", commit, "commits");
+const paginatedBranches = paginated("branches", branch, "branches");
 const projectId = s.string({
   minLength: 1,
   description: "The GitLab project ID or URL-encoded path with namespace, such as 123 or group%2Fproject.",
 });
+const sha = s.string({ minLength: 1, description: "The commit hash (SHA) or a branch/tag name that resolves to one." });
 const issueIid = s.integer({ minimum: 1, description: "The internal issue ID (iid) within the project." });
 
 function input(properties: Record<string, JsonSchema>, required: string[] = []): JsonSchema {
@@ -277,6 +298,46 @@ const actions: GitlabActionSource[] = [
       ["projectId", "issueIid"],
     ),
     outputSchema: paginatedNotes,
+  },
+  {
+    name: "list_commits",
+    description: "List repository commits for a GitLab project, newest first by default.",
+    inputSchema: input(
+      {
+        projectId,
+        refName: s.string({
+          minLength: 1,
+          description: "The branch, tag, or commit to list from. Defaults to the project's default branch.",
+        }),
+        since: s.string({ minLength: 1, description: "Only commits after this ISO-8601 date." }),
+        until: s.string({ minLength: 1, description: "Only commits before this ISO-8601 date." }),
+        path: s.string({ minLength: 1, description: "Only commits that touch this file path." }),
+        all: s.boolean({ description: "Retrieve commits from all branches and tags." }),
+        withStats: s.boolean({ description: "Include per-commit stats (additions/deletions/total)." }),
+        ...pagination,
+      },
+      ["projectId"],
+    ),
+    outputSchema: paginatedCommits,
+  },
+  {
+    name: "get_commit",
+    description: "Get a single repository commit by SHA (or a branch/tag name) for a GitLab project.",
+    inputSchema: input({ projectId, sha }, ["projectId", "sha"]),
+    outputSchema: commit,
+  },
+  {
+    name: "list_branches",
+    description: "List repository branches for a GitLab project, with an optional name filter.",
+    inputSchema: input(
+      {
+        projectId,
+        search: s.string({ minLength: 1, description: "Filter branches by name." }),
+        ...pagination,
+      },
+      ["projectId"],
+    ),
+    outputSchema: paginatedBranches,
   },
 ];
 

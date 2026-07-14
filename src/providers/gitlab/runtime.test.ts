@@ -187,6 +187,81 @@ describe("gitlab issue workflow actions", () => {
   });
 });
 
+describe("gitlab repository read actions — commits + branches", () => {
+  const cred = async () => apiKeyCredential("glpat-token", { baseUrl: "https://gl.thread.tw" });
+
+  it("lists commits with mapped query params and header pagination", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        new Response(JSON.stringify([{ id: "abc123def", short_id: "abc123", title: "Fix bug" }]), {
+          status: 200,
+          headers: { "content-type": "application/json", "x-total": "42", "x-next-page": "2" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["gitlab.list_commits"]?.(
+      { projectId: "30", refName: "main", withStats: true, perPage: 3 },
+      { getCredential: cred },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      output: { commits: [{ id: "abc123def", short_id: "abc123", title: "Fix bug" }], total: 42, nextPage: 2 },
+    });
+    expect(fetcher.mock.calls[0]![0].toString()).toBe(
+      "https://gl.thread.tw/api/v4/projects/30/repository/commits?ref_name=main&with_stats=true&per_page=3",
+    );
+  });
+
+  it("gets a single commit by sha", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ id: "abc123def", short_id: "abc123", title: "Fix bug", message: "Fix bug\n" }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["gitlab.get_commit"]?.(
+      { projectId: "30", sha: "abc123def" },
+      { getCredential: cred },
+    );
+
+    expect(result).toMatchObject({ ok: true, output: { id: "abc123def", short_id: "abc123" } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url.toString()).toBe("https://gl.thread.tw/api/v4/projects/30/repository/commits/abc123def");
+    expect(init!.method).toBe("GET");
+  });
+
+  it("rejects get_commit without a sha", async () => {
+    const result = await executors["gitlab.get_commit"]?.({ projectId: "30" }, { getCredential: cred });
+    expect(result).toMatchObject({ ok: false, error: { message: expect.stringContaining("sha") } });
+  });
+
+  it("lists branches with header pagination", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        new Response(JSON.stringify([{ name: "main", default: true, protected: true }]), {
+          status: 200,
+          headers: { "content-type": "application/json", "x-total": "1", "x-next-page": "" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["gitlab.list_branches"]?.(
+      { projectId: "30", search: "main", perPage: 5 },
+      { getCredential: cred },
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      output: { branches: [{ name: "main", default: true, protected: true }], total: 1, nextPage: null },
+    });
+    expect(fetcher.mock.calls[0]![0].toString()).toBe(
+      "https://gl.thread.tw/api/v4/projects/30/repository/branches?search=main&per_page=5",
+    );
+  });
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }

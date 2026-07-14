@@ -40,14 +40,32 @@ export const gitlabActionHandlers: Record<GitlabActionName, GitlabActionHandler>
     return gitlabRequestJson("/user", context);
   },
   list_projects(input, context) {
-    return listGitlabProjects(input, context);
+    return listGitlabCollection("projects", "/projects", context, {
+      search: trimOptionalString(input.search),
+      membership: optionalBoolean(input.membership),
+      owned: optionalBoolean(input.owned),
+      simple: optionalBoolean(input.simple),
+      order_by: asOptionalString(input.orderBy),
+      sort: asOptionalString(input.sort),
+      page: asOptionalPositiveInteger(input.page, "page"),
+      per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
+    });
   },
   get_project(input, context) {
     const projectId = readProjectId(input);
     return gitlabRequestJson(`/projects/${projectId}`, context);
   },
   list_project_issues(input, context) {
-    return listGitlabProjectIssues(input, context);
+    return listGitlabCollection("issues", `/projects/${readProjectId(input)}/issues`, context, {
+      state: asOptionalString(input.state),
+      labels: trimOptionalString(input.labels),
+      assignee_id: asOptionalPositiveInteger(input.assigneeId, "assigneeId"),
+      search: trimOptionalString(input.search),
+      order_by: asOptionalString(input.orderBy),
+      sort: asOptionalString(input.sort),
+      page: asOptionalPositiveInteger(input.page, "page"),
+      per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
+    });
   },
   create_project_issue(input, context) {
     return createGitlabProjectIssue(input, context);
@@ -59,7 +77,41 @@ export const gitlabActionHandlers: Record<GitlabActionName, GitlabActionHandler>
     return createGitlabIssueNote(input, context);
   },
   list_issue_notes(input, context) {
-    return listGitlabIssueNotes(input, context);
+    return listGitlabCollection(
+      "notes",
+      `/projects/${readProjectId(input)}/issues/${readIssueIid(input)}/notes`,
+      context,
+      {
+        sort: asOptionalString(input.sort),
+        order_by: asOptionalString(input.orderBy),
+        page: asOptionalPositiveInteger(input.page, "page"),
+        per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
+      },
+    );
+  },
+  list_commits(input, context) {
+    return listGitlabCollection("commits", `/projects/${readProjectId(input)}/repository/commits`, context, {
+      ref_name: trimOptionalString(input.refName),
+      since: trimOptionalString(input.since),
+      until: trimOptionalString(input.until),
+      path: trimOptionalString(input.path),
+      all: optionalBoolean(input.all),
+      with_stats: optionalBoolean(input.withStats),
+      page: asOptionalPositiveInteger(input.page, "page"),
+      per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
+    });
+  },
+  get_commit(input, context) {
+    const projectId = readProjectId(input);
+    const commitSha = encodeURIComponent(readRequiredString(input.sha, "sha"));
+    return gitlabRequestJson(`/projects/${projectId}/repository/commits/${commitSha}`, context);
+  },
+  list_branches(input, context) {
+    return listGitlabCollection("branches", `/projects/${readProjectId(input)}/repository/branches`, context, {
+      search: trimOptionalString(input.search),
+      page: asOptionalPositiveInteger(input.page, "page"),
+      per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
+    });
   },
 };
 
@@ -103,77 +155,6 @@ export const credentialValidators: CredentialValidators = {
   },
 };
 
-async function listGitlabProjects(
-  input: GitlabActionInput,
-  context: GitlabActionContext,
-): Promise<{
-  projects: unknown[];
-  total: number | null;
-  nextPage: number | null;
-}> {
-  const response = await gitlabRequest("/projects", context, {
-    query: compactObject({
-      search: trimOptionalString(input.search),
-      membership: optionalBoolean(input.membership),
-      owned: optionalBoolean(input.owned),
-      simple: optionalBoolean(input.simple),
-      order_by: asOptionalString(input.orderBy),
-      sort: asOptionalString(input.sort),
-      page: asOptionalPositiveInteger(input.page, "page"),
-      per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
-    }),
-  });
-
-  const payload = await readGitlabPayload(response);
-  if (!response.ok) {
-    throw createGitlabError(response, payload, "execute");
-  }
-  if (!Array.isArray(payload)) {
-    throw new ProviderRequestError(502, "gitlab projects response is not an array", payload);
-  }
-
-  return {
-    projects: payload,
-    ...readPagination(response.headers),
-  };
-}
-
-async function listGitlabProjectIssues(
-  input: GitlabActionInput,
-  context: GitlabActionContext,
-): Promise<{
-  issues: unknown[];
-  total: number | null;
-  nextPage: number | null;
-}> {
-  const projectId = readProjectId(input);
-  const response = await gitlabRequest(`/projects/${projectId}/issues`, context, {
-    query: compactObject({
-      state: asOptionalString(input.state),
-      labels: trimOptionalString(input.labels),
-      assignee_id: asOptionalPositiveInteger(input.assigneeId, "assigneeId"),
-      search: trimOptionalString(input.search),
-      order_by: asOptionalString(input.orderBy),
-      sort: asOptionalString(input.sort),
-      page: asOptionalPositiveInteger(input.page, "page"),
-      per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
-    }),
-  });
-
-  const payload = await readGitlabPayload(response);
-  if (!response.ok) {
-    throw createGitlabError(response, payload, "execute");
-  }
-  if (!Array.isArray(payload)) {
-    throw new ProviderRequestError(502, "gitlab issues response is not an array", payload);
-  }
-
-  return {
-    issues: payload,
-    ...readPagination(response.headers),
-  };
-}
-
 function createGitlabProjectIssue(input: GitlabActionInput, context: GitlabActionContext): Promise<unknown> {
   const projectId = readProjectId(input);
   return gitlabRequestJson(`/projects/${projectId}/issues`, context, "execute", {
@@ -211,43 +192,28 @@ function updateGitlabProjectIssue(input: GitlabActionInput, context: GitlabActio
 function createGitlabIssueNote(input: GitlabActionInput, context: GitlabActionContext): Promise<unknown> {
   const projectId = readProjectId(input);
   const issueIid = readIssueIid(input);
-  const body = trimOptionalString(input.body);
-  if (!body) {
-    throw new ProviderRequestError(400, "body is required");
-  }
+  const body = readRequiredString(input.body, "body");
   return gitlabRequestJson(`/projects/${projectId}/issues/${issueIid}/notes`, context, "execute", {
     method: "POST",
     body: { body },
   });
 }
 
-async function listGitlabIssueNotes(
-  input: GitlabActionInput,
+async function listGitlabCollection(
+  key: string,
+  path: string,
   context: GitlabActionContext,
-): Promise<{ notes: unknown[]; total: number | null; nextPage: number | null }> {
-  const projectId = readProjectId(input);
-  const issueIid = readIssueIid(input);
-  const response = await gitlabRequest(`/projects/${projectId}/issues/${issueIid}/notes`, context, {
-    query: compactObject({
-      sort: asOptionalString(input.sort),
-      order_by: asOptionalString(input.orderBy),
-      page: asOptionalPositiveInteger(input.page, "page"),
-      per_page: asOptionalPositiveInteger(input.perPage, "perPage"),
-    }),
-  });
-
+  query: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const response = await gitlabRequest(path, context, { query: compactObject(query) });
   const payload = await readGitlabPayload(response);
   if (!response.ok) {
     throw createGitlabError(response, payload, "execute");
   }
   if (!Array.isArray(payload)) {
-    throw new ProviderRequestError(502, "gitlab notes response is not an array", payload);
+    throw new ProviderRequestError(502, `gitlab ${key} response is not an array`, payload);
   }
-
-  return {
-    notes: payload,
-    ...readPagination(response.headers),
-  };
+  return { [key]: payload, ...readPagination(response.headers) };
 }
 
 function readIssueIid(input: GitlabActionInput): number {
@@ -256,6 +222,14 @@ function readIssueIid(input: GitlabActionInput): number {
     throw new ProviderRequestError(400, "issueIid is required and must be a positive integer");
   }
   return iid;
+}
+
+function readRequiredString(value: unknown, fieldName: string): string {
+  const text = trimOptionalString(value);
+  if (!text) {
+    throw new ProviderRequestError(400, `${fieldName} is required`);
+  }
+  return text;
 }
 
 async function gitlabRequestJson(
@@ -361,11 +335,7 @@ function extractGitlabErrorMessage(payload: unknown): string | undefined {
 }
 
 function readProjectId(input: GitlabActionInput): string {
-  const projectId = trimOptionalString(input.projectId);
-  if (!projectId) {
-    throw new ProviderRequestError(400, "projectId is required");
-  }
-  return projectId;
+  return readRequiredString(input.projectId, "projectId");
 }
 
 function trimOptionalString(value: unknown): string | undefined {
