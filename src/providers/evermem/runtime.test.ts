@@ -94,6 +94,16 @@ describe("evermem credential validation", () => {
       credentialValidators.apiKey?.({ apiKey: "bad", values: { apiKey: "bad", baseUrl } }, { fetcher }),
     ).rejects.toThrow(/invalid token/u);
   });
+
+  it("rejects a 200 that is not an EverOS envelope", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse({ ok: true }),
+    );
+
+    await expect(
+      credentialValidators.apiKey?.({ apiKey: "t", values: { apiKey: "t", baseUrl } }, { fetcher }),
+    ).rejects.toThrow(/unexpected response/u);
+  });
 });
 
 describe("evermem add_memory / flush_memory", () => {
@@ -350,6 +360,56 @@ describe("evermem search_memory / list_memories", () => {
       top_k: 5,
       include_profile: false,
     });
+  });
+
+  it("search_memory rejects when both userId and agentId are supplied", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse(searchEnvelope),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["evermem.search_memory"]?.(
+      { query: "x", userId: "kedia", agentId: "a1" },
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    expect(result).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("search_memory rejects topK of 0 but forwards -1", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse(searchEnvelope),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const zero = await executors["evermem.search_memory"]?.(
+      { query: "x", topK: 0 },
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+    expect(zero).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(fetcher).not.toHaveBeenCalled();
+
+    await executors["evermem.search_memory"]?.(
+      { query: "x", topK: -1 },
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+    expect(JSON.parse(fetcher.mock.calls[0]![1]!.body as string).top_k).toBe(-1);
+  });
+
+  it("list_memories rejects a memoryType that does not match the owner", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse(listEnvelope),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["evermem.list_memories"]?.(
+      { userId: "kedia", memoryType: "agent_case" },
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    expect(result).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it("search_memory rejects a missing query without calling the API", async () => {

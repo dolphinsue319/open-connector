@@ -151,9 +151,8 @@ export const evermemActions: ActionDefinition[] = [
         query: s.nonEmptyString("The search query."),
         ...ownerFields(),
         method: methodField,
-        topK: s.integer("Number of results to return: -1 for the server default, or 1-100.", {
-          minimum: -1,
-          maximum: 100,
+        topK: s.union([s.literal(-1), s.integer("A result count from 1 to 100.", { minimum: 1, maximum: 100 })], {
+          description: "Number of results to return: -1 for the server default, or 1-100.",
         }),
         includeProfile: s.boolean("Also return the user profile. Defaults to true for a user, false for an agent."),
         radius: s.number("Optional cosine-distance threshold (0-1).", { minimum: 0, maximum: 1 }),

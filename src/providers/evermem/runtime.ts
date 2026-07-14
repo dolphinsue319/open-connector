@@ -83,7 +83,7 @@ export async function validateEvermemCredential(
   signal?: AbortSignal,
 ): Promise<CredentialValidationResult> {
   const baseUrl = normalizeEvermemBaseUrl(input.values.baseUrl);
-  await requestEvermemJson<unknown>({
+  const { payload } = await requestEvermemJson<unknown>({
     apiKey: input.apiKey,
     baseUrl,
     path: evermemValidationPath,
@@ -91,6 +91,14 @@ export async function validateEvermemCredential(
     signal,
     phase: "validate",
   });
+
+  // Confirm the 200 is a genuine EverOS response (its {request_id, data}
+  // envelope), not an open proxy path or an SSO/liveness interstitial — so a
+  // credential that cannot actually reach the API does not validate green.
+  const envelope = optionalRecord(payload);
+  if (!envelope || (envelope.data === undefined && envelope.request_id === undefined)) {
+    throw new ProviderRequestError(502, "unexpected response from the EverOS validation endpoint; check the base URL");
+  }
 
   const url = new URL(baseUrl);
   const instancePath = url.pathname === "/" ? "" : url.pathname;
@@ -189,10 +197,31 @@ interface EvermemOwner {
 
 function resolveOwner(input: Record<string, unknown>): EvermemOwner {
   const agentId = optionalString(input.agentId);
+  const userId = optionalString(input.userId);
+  // Reject the ambiguous case rather than silently returning another owner's
+  // memories: an agentId left over in a reused payload must not shadow userId.
+  if (agentId && userId) {
+    throw new ProviderRequestError(400, "provide either userId or agentId, not both");
+  }
   if (agentId) {
     return { agent_id: agentId, isAgent: true };
   }
-  return { user_id: optionalString(input.userId) ?? defaultUserId, isAgent: false };
+  return { user_id: userId ?? defaultUserId, isAgent: false };
+}
+
+// memory_type must match the owner (episode/profile for a user, agent_case/
+// agent_skill for an agent). Default to the owner's episodic type, and reject an
+// explicit value that belongs to the other owner kind.
+function resolveMemoryType(value: unknown, owner: EvermemOwner): string {
+  const memoryType = optionalString(value) ?? (owner.isAgent ? "agent_case" : "episode");
+  const isUserType = memoryType === "episode" || memoryType === "profile";
+  if (owner.isAgent && isUserType) {
+    throw new ProviderRequestError(400, `memoryType "${memoryType}" is a user type but the owner is an agent`);
+  }
+  if (!owner.isAgent && !isUserType) {
+    throw new ProviderRequestError(400, `memoryType "${memoryType}" is an agent type but the owner is a user`);
+  }
+  return memoryType;
 }
 
 async function searchMemory(input: Record<string, unknown>, context: EvermemActionContext): Promise<unknown> {
@@ -233,9 +262,7 @@ async function listMemories(input: Record<string, unknown>, context: EvermemActi
     agent_id: owner.agent_id,
     app_id: optionalString(input.appId) ?? defaultAppId,
     project_id: optionalString(input.projectId) ?? defaultProjectId,
-    // memory_type must match the owner, so default it to the owner's episodic
-    // type (episode for a user, agent_case for an agent) when unset.
-    memory_type: optionalString(input.memoryType) ?? (owner.isAgent ? "agent_case" : "episode"),
+    memory_type: resolveMemoryType(input.memoryType, owner),
     page: readOptionalPositiveInteger(input.page, "page") ?? 1,
     page_size: readOptionalListSize(input.pageSize, "pageSize") ?? 20,
     sort_by: optionalString(input.sortBy) ?? "timestamp",
