@@ -189,6 +189,100 @@ describe("firecrawl_local scrape / search / map", () => {
   });
 });
 
+describe("firecrawl_local crawl / batch scrape jobs", () => {
+  it("starts a crawl via POST with a nested scrapeOptions body", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ success: true, id: "job-1", url: "http://host.docker.internal:3002/v2/crawl/job-1" }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["firecrawl_local.crawl"]?.(
+      { url: "https://example.com", limit: 20, scrapeOptions: { formats: ["markdown"] } },
+      { getCredential: async () => customCredential({}) },
+    );
+
+    expect(result).toMatchObject({ ok: true, output: { success: true, id: "job-1" } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe("http://host.docker.internal:3002/v2/crawl");
+    expect(init!.method).toBe("POST");
+    expect((init!.headers as Headers).get("authorization")).toBeNull();
+    expect(JSON.parse(init!.body as string)).toEqual({
+      url: "https://example.com",
+      limit: 20,
+      scrapeOptions: { formats: ["markdown"] },
+    });
+  });
+
+  it("gets a crawl job status via GET by id", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ success: true, status: "completed", total: 1, completed: 1, data: [{ markdown: "x" }] }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["firecrawl_local.crawl_get"]?.(
+      { id: "job-1" },
+      { getCredential: async () => customCredential({}) },
+    );
+
+    expect(result).toMatchObject({ ok: true, output: { status: "completed" } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe("http://host.docker.internal:3002/v2/crawl/job-1");
+    expect(init!.method ?? "GET").toBe("GET");
+    expect((init!.headers as Headers).get("authorization")).toBeNull();
+  });
+
+  it("cancels a crawl job via DELETE by id", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ success: true, status: "cancelled" }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["firecrawl_local.crawl_cancel"]?.(
+      { id: "job-1" },
+      { getCredential: async () => customCredential({}) },
+    );
+
+    expect(result).toMatchObject({ ok: true, output: { status: "cancelled" } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe("http://host.docker.internal:3002/v2/crawl/job-1");
+    expect(init!.method).toBe("DELETE");
+  });
+
+  it("starts a batch scrape via POST and gets its status via GET by id", async () => {
+    const startFetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ success: true, id: "batch-1" }),
+    );
+    vi.stubGlobal("fetch", startFetcher);
+
+    const start = await executors["firecrawl_local.batch_scrape"]?.(
+      { urls: ["https://a", "https://b"], formats: ["markdown"] },
+      { getCredential: async () => customCredential({}) },
+    );
+    expect(start).toMatchObject({ ok: true, output: { id: "batch-1" } });
+    const [startUrl, startInit] = startFetcher.mock.calls[0]!;
+    expect(startUrl).toBe("http://host.docker.internal:3002/v2/batch/scrape");
+    expect(startInit!.method).toBe("POST");
+    expect(JSON.parse(startInit!.body as string)).toEqual({ urls: ["https://a", "https://b"], formats: ["markdown"] });
+
+    const getFetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ success: true, status: "completed", total: 2, completed: 2, data: [] }),
+    );
+    vi.stubGlobal("fetch", getFetcher);
+
+    const status = await executors["firecrawl_local.batch_scrape_get"]?.(
+      { id: "batch-1" },
+      { getCredential: async () => customCredential({}) },
+    );
+    expect(status).toMatchObject({ ok: true, output: { status: "completed" } });
+    expect(getFetcher.mock.calls[0]![0]).toBe("http://host.docker.internal:3002/v2/batch/scrape/batch-1");
+  });
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }

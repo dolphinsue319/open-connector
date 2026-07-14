@@ -182,6 +182,97 @@ const scrapeInput = s.looseRequiredObject(
     ],
   },
 );
+const webhookSchema = s.looseRequiredObject(
+  "Webhook callback settings for async jobs.",
+  {
+    url: s.nonEmptyString("The webhook destination URL."),
+    events: s.stringArray("The webhook events that should trigger notifications."),
+    headers: headersSchema,
+    metadata: looseObject,
+  },
+  { optional: ["events", "headers", "metadata"] },
+);
+const jobStartSchema = s.looseRequiredObject(
+  "A Firecrawl async job start response.",
+  {
+    success: s.boolean("Whether the job was accepted successfully."),
+    id: s.string("The Firecrawl job ID."),
+    url: s.string("The status URL returned by Firecrawl."),
+    invalidURLs: s.stringArray("The invalid URLs rejected before the job started."),
+    warning: s.string("A warning returned by Firecrawl."),
+  },
+  { optional: ["url", "invalidURLs", "warning"] },
+);
+const pagedJobStatusSchema = s.looseRequiredObject(
+  "A Firecrawl paged async job status response.",
+  {
+    success: s.boolean("Whether the request succeeded."),
+    status: s.string("The current job status."),
+    total: s.integer("The total number of queued or discovered items."),
+    completed: s.integer("The number of completed items in the job."),
+    creditsUsed: s.integer("The credits used by the job."),
+    expiresAt: s.string("The ISO 8601 expiry timestamp for the job data."),
+    next: s.nullableString("The pagination URL for the next segment of data."),
+    data: s.array("The result items returned by Firecrawl.", looseObject),
+    warning: s.string("A warning returned by Firecrawl."),
+    error: s.string("An error message returned by Firecrawl."),
+  },
+  { optional: ["success", "total", "completed", "creditsUsed", "expiresAt", "next", "data", "warning", "error"] },
+);
+const cancelResultSchema = s.looseRequiredObject(
+  "A Firecrawl cancel response.",
+  {
+    success: s.boolean("Whether the cancellation request succeeded."),
+    status: s.string("The final status returned by Firecrawl."),
+    message: s.string("The cancellation message returned by Firecrawl."),
+  },
+  { optional: ["success", "status", "message"] },
+);
+const idInput = s.requiredObject("The input payload for this action.", {
+  id: s.nonEmptyString("The Firecrawl job ID."),
+});
+const crawlInput = s.looseRequiredObject(
+  "The input payload for this action.",
+  {
+    url: s.nonEmptyString("The seed URL for the crawl."),
+    prompt: s.string("A natural-language prompt that guides crawl option generation."),
+    includePaths: s.stringArray("The path patterns that the crawl should include."),
+    excludePaths: s.stringArray("The path patterns that the crawl should exclude."),
+    maxDepth: s.integer("The maximum traversal depth."),
+    maxDiscoveryDepth: s.integer("The maximum depth for link discovery."),
+    limit: s.integer("The maximum number of pages to crawl."),
+    delay: s.integer("The delay between crawl requests in milliseconds."),
+    maxConcurrency: s.integer("The maximum concurrency for the crawl job."),
+    allowExternalLinks: s.boolean("Whether external links should be followed."),
+    allowSubdomains: s.boolean("Whether subdomains should be followed."),
+    crawlEntireDomain: s.boolean("Whether the entire domain should be crawled."),
+    ignoreSitemap: s.boolean("Whether the sitemap should be ignored."),
+    ignoreQueryParameters: s.boolean("Whether query parameters should be ignored when deduplicating pages."),
+    sitemap: s.boolean("Whether sitemap discovery should be enabled."),
+    webhook: webhookSchema,
+    scrapeOptions: scrapeOptionsSchema,
+  },
+  {
+    optional: [
+      "prompt",
+      "includePaths",
+      "excludePaths",
+      "maxDepth",
+      "maxDiscoveryDepth",
+      "limit",
+      "delay",
+      "maxConcurrency",
+      "allowExternalLinks",
+      "allowSubdomains",
+      "crawlEntireDomain",
+      "ignoreSitemap",
+      "ignoreQueryParameters",
+      "sitemap",
+      "webhook",
+      "scrapeOptions",
+    ],
+  },
+);
 
 export const firecrawlLocalActions: ActionDefinition[] = [
   defineProviderAction(service, {
@@ -230,6 +321,69 @@ export const firecrawlLocalActions: ActionDefinition[] = [
     outputSchema: mapSchema,
   }),
   defineProviderAction(service, {
+    name: "crawl",
+    description: "Start a self-hosted Firecrawl crawl job and return the async job ID.",
+    inputSchema: crawlInput,
+    outputSchema: jobStartSchema,
+  }),
+  defineProviderAction(service, {
+    name: "crawl_get",
+    description: "Get the current status and paged results of a self-hosted Firecrawl crawl job by job ID.",
+    inputSchema: idInput,
+    outputSchema: pagedJobStatusSchema,
+  }),
+  defineProviderAction(service, {
+    name: "crawl_cancel",
+    description: "Cancel a running self-hosted Firecrawl crawl job by job ID.",
+    inputSchema: idInput,
+    outputSchema: cancelResultSchema,
+  }),
+  defineProviderAction(service, {
+    name: "batch_scrape",
+    description: "Start a self-hosted Firecrawl batch scrape job for multiple URLs and return the async job ID.",
+    inputSchema: s.looseRequiredObject(
+      "The input payload for this action.",
+      {
+        urls: s.stringArray("The URLs to scrape in batch."),
+        formats: s.array("The output formats to return.", formatSchema),
+        headers: headersSchema,
+        location: locationSchema,
+        webhook: webhookSchema,
+        timeout: s.integer("The request timeout in milliseconds."),
+        waitFor: s.integer("The delay before scraping starts."),
+        maxConcurrency: s.integer("The maximum concurrency for the batch job."),
+        onlyMainContent: s.boolean("Whether to keep only the main content of each page."),
+        includeTags: s.stringArray("The HTML tags that should be prioritized in the extracted content."),
+        excludeTags: s.stringArray("The HTML tags that should be removed from the output."),
+        mobile: s.boolean("Whether to emulate a mobile device."),
+        ignoreInvalidURLs: s.boolean("Whether invalid URLs should be ignored instead of failing the job."),
+      },
+      {
+        optional: [
+          "formats",
+          "headers",
+          "location",
+          "webhook",
+          "timeout",
+          "waitFor",
+          "maxConcurrency",
+          "onlyMainContent",
+          "includeTags",
+          "excludeTags",
+          "mobile",
+          "ignoreInvalidURLs",
+        ],
+      },
+    ),
+    outputSchema: jobStartSchema,
+  }),
+  defineProviderAction(service, {
+    name: "batch_scrape_get",
+    description: "Get the current status and paged results of a self-hosted Firecrawl batch scrape job by job ID.",
+    inputSchema: idInput,
+    outputSchema: pagedJobStatusSchema,
+  }),
+  defineProviderAction(service, {
     name: "crawl_list_active",
     description: "List the currently active Firecrawl crawl jobs on the self-hosted instance.",
     inputSchema: s.looseObject({}, { description: "The input payload for this action." }),
@@ -240,4 +394,13 @@ export const firecrawlLocalActions: ActionDefinition[] = [
   }),
 ];
 
-export type FirecrawlLocalActionName = "scrape" | "search" | "map" | "crawl_list_active";
+export type FirecrawlLocalActionName =
+  | "scrape"
+  | "search"
+  | "map"
+  | "crawl"
+  | "crawl_get"
+  | "crawl_cancel"
+  | "batch_scrape"
+  | "batch_scrape_get"
+  | "crawl_list_active";

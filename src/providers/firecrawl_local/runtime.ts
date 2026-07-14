@@ -35,6 +35,11 @@ export const firecrawlLocalActionHandlers: Record<FirecrawlLocalActionName, Fire
   scrape: firecrawlLocalPostAction("/v2/scrape", buildDirectBody),
   search: firecrawlLocalPostAction("/v2/search", buildSearchBody),
   map: firecrawlLocalPostAction("/v2/map", buildDirectBody),
+  crawl: firecrawlLocalPostAction("/v2/crawl", buildDirectBody),
+  crawl_get: firecrawlLocalGetAction((input) => `/v2/crawl/${String(input.id)}`),
+  crawl_cancel: firecrawlLocalDeleteAction((input) => `/v2/crawl/${String(input.id)}`),
+  batch_scrape: firecrawlLocalPostAction("/v2/batch/scrape", buildDirectBody),
+  batch_scrape_get: firecrawlLocalGetAction((input) => `/v2/batch/scrape/${String(input.id)}`),
   crawl_list_active: firecrawlLocalGetAction(() => firecrawlLocalValidationPath),
 };
 
@@ -176,6 +181,20 @@ function firecrawlLocalPostAction(
       method: "POST",
       path,
       body: buildBody(input),
+      phase: "execute",
+    });
+}
+
+function firecrawlLocalDeleteAction(
+  buildPath: (input: Record<string, unknown>) => string,
+): FirecrawlLocalActionHandler {
+  return (input, context) =>
+    firecrawlLocalRequest({
+      baseUrl: context.baseUrl,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      method: "DELETE",
+      path: buildPath(input),
       phase: "execute",
     });
 }
