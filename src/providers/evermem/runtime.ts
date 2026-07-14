@@ -23,6 +23,9 @@ const memoryAddPath = "/api/v1/memory/add";
 const memoryFlushPath = "/api/v1/memory/flush";
 const memorySearchPath = "/api/v1/memory/search";
 const memoryGetPath = "/api/v1/memory/get";
+const omeTriggerPath = "/api/v1/ome/trigger";
+
+const defaultTriggerTimeout = 120;
 
 // EverOS caps both top_k and page_size at 100.
 const maxListSize = 100;
@@ -68,6 +71,9 @@ export const evermemActionHandlers: Record<EvermemActionName, EvermemActionHandl
   },
   list_memories(input, context) {
     return listMemories(input, context);
+  },
+  trigger_maintenance(input, context) {
+    return triggerMaintenance(input, context);
   },
 };
 
@@ -248,6 +254,28 @@ async function listMemories(input: Record<string, unknown>, context: EvermemActi
     phase: "execute",
   });
   return unwrapData(payload);
+}
+
+async function triggerMaintenance(input: Record<string, unknown>, context: EvermemActionContext): Promise<unknown> {
+  const body = compactObject({
+    name: requireInputString(input.name, "name"),
+    timeout: readOptionalNumber(input.timeout, "timeout") ?? defaultTriggerTimeout,
+    force: optionalBoolean(input.force) ?? false,
+  });
+
+  const { payload } = await requestEvermemJson<unknown>({
+    apiKey: context.apiKey,
+    baseUrl: context.baseUrl,
+    path: omeTriggerPath,
+    method: "POST",
+    body,
+    fetcher: context.fetcher,
+    signal: context.signal,
+    phase: "execute",
+  });
+  // ome/trigger returns the TriggerResponse directly, not a {request_id, data}
+  // envelope, so the raw payload is the result.
+  return payload;
 }
 
 interface EvermemRequestInput {

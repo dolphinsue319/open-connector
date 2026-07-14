@@ -444,6 +444,63 @@ describe("evermem search_memory / list_memories", () => {
   });
 });
 
+describe("evermem trigger_maintenance", () => {
+  it("posts the strategy with default timeout/force and returns the unwrapped response", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ request_id: "r", status: "ok", name: "reflect_episodes" }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["evermem.trigger_maintenance"]?.(
+      { name: "reflect_episodes" },
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    // ome/trigger returns TriggerResponse directly (no {request_id, data} envelope).
+    expect(result).toEqual({ ok: true, output: { request_id: "r", status: "ok", name: "reflect_episodes" } });
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url).toBe("https://evercore.incandgold.cc/api/v1/ome/trigger");
+    expect(init!.method).toBe("POST");
+    expect((init!.headers as Headers).get("Authorization")).toBe("Bearer secret");
+    expect(JSON.parse(init!.body as string)).toEqual({ name: "reflect_episodes", timeout: 120, force: false });
+  });
+
+  it("honors timeout and force overrides", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+        jsonResponse({ status: "timeout", name: "reflect_episodes" }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    await executors["evermem.trigger_maintenance"]?.(
+      { name: "reflect_episodes", timeout: 5, force: true },
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    expect(JSON.parse(fetcher.mock.calls[0]![1]!.body as string)).toEqual({
+      name: "reflect_episodes",
+      timeout: 5,
+      force: true,
+    });
+  });
+
+  it("rejects a missing strategy name without calling the API", async () => {
+    const fetcher = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => jsonResponse({}),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["evermem.trigger_maintenance"]?.(
+      {},
+      { getCredential: async () => apiKeyCredential("secret", { baseUrl }) },
+    );
+
+    expect(result).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,

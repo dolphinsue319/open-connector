@@ -73,6 +73,14 @@ const memorySearchResultSchema = s.looseObject(
   { description: "EverOS memory search results." },
 );
 
+const triggerResultSchema = s.looseObject(
+  {
+    status: s.string("Outcome of the trigger: ok or timeout."),
+    name: s.string("The maintenance strategy that was triggered."),
+  },
+  { description: "The result of triggering a maintenance strategy." },
+);
+
 const memoryListResultSchema = s.looseObject(
   {
     episodes: s.array("Episodes on this page.", episodeSchema),
@@ -204,6 +212,27 @@ export const evermemActions: ActionDefinition[] = [
     ),
     outputSchema: memoryListResultSchema,
   }),
+  defineProviderAction(service, {
+    name: "trigger_maintenance",
+    description:
+      "Run an EverOS memory-maintenance strategy now (for example reflect_episodes). Returns immediately with the run outcome.",
+    requiredScopes: [],
+    inputSchema: s.object(
+      "The input payload for this action.",
+      {
+        name: s.nonEmptyString("Maintenance strategy to run, for example reflect_episodes."),
+        timeout: s.number("Seconds to wait for the strategy to finish. Defaults to 120.", { minimum: 0 }),
+        force: s.boolean("Run the strategy even if it is not otherwise due. Defaults to false."),
+      },
+      { optional: ["timeout", "force"] },
+    ),
+    outputSchema: triggerResultSchema,
+  }),
 ];
 
-export type EvermemActionName = "add_memory" | "flush_memory" | "search_memory" | "list_memories";
+export type EvermemActionName =
+  | "add_memory"
+  | "flush_memory"
+  | "search_memory"
+  | "list_memories"
+  | "trigger_maintenance";
