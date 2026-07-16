@@ -230,11 +230,17 @@ export const zeaburActions: ActionDefinition[] = [
       ["serviceId", "environmentId", "key", "value"],
       "The input payload for setting one environment variable.",
     ),
-    outputSchema: s.actionOutput({
-      key: s.string("The variable that was written."),
-      created: s.boolean("True when the variable was new, false when an existing one was updated."),
-      variableCount: s.integer("How many variables the service has now. Compare it against the count before the write."),
-    }),
+    outputSchema: s.actionOutput(
+      {
+        key: s.string("The variable that was written."),
+        created: s.boolean("True when the variable was new, false when an existing one was updated."),
+        variableCount: s.integer(
+          "How many variables the service has now. Compare it against the count before the write. Absent when the write landed but the count could not be read back.",
+        ),
+      },
+      "The result of writing one environment variable.",
+      ["key", "created"],
+    ),
     followUpActions: ["zeabur.restart_service"],
   }),
   defineProviderAction(service, {

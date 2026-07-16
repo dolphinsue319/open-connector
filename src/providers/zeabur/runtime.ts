@@ -2,7 +2,7 @@ import type { CredentialValidationResult } from "../../core/types.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
 import type { ZeaburActionName } from "./actions.ts";
 
-import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
+import { compactObject, optionalRawString, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
   createProviderTimeout,
   isAbortLikeError,
@@ -30,15 +30,24 @@ interface ZeaburGraphqlInput {
   phase?: ZeaburRequestPhase;
 }
 
+const previewHead = 3;
+const previewTail = 4;
+const previewLength = previewHead + previewTail;
+// Reveal at most a third of a value, so what stays hidden always dominates what leaks.
+const shortestPreviewable = previewLength * 3;
+
 /**
- * Hide a secret value while leaving enough of it to recognise which key it is.
+ * Hide a secret value while leaving enough of it to tell which one it is.
  *
- * Values of 8 characters or fewer are masked entirely: revealing a head and
- * tail of a short secret would leave too little unknown.
+ * The preview is a fixed 7 characters, so it only stays a minority of short
+ * values up to a point: previewing a 10-character password would disclose 7 of
+ * it while still reporting masked. Anything below three times the preview is
+ * masked whole instead — the key name already identifies the variable, so a
+ * preview only has to confirm the shape of a long credential.
  */
 export function maskSecret(value: string): string {
-  if (value.length <= 8) return "…";
-  return `${value.slice(0, 3)}…${value.slice(-4)}`;
+  if (value.length < shortestPreviewable) return "…";
+  return `${value.slice(0, previewHead)}…${value.slice(-previewTail)}`;
 }
 
 export async function validateZeaburCredential(
@@ -124,19 +133,39 @@ async function readGraphqlEnvelope<TData>(response: Response): Promise<ZeaburGra
   }
 }
 
-function buildZeaburError(status: number | undefined, payload: unknown, phase: ZeaburRequestPhase): ProviderRequestError {
+function buildZeaburError(
+  status: number | undefined,
+  payload: unknown,
+  phase: ZeaburRequestPhase,
+): ProviderRequestError {
   const message = extractErrorMessage(payload) ?? `Zeabur request failed with ${status ?? 500}`;
+  const details = errorDetails(payload);
   if (status === 429) {
-    return new ProviderRequestError(429, message, payload);
+    return new ProviderRequestError(429, message, details);
   }
   // While validating, the user is fixing their key: report a bad token as invalid input, not as an auth failure.
   if (phase === "validate" && (status === 401 || status === 403)) {
-    return new ProviderRequestError(400, message, payload);
+    return new ProviderRequestError(400, message, details);
   }
   if (status !== undefined && status >= 400) {
-    return new ProviderRequestError(status, message, payload);
+    return new ProviderRequestError(status, message, details);
   }
-  return new ProviderRequestError(502, message, payload);
+  return new ProviderRequestError(502, message, details);
+}
+
+/**
+ * Keep `data` out of error details.
+ *
+ * GraphQL answers a partial failure with data and errors together, and the
+ * shared runtime copies these details straight back to the caller. Passing the
+ * whole envelope would hand back whatever the query selected — for
+ * list_env_vars, every plaintext secret — on a path where maskSecret never
+ * runs. Only the errors describe the failure, so only they belong here.
+ */
+function errorDetails(payload: unknown): unknown {
+  const envelope = optionalRecord(payload);
+  const errors = envelope?.errors;
+  return Array.isArray(errors) ? { errors } : undefined;
 }
 
 /**
@@ -274,7 +303,9 @@ function normalizeLog(value: unknown): Record<string, unknown> {
 
 function normalizeEnvVar(value: unknown, reveal: boolean): Record<string, unknown> {
   const variable = optionalRecord(value) ?? {};
-  const raw = optionalString(variable.value) ?? "";
+  // Read the value raw. optionalString trims, which would hand back a PEM key stripped of its
+  // trailing newline — a value that silently no longer works wherever it gets pasted.
+  const raw = optionalRawString(variable.value) ?? "";
   return compactObject({
     key: optionalString(variable.key),
     ...(reveal ? { value: raw } : { valuePreview: maskSecret(raw) }),
@@ -290,12 +321,21 @@ const listEnvVarsQuery = `query ListEnvVars($id: ObjectID, $environmentId: Objec
   }
 }`;
 
+// set_env_var only needs to know which names exist. Selecting `value` here would pull every
+// plaintext secret across the wire on every write, for a check that throws them away.
+const listEnvVarKeysQuery = `query ListEnvVarKeys($id: ObjectID, $environmentId: ObjectID!) {
+  service(_id: $id) {
+    variables(environmentID: $environmentId) { key }
+  }
+}`;
+
 async function readEnvVars(
   context: ApiKeyProviderContext,
   target: { serviceId: unknown; environmentId: unknown },
+  query: string = listEnvVarsQuery,
 ): Promise<unknown[]> {
   const data = await zeaburGraphqlRequest<{ service?: { variables?: unknown[] } }>(context, {
-    query: listEnvVarsQuery,
+    query,
     variables: { id: target.serviceId, environmentId: target.environmentId },
   });
   return asArray(data.service?.variables);
@@ -305,10 +345,28 @@ async function readEnvVarKeys(
   context: ApiKeyProviderContext,
   target: { serviceId: unknown; environmentId: unknown },
 ): Promise<string[]> {
-  const variables = await readEnvVars(context, target);
+  const variables = await readEnvVars(context, target, listEnvVarKeysQuery);
   return variables
     .map((variable) => optionalString(optionalRecord(variable)?.key))
     .filter((key): key is string => key !== undefined);
+}
+
+/**
+ * Count the variables on a service, or return undefined if the count cannot be read.
+ *
+ * Only for reporting after a write that already committed: the write is done and
+ * cannot be undone, so a failure here means the count is unknown, not that the
+ * write failed. Throwing would tell the caller the opposite of what happened.
+ */
+async function countEnvVars(
+  context: ApiKeyProviderContext,
+  target: { serviceId: unknown; environmentId: unknown },
+): Promise<number | undefined> {
+  try {
+    return (await readEnvVarKeys(context, target)).length;
+  } catch {
+    return undefined;
+  }
 }
 
 export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler> = {
@@ -490,7 +548,10 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
   async set_env_var(input, context) {
     const target = { serviceId: input.serviceId, environmentId: input.environmentId };
     const existing = await readEnvVarKeys(context, target);
-    const key = String(input.key);
+    // Trim to match: readEnvVarKeys returns trimmed names, so an untrimmed "API_KEY " would miss the
+    // stored "API_KEY", create a near-duplicate, and leave the real variable serving its old value.
+    // Environment variable names cannot carry surrounding whitespace anyway.
+    const key = String(input.key).trim();
 
     if (existing.includes(key)) {
       const data = await zeaburGraphqlRequest<{ updateSingleEnvironmentVariable?: unknown[] }>(context, {
@@ -521,22 +582,25 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
       variables: { ...target, key, value: input.value },
     });
     // createEnvironmentVariable returns only the new variable, so re-read to report an observed count
-    // rather than assuming the rest of the set survived.
-    return { key, created: true, variableCount: (await readEnvVarKeys(context, target)).length };
+    // rather than assuming the rest of the set survived. The write has already committed at this
+    // point, so a failed re-read must not surface as a failed write — report without the count.
+    return compactObject({ key, created: true, variableCount: await countEnvVars(context, target) });
   },
 
   async delete_env_var(input, context) {
+    const key = String(input.key).trim();
     const data = await zeaburGraphqlRequest<{ deleteSingleEnvironmentVariable?: unknown[] }>(context, {
       query: `mutation DeleteEnvVar($serviceId: ObjectID!, $environmentId: ObjectID!, $key: String!) {
         deleteSingleEnvironmentVariable(serviceID: $serviceId, environmentID: $environmentId, key: $key) { key }
       }`,
-      variables: { serviceId: input.serviceId, environmentId: input.environmentId, key: input.key },
+      variables: { serviceId: input.serviceId, environmentId: input.environmentId, key },
     });
-    return {
-      key: String(input.key),
-      deleted: true,
-      variableCount: asArray(data.deleteSingleEnvironmentVariable).length,
-    };
+    // The mutation answers with the variables that survive, so report whether the key is really gone
+    // instead of assuming a non-error response means it was there to delete.
+    const remaining = asArray(data.deleteSingleEnvironmentVariable).map((variable) =>
+      optionalString(optionalRecord(variable)?.key),
+    );
+    return { key, deleted: !remaining.includes(key), variableCount: remaining.length };
   },
 
   async restart_service(input, context) {

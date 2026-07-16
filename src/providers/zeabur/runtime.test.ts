@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { apiKeyCredential } from "../provider-proxy-loader.test-helpers.ts";
 import { credentialValidators, executors } from "./executors.ts";
 import { maskSecret, zeaburApiUrl } from "./runtime.ts";
@@ -16,12 +15,17 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function graphqlCall(fetcher: ReturnType<typeof vi.fn>, index = 0): { query: string; variables: Record<string, unknown> } {
+function graphqlCall(
+  fetcher: ReturnType<typeof vi.fn>,
+  index = 0,
+): { query: string; variables: Record<string, unknown> } {
   const init = fetcher.mock.calls[index]?.[1] as RequestInit;
   return JSON.parse(String(init.body)) as { query: string; variables: Record<string, unknown> };
 }
 
-const credential = { getCredential: async (): Promise<ReturnType<typeof apiKeyCredential>> => apiKeyCredential("sk-token") };
+const credential = {
+  getCredential: async (): Promise<ReturnType<typeof apiKeyCredential>> => apiKeyCredential("sk-token"),
+};
 
 describe("zeabur graphql transport", () => {
   it("posts a bearer-authenticated GraphQL query and unwraps data", async () => {
@@ -80,6 +84,25 @@ describe("zeabur graphql transport", () => {
     const result = await executors["zeabur.list_projects"]?.({}, credential);
 
     expect(result).toMatchObject({ ok: false, error: { message: "project not found" } });
+  });
+
+  it("never carries the data payload into error details", async () => {
+    // A GraphQL partial response returns data AND errors together. Echoing the envelope into error
+    // details would hand back every plaintext env var and route around list_env_vars' masking.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          data: { service: { variables: [{ key: "JWT_SECRET", value: "super-secret-value-3f2a" }] } },
+          errors: [{ message: "cannot resolve field" }],
+        }),
+      ),
+    );
+
+    const result = await executors["zeabur.list_env_vars"]?.({ serviceId: "s1", environmentId: "e1" }, credential);
+
+    expect(result).toMatchObject({ ok: false });
+    expect(JSON.stringify(result)).not.toContain("super-secret-value-3f2a");
   });
 
   it("keeps the extensions description that explains why an operation was refused", async () => {
@@ -172,7 +195,10 @@ describe("zeabur.list_env_vars", () => {
   };
 
   it("masks values by default so secrets stay out of the caller's context", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(variablesResponse)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(variablesResponse)),
+    );
 
     const result = await executors["zeabur.list_env_vars"]?.({ serviceId: "s1", environmentId: "e1" }, credential);
 
@@ -187,8 +213,27 @@ describe("zeabur.list_env_vars", () => {
     });
   });
 
+  it("returns revealed values byte-for-byte, including trailing newlines", async () => {
+    // A PEM key ends in a newline. Trimming it hands back a value that no longer works where it was copied.
+    const pem = "-----BEGIN KEY-----\nabc\n-----END KEY-----\n";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({ data: { service: { variables: [{ key: "SSL_KEY", value: pem }] } } })),
+    );
+
+    const result = (await executors["zeabur.list_env_vars"]?.(
+      { serviceId: "s1", environmentId: "e1", reveal: true },
+      credential,
+    )) as { output: { variables: Array<{ value: string }> } };
+
+    expect(result.output.variables[0]?.value).toBe(pem);
+  });
+
   it("returns plaintext only when reveal is explicitly requested", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(variablesResponse)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(variablesResponse)),
+    );
 
     const result = await executors["zeabur.list_env_vars"]?.(
       { serviceId: "s1", environmentId: "e1", reveal: true },
@@ -241,10 +286,7 @@ describe("zeabur read actions", () => {
       ),
     );
 
-    const result = await executors["zeabur.list_deployments"]?.(
-      { serviceId: "s1", environmentId: "e1" },
-      credential,
-    );
+    const result = await executors["zeabur.list_deployments"]?.({ serviceId: "s1", environmentId: "e1" }, credential);
 
     expect(result).toMatchObject({
       ok: true,
@@ -257,7 +299,7 @@ describe("zeabur.set_env_var", () => {
   it("updates in place when the key already exists, touching only that key", async () => {
     const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { query: string };
-      if (body.query.includes("ListEnvVars")) {
+      if (body.query.includes("ListEnvVarKeys")) {
         return jsonResponse({ data: { service: { variables: [{ key: "EXISTING" }, { key: "OTHER" }] } } });
       }
       return jsonResponse({
@@ -272,17 +314,25 @@ describe("zeabur.set_env_var", () => {
     );
 
     expect(result).toEqual({ ok: true, output: { key: "EXISTING", created: false, variableCount: 2 } });
+    // The existence check needs names only — selecting value would drag every secret over the wire.
+    expect(graphqlCall(fetcher, 0).query).not.toContain("value");
     const mutation = graphqlCall(fetcher, 1);
     expect(mutation.query).toContain("updateSingleEnvironmentVariable");
     // The whole point of the per-key mutation: never send a full map that could replace the set.
     expect(mutation.query).not.toContain("updateEnvironmentVariable(");
-    expect(mutation.variables).toEqual({ serviceId: "s1", environmentId: "e1", oldKey: "EXISTING", newKey: "EXISTING", value: "v2" });
+    expect(mutation.variables).toEqual({
+      serviceId: "s1",
+      environmentId: "e1",
+      oldKey: "EXISTING",
+      newKey: "EXISTING",
+      value: "v2",
+    });
   });
 
   it("creates a new key when it does not exist yet and reports the resulting count", async () => {
     const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as { query: string };
-      if (body.query.includes("ListEnvVars")) {
+      if (body.query.includes("ListEnvVarKeys")) {
         // First call: existence check (1 var). Second call: post-create re-read (2 vars).
         const seen = fetcher.mock.calls.length > 2;
         return jsonResponse({
@@ -317,6 +367,23 @@ describe("zeabur.delete_env_var", () => {
 
     expect(result).toEqual({ ok: true, output: { key: "GONE", deleted: true, variableCount: 2 } });
   });
+
+  it("reports deleted:false when the key survives the mutation", async () => {
+    // The mutation returns the surviving set; if the key is still in it, nothing was deleted.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({ data: { deleteSingleEnvironmentVariable: [{ key: "STAYS" }, { key: "KEPT" }] } }),
+      ),
+    );
+
+    const result = await executors["zeabur.delete_env_var"]?.(
+      { serviceId: "s1", environmentId: "e1", key: "STAYS" },
+      credential,
+    );
+
+    expect(result).toMatchObject({ ok: true, output: { key: "STAYS", deleted: false } });
+  });
 });
 
 describe("zeabur deployment control", () => {
@@ -324,10 +391,7 @@ describe("zeabur deployment control", () => {
     const fetcher = vi.fn(async () => jsonResponse({ data: { restartService: true } }));
     vi.stubGlobal("fetch", fetcher);
 
-    const result = await executors["zeabur.restart_service"]?.(
-      { serviceId: "s1", environmentId: "e1" },
-      credential,
-    );
+    const result = await executors["zeabur.restart_service"]?.({ serviceId: "s1", environmentId: "e1" }, credential);
 
     expect(result).toEqual({ ok: true, output: { success: true } });
     expect(graphqlCall(fetcher).variables).toEqual({ serviceId: "s1", environmentId: "e1" });
@@ -344,12 +408,22 @@ describe("zeabur deployment control", () => {
 });
 
 describe("maskSecret", () => {
-  it("reveals head and tail only for values long enough to stay unguessable", () => {
-    expect(maskSecret("sk-abcdefghijkl3f2a")).toBe("sk-…3f2a");
+  it("reveals head and tail only when they stay a minority of the value", () => {
+    expect(maskSecret("sk_live_abcdefghijklmnop3f2a")).toBe("sk_…3f2a");
   });
 
-  it("fully masks short values", () => {
+  it("fully masks values too short for a preview to stay a minority", () => {
+    // The preview is a fixed 7 characters, so anything under 21 would disclose a third or more.
     expect(maskSecret("hunter2")).toBe("…");
-    expect(maskSecret("12345678")).toBe("…");
+    expect(maskSecret("Tr0ub4dor3")).toBe("…");
+    expect(maskSecret("development")).toBe("…");
+    expect(maskSecret("a".repeat(20))).toBe("…");
+  });
+
+  it("never reveals more than a third of the value", () => {
+    for (const length of [21, 24, 32, 64]) {
+      const revealed = maskSecret("x".repeat(length)).replace("…", "").length;
+      expect(revealed / length).toBeLessThanOrEqual(1 / 3);
+    }
   });
 });
