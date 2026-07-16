@@ -284,6 +284,33 @@ function normalizeEnvVar(value: unknown, reveal: boolean): Record<string, unknow
   });
 }
 
+const listEnvVarsQuery = `query ListEnvVars($id: ObjectID, $environmentId: ObjectID!) {
+  service(_id: $id) {
+    variables(environmentID: $environmentId) { key value exposed readonly }
+  }
+}`;
+
+async function readEnvVars(
+  context: ApiKeyProviderContext,
+  target: { serviceId: unknown; environmentId: unknown },
+): Promise<unknown[]> {
+  const data = await zeaburGraphqlRequest<{ service?: { variables?: unknown[] } }>(context, {
+    query: listEnvVarsQuery,
+    variables: { id: target.serviceId, environmentId: target.environmentId },
+  });
+  return asArray(data.service?.variables);
+}
+
+async function readEnvVarKeys(
+  context: ApiKeyProviderContext,
+  target: { serviceId: unknown; environmentId: unknown },
+): Promise<string[]> {
+  const variables = await readEnvVars(context, target);
+  return variables
+    .map((variable) => optionalString(optionalRecord(variable)?.key))
+    .filter((key): key is string => key !== undefined);
+}
+
 export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler> = {
   async list_projects(input, context) {
     const data = await zeaburGraphqlRequest<{ projects?: { edges?: unknown[] } }>(context, {
@@ -377,17 +404,11 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
 
   async list_env_vars(input, context) {
     const reveal = input.reveal === true;
-    const data = await zeaburGraphqlRequest<{ service?: { variables?: unknown[] } }>(context, {
-      query: `query ListEnvVars($id: ObjectID, $environmentId: ObjectID!) {
-        service(_id: $id) {
-          variables(environmentID: $environmentId) { key value exposed readonly }
-        }
-      }`,
-      variables: { id: input.serviceId, environmentId: input.environmentId },
+    const variables = await readEnvVars(context, {
+      serviceId: input.serviceId,
+      environmentId: input.environmentId,
     });
-    return {
-      variables: asArray(data.service?.variables).map((variable) => normalizeEnvVar(variable, reveal)),
-    };
+    return { variables: variables.map((variable) => normalizeEnvVar(variable, reveal)) };
   },
 
   async get_build_logs(input, context) {
@@ -464,5 +485,97 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
       },
     });
     return { logs: asArray(data.searchRuntimeLogs).map((log) => normalizeLog(log)) };
+  },
+
+  async set_env_var(input, context) {
+    const target = { serviceId: input.serviceId, environmentId: input.environmentId };
+    const existing = await readEnvVarKeys(context, target);
+    const key = String(input.key);
+
+    if (existing.includes(key)) {
+      const data = await zeaburGraphqlRequest<{ updateSingleEnvironmentVariable?: unknown[] }>(context, {
+        query: `mutation SetEnvVar(
+          $serviceId: ObjectID!
+          $environmentId: ObjectID!
+          $oldKey: String!
+          $newKey: String!
+          $value: String!
+        ) {
+          updateSingleEnvironmentVariable(
+            serviceID: $serviceId
+            environmentID: $environmentId
+            oldKey: $oldKey
+            newKey: $newKey
+            value: $value
+          ) { key }
+        }`,
+        variables: { ...target, oldKey: key, newKey: key, value: input.value },
+      });
+      return { key, created: false, variableCount: asArray(data.updateSingleEnvironmentVariable).length };
+    }
+
+    await zeaburGraphqlRequest<{ createEnvironmentVariable?: unknown }>(context, {
+      query: `mutation CreateEnvVar($serviceId: ObjectID!, $environmentId: ObjectID!, $key: String!, $value: String!) {
+        createEnvironmentVariable(serviceID: $serviceId, environmentID: $environmentId, key: $key, value: $value) { key }
+      }`,
+      variables: { ...target, key, value: input.value },
+    });
+    // createEnvironmentVariable returns only the new variable, so re-read to report an observed count
+    // rather than assuming the rest of the set survived.
+    return { key, created: true, variableCount: (await readEnvVarKeys(context, target)).length };
+  },
+
+  async delete_env_var(input, context) {
+    const data = await zeaburGraphqlRequest<{ deleteSingleEnvironmentVariable?: unknown[] }>(context, {
+      query: `mutation DeleteEnvVar($serviceId: ObjectID!, $environmentId: ObjectID!, $key: String!) {
+        deleteSingleEnvironmentVariable(serviceID: $serviceId, environmentID: $environmentId, key: $key) { key }
+      }`,
+      variables: { serviceId: input.serviceId, environmentId: input.environmentId, key: input.key },
+    });
+    return {
+      key: String(input.key),
+      deleted: true,
+      variableCount: asArray(data.deleteSingleEnvironmentVariable).length,
+    };
+  },
+
+  async restart_service(input, context) {
+    const data = await zeaburGraphqlRequest<{ restartService?: unknown }>(context, {
+      query: `mutation RestartService($serviceId: ObjectID!, $environmentId: ObjectID!) {
+        restartService(serviceID: $serviceId, environmentID: $environmentId)
+      }`,
+      variables: { serviceId: input.serviceId, environmentId: input.environmentId },
+    });
+    return { success: data.restartService === true };
+  },
+
+  async redeploy_service(input, context) {
+    const data = await zeaburGraphqlRequest<{ redeployService?: unknown }>(context, {
+      query: `mutation RedeployService($serviceId: ObjectID!, $environmentId: ObjectID!) {
+        redeployService(serviceID: $serviceId, environmentID: $environmentId)
+      }`,
+      variables: { serviceId: input.serviceId, environmentId: input.environmentId },
+    });
+    return { success: data.redeployService === true };
+  },
+
+  async update_service_image_tag(input, context) {
+    const data = await zeaburGraphqlRequest<{ updateServiceImageTag?: unknown }>(context, {
+      query: `mutation UpdateServiceImageTag($serviceId: ObjectID!, $environmentId: ObjectID!, $tag: String!) {
+        updateServiceImageTag(serviceID: $serviceId, environmentID: $environmentId, tag: $tag)
+      }`,
+      variables: { serviceId: input.serviceId, environmentId: input.environmentId, tag: input.tag },
+    });
+    return { success: data.updateServiceImageTag === true };
+  },
+
+  async rollback_deployment(input, context) {
+    const data = await zeaburGraphqlRequest<{ rollbackDeployment?: unknown }>(context, {
+      query: `mutation RollbackDeployment($deploymentId: ObjectID!) {
+        rollbackDeployment(deploymentID: $deploymentId)
+      }`,
+      variables: { deploymentId: input.deploymentId },
+    });
+    return { success: data.rollbackDeployment === true };
   },
 };

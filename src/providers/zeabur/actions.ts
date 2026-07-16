@@ -217,6 +217,78 @@ export const zeaburActions: ActionDefinition[] = [
     ),
     outputSchema: s.actionOutput({ logs: s.array("The matching runtime log lines.", logSchema) }),
   }),
+  defineProviderAction(service, {
+    name: "set_env_var",
+    description:
+      "Create or update one environment variable on a Zeabur service, leaving every other variable untouched. Zeabur does not restart the service afterwards: the running container keeps serving the old value until restart_service or redeploy_service runs.",
+    inputSchema: s.actionInput(
+      {
+        ...serviceTarget,
+        key: s.nonEmptyString("The variable name to create or update."),
+        value: s.string("The value to store."),
+      },
+      ["serviceId", "environmentId", "key", "value"],
+      "The input payload for setting one environment variable.",
+    ),
+    outputSchema: s.actionOutput({
+      key: s.string("The variable that was written."),
+      created: s.boolean("True when the variable was new, false when an existing one was updated."),
+      variableCount: s.integer("How many variables the service has now. Compare it against the count before the write."),
+    }),
+    followUpActions: ["zeabur.restart_service"],
+  }),
+  defineProviderAction(service, {
+    name: "delete_env_var",
+    description:
+      "Delete one environment variable from a Zeabur service, leaving every other variable untouched. The running container keeps the old value until the service restarts.",
+    inputSchema: s.actionInput(
+      { ...serviceTarget, key: s.nonEmptyString("The variable name to delete.") },
+      ["serviceId", "environmentId", "key"],
+      "The input payload for deleting one environment variable.",
+    ),
+    outputSchema: s.actionOutput({
+      key: s.string("The variable that was deleted."),
+      deleted: s.boolean("Whether the delete was applied."),
+      variableCount: s.integer("How many variables remain on the service."),
+    }),
+    followUpActions: ["zeabur.restart_service"],
+  }),
+  defineProviderAction(service, {
+    name: "restart_service",
+    description:
+      "Restart a running Zeabur service. This interrupts the service briefly and is how environment variable changes take effect.",
+    inputSchema: s.actionInput(serviceTarget, ["serviceId", "environmentId"], "Identify the service and environment."),
+    outputSchema: s.actionOutput({ success: s.boolean("Whether Zeabur accepted the restart.") }),
+  }),
+  defineProviderAction(service, {
+    name: "redeploy_service",
+    description:
+      "Redeploy a Zeabur service, rebuilding it from its current source. Slower than restart_service and it replaces the running deployment.",
+    inputSchema: s.actionInput(serviceTarget, ["serviceId", "environmentId"], "Identify the service and environment."),
+    outputSchema: s.actionOutput({ success: s.boolean("Whether Zeabur accepted the redeploy.") }),
+  }),
+  defineProviderAction(service, {
+    name: "update_service_image_tag",
+    description:
+      "Point a Docker-image-backed Zeabur service at a different image tag. Zeabur redeploys the service onto the new tag.",
+    inputSchema: s.actionInput(
+      { ...serviceTarget, tag: s.nonEmptyString("The image tag to deploy, such as v1.2.3 or latest.") },
+      ["serviceId", "environmentId", "tag"],
+      "The input payload for changing the image tag.",
+    ),
+    outputSchema: s.actionOutput({ success: s.boolean("Whether Zeabur accepted the tag change.") }),
+  }),
+  defineProviderAction(service, {
+    name: "rollback_deployment",
+    description:
+      "Roll a Zeabur service back to an earlier deployment. Pass a deploymentId from list_deployments; it becomes the live deployment again.",
+    inputSchema: s.actionInput(
+      { deploymentId: s.nonEmptyString("The deployment id to roll back to, from list_deployments.") },
+      ["deploymentId"],
+      "The input payload for rolling back a deployment.",
+    ),
+    outputSchema: s.actionOutput({ success: s.boolean("Whether Zeabur accepted the rollback.") }),
+  }),
 ];
 
 export type ZeaburActionName = (typeof zeaburActions)[number]["name"];

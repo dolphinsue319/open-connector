@@ -253,6 +253,96 @@ describe("zeabur read actions", () => {
   });
 });
 
+describe("zeabur.set_env_var", () => {
+  it("updates in place when the key already exists, touching only that key", async () => {
+    const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { query: string };
+      if (body.query.includes("ListEnvVars")) {
+        return jsonResponse({ data: { service: { variables: [{ key: "EXISTING" }, { key: "OTHER" }] } } });
+      }
+      return jsonResponse({
+        data: { updateSingleEnvironmentVariable: [{ key: "EXISTING" }, { key: "OTHER" }] },
+      });
+    });
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["zeabur.set_env_var"]?.(
+      { serviceId: "s1", environmentId: "e1", key: "EXISTING", value: "v2" },
+      credential,
+    );
+
+    expect(result).toEqual({ ok: true, output: { key: "EXISTING", created: false, variableCount: 2 } });
+    const mutation = graphqlCall(fetcher, 1);
+    expect(mutation.query).toContain("updateSingleEnvironmentVariable");
+    // The whole point of the per-key mutation: never send a full map that could replace the set.
+    expect(mutation.query).not.toContain("updateEnvironmentVariable(");
+    expect(mutation.variables).toEqual({ serviceId: "s1", environmentId: "e1", oldKey: "EXISTING", newKey: "EXISTING", value: "v2" });
+  });
+
+  it("creates a new key when it does not exist yet and reports the resulting count", async () => {
+    const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { query: string };
+      if (body.query.includes("ListEnvVars")) {
+        // First call: existence check (1 var). Second call: post-create re-read (2 vars).
+        const seen = fetcher.mock.calls.length > 2;
+        return jsonResponse({
+          data: { service: { variables: seen ? [{ key: "OTHER" }, { key: "NEW" }] : [{ key: "OTHER" }] } },
+        });
+      }
+      return jsonResponse({ data: { createEnvironmentVariable: { key: "NEW" } } });
+    });
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["zeabur.set_env_var"]?.(
+      { serviceId: "s1", environmentId: "e1", key: "NEW", value: "v1" },
+      credential,
+    );
+
+    expect(result).toEqual({ ok: true, output: { key: "NEW", created: true, variableCount: 2 } });
+    expect(graphqlCall(fetcher, 1).query).toContain("createEnvironmentVariable");
+  });
+});
+
+describe("zeabur.delete_env_var", () => {
+  it("deletes one key and reports the variables that remain", async () => {
+    const fetcher = vi.fn(async () =>
+      jsonResponse({ data: { deleteSingleEnvironmentVariable: [{ key: "KEPT_A" }, { key: "KEPT_B" }] } }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["zeabur.delete_env_var"]?.(
+      { serviceId: "s1", environmentId: "e1", key: "GONE" },
+      credential,
+    );
+
+    expect(result).toEqual({ ok: true, output: { key: "GONE", deleted: true, variableCount: 2 } });
+  });
+});
+
+describe("zeabur deployment control", () => {
+  it("restarts a service and reports the mutation result", async () => {
+    const fetcher = vi.fn(async () => jsonResponse({ data: { restartService: true } }));
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["zeabur.restart_service"]?.(
+      { serviceId: "s1", environmentId: "e1" },
+      credential,
+    );
+
+    expect(result).toEqual({ ok: true, output: { success: true } });
+    expect(graphqlCall(fetcher).variables).toEqual({ serviceId: "s1", environmentId: "e1" });
+  });
+
+  it("rolls back a deployment by id", async () => {
+    const fetcher = vi.fn(async () => jsonResponse({ data: { rollbackDeployment: true } }));
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["zeabur.rollback_deployment"]?.({ deploymentId: "d1" }, credential);
+
+    expect(result).toEqual({ ok: true, output: { success: true } });
+  });
+});
+
 describe("maskSecret", () => {
   it("reveals head and tail only for values long enough to stay unguessable", () => {
     expect(maskSecret("sk-abcdefghijkl3f2a")).toBe("sk-…3f2a");
