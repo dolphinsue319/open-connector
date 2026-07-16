@@ -26,6 +26,47 @@ const projectSchema = s.looseObject("A Zeabur project.", {
   services: s.array("Services in the project.", serviceRefSchema),
 });
 
+const serviceSchema = s.looseObject("A Zeabur service.", {
+  id: s.string("The service id."),
+  name: s.string("The service name."),
+  template: s.string("The service template, such as PREBUILT_V2 or GIT."),
+  dnsName: s.string("The internal DNS name of the service."),
+  createdAt: s.string("When the service was created."),
+  status: s.string("The current status in the requested environment."),
+});
+
+const deploymentSchema = s.looseObject("A Zeabur deployment.", {
+  id: s.string("The deployment id, used as deploymentId in other actions."),
+  status: s.string("The deployment status."),
+  ref: s.string("The git ref that produced the deployment."),
+  commitSHA: s.string("The deployed commit SHA."),
+  commitMessage: s.string("The deployed commit message."),
+  createdAt: s.string("When the deployment was created."),
+  finishedAt: s.string("When the deployment finished."),
+  cursor: s.string("Pass as the cursor input to page past this deployment."),
+});
+
+const logSchema = s.looseObject("A log line.", {
+  message: s.string("The log message."),
+  timestamp: s.string("When the line was emitted."),
+  stream: s.string("The originating stream, such as stdout or stderr."),
+  region: s.string("The region that emitted the line."),
+});
+
+const envVarSchema = s.looseObject("An environment variable. The value is masked unless reveal was set.", {
+  key: s.string("The variable name."),
+  value: s.string("The plaintext value. Only present when reveal was true."),
+  valuePreview: s.string("A masked preview of the value. Only present when reveal was false."),
+  masked: s.boolean("Whether the value was masked."),
+  exposed: s.boolean("Whether the variable is exposed to other services in the project."),
+  readonly: s.boolean("Whether the variable is managed by Zeabur and cannot be edited."),
+});
+
+const serviceTarget = {
+  serviceId: s.nonEmptyString("The service id, from list_projects or list_services."),
+  environmentId: s.nonEmptyString("The environment id, from list_projects or list_environments."),
+};
+
 export const zeaburActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_projects",
@@ -40,6 +81,141 @@ export const zeaburActions: ActionDefinition[] = [
       "The input payload for listing Zeabur projects.",
     ),
     outputSchema: s.actionOutput({ projects: s.array("The projects visible to the account.", projectSchema) }),
+  }),
+  defineProviderAction(service, {
+    name: "get_project",
+    description:
+      "Get one Zeabur project with its environments and services. Look it up by projectId, or by owner plus name.",
+    inputSchema: s.actionInput(
+      {
+        projectId: s.nonEmptyString("The project id."),
+        owner: s.nonEmptyString("The project owner username. Use together with name instead of projectId."),
+        name: s.nonEmptyString("The project name. Use together with owner instead of projectId."),
+      },
+      [],
+      "Identify the project by projectId, or by owner and name.",
+    ),
+    outputSchema: projectSchema,
+  }),
+  defineProviderAction(service, {
+    name: "list_services",
+    description: "List the services in one Zeabur project.",
+    inputSchema: s.actionInput(
+      {
+        projectId: s.nonEmptyString("The project id."),
+        skip: s.nonNegativeInteger("How many services to skip before returning results."),
+        limit: s.positiveInteger("The maximum number of services to return."),
+      },
+      ["projectId"],
+      "The input payload for listing services in a project.",
+    ),
+    outputSchema: s.actionOutput({ services: s.array("The services in the project.", serviceSchema) }),
+  }),
+  defineProviderAction(service, {
+    name: "get_service",
+    description: "Get one Zeabur service, including its current running status in the given environment.",
+    inputSchema: s.actionInput(serviceTarget, ["serviceId", "environmentId"], "Identify the service and environment."),
+    outputSchema: serviceSchema,
+  }),
+  defineProviderAction(service, {
+    name: "list_environments",
+    description: "List the environments in one Zeabur project.",
+    inputSchema: s.actionInput(
+      { projectId: s.nonEmptyString("The project id.") },
+      ["projectId"],
+      "The input payload for listing environments.",
+    ),
+    outputSchema: s.actionOutput({ environments: s.array("The environments in the project.", environmentSchema) }),
+  }),
+  defineProviderAction(service, {
+    name: "list_deployments",
+    description: "List deployments for one Zeabur service, newest first.",
+    inputSchema: s.actionInput(
+      {
+        ...serviceTarget,
+        cursor: s.nonEmptyString("Return deployments after this cursor, taken from a previous page."),
+        perPage: s.positiveInteger("The maximum number of deployments to return."),
+        filter: s.stringEnum("Return only deployments in this status.", [
+          "PENDING",
+          "FAILED",
+          "BUILDING",
+          "DEPLOYING",
+          "RUNNING",
+          "REMOVED",
+          "CRASHED",
+          "CANCELED",
+          "UNKNOWN",
+        ]),
+      },
+      ["serviceId", "environmentId"],
+      "The input payload for listing deployments.",
+    ),
+    outputSchema: s.actionOutput({ deployments: s.array("The deployments for the service.", deploymentSchema) }),
+  }),
+  defineProviderAction(service, {
+    name: "list_env_vars",
+    description:
+      "List the environment variables of one Zeabur service. Values are masked by default because they routinely hold database passwords, JWT secrets, and API keys. Set reveal to true only when the plaintext is actually needed.",
+    inputSchema: s.actionInput(
+      {
+        ...serviceTarget,
+        reveal: s.boolean({
+          description:
+            "Return plaintext values instead of masked previews. Leave unset unless the caller needs the real values.",
+          default: false,
+        }),
+      },
+      ["serviceId", "environmentId"],
+      "The input payload for reading environment variables.",
+    ),
+    outputSchema: s.actionOutput({ variables: s.array("The environment variables of the service.", envVarSchema) }),
+  }),
+  defineProviderAction(service, {
+    name: "get_build_logs",
+    description: "Get the build logs of one Zeabur deployment.",
+    inputSchema: s.actionInput(
+      {
+        deploymentId: s.nonEmptyString("The deployment id, from list_deployments."),
+        projectId: s.nonEmptyString("The project id that owns the deployment."),
+        timestampCursor: s.nonEmptyString("Return only lines emitted after this RFC 3339 timestamp."),
+      },
+      ["deploymentId"],
+      "The input payload for reading build logs.",
+    ),
+    outputSchema: s.actionOutput({ logs: s.array("The build log lines.", logSchema) }),
+  }),
+  defineProviderAction(service, {
+    name: "get_runtime_logs",
+    description:
+      "Get the runtime logs of one Zeabur service. Zeabur retains runtime logs for a limited window, so an empty result can mean the service has simply been quiet.",
+    inputSchema: s.actionInput(
+      {
+        ...serviceTarget,
+        deploymentId: s.nonEmptyString("Restrict the logs to one deployment."),
+        timestampCursor: s.nonEmptyString("Return only lines emitted after this RFC 3339 timestamp."),
+      },
+      ["serviceId"],
+      "The input payload for reading runtime logs.",
+    ),
+    outputSchema: s.actionOutput({ logs: s.array("The runtime log lines.", logSchema) }),
+  }),
+  defineProviderAction(service, {
+    name: "search_runtime_logs",
+    description:
+      "Search the runtime logs of one Zeabur service for a query string. Zeabur gates this behind the Pro and Team plans; on other plans it fails with a permission error and get_runtime_logs is the alternative.",
+    inputSchema: s.actionInput(
+      {
+        ...serviceTarget,
+        query: s.nonEmptyString("The text to search for in the log messages."),
+        deploymentId: s.nonEmptyString("Restrict the search to one deployment."),
+        limit: s.positiveInteger("The maximum number of matching lines to return."),
+        startTime: s.nonEmptyString("Search only lines at or after this RFC 3339 timestamp."),
+        endTime: s.nonEmptyString("Search only lines at or before this RFC 3339 timestamp."),
+      },
+      ["serviceId", "query"],
+      "The input payload for searching runtime logs.",
+    ),
+    outputSchema: s.actionOutput({ logs: s.array("The matching runtime log lines.", logSchema) }),
   }),
 ];
 

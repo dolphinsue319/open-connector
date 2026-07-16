@@ -82,6 +82,34 @@ describe("zeabur graphql transport", () => {
     expect(result).toMatchObject({ ok: false, error: { message: "project not found" } });
   });
 
+  it("keeps the extensions description that explains why an operation was refused", async () => {
+    // Zeabur's errors[].message is a terse summary; the actionable reason lives in extensions.description.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          data: null,
+          errors: [
+            {
+              message: "Failed to search runtime logs",
+              extensions: { code: "PERMISSION_DENIED", description: "Advanced log search requires Pro or Team plan." },
+            },
+          ],
+        }),
+      ),
+    );
+
+    const result = await executors["zeabur.search_runtime_logs"]?.({ serviceId: "s1", query: "boom" }, credential);
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "authorization_failed",
+        message: "Failed to search runtime logs: Advanced log search requires Pro or Team plan.",
+      },
+    });
+  });
+
   it("reads the top-level message field Zeabur returns instead of errors[].message", async () => {
     vi.stubGlobal(
       "fetch",
@@ -127,6 +155,100 @@ describe("zeabur credential validation", () => {
 
     await expect(credentialValidators.apiKey?.({ apiKey: "sk-bad", values: {} }, { fetcher })).rejects.toMatchObject({
       status: 400,
+    });
+  });
+});
+
+describe("zeabur.list_env_vars", () => {
+  const variablesResponse = {
+    data: {
+      service: {
+        variables: [
+          { key: "JWT_SECRET", value: "super-secret-value-3f2a", exposed: false, readonly: false },
+          { key: "PORT", value: "8080", exposed: true, readonly: true },
+        ],
+      },
+    },
+  };
+
+  it("masks values by default so secrets stay out of the caller's context", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(variablesResponse)));
+
+    const result = await executors["zeabur.list_env_vars"]?.({ serviceId: "s1", environmentId: "e1" }, credential);
+
+    expect(result).toEqual({
+      ok: true,
+      output: {
+        variables: [
+          { key: "JWT_SECRET", valuePreview: "sup…3f2a", masked: true, exposed: false, readonly: false },
+          { key: "PORT", valuePreview: "…", masked: true, exposed: true, readonly: true },
+        ],
+      },
+    });
+  });
+
+  it("returns plaintext only when reveal is explicitly requested", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(variablesResponse)));
+
+    const result = await executors["zeabur.list_env_vars"]?.(
+      { serviceId: "s1", environmentId: "e1", reveal: true },
+      credential,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      output: {
+        variables: [
+          { key: "JWT_SECRET", value: "super-secret-value-3f2a", masked: false },
+          { key: "PORT", value: "8080", masked: false },
+        ],
+      },
+    });
+  });
+});
+
+describe("zeabur read actions", () => {
+  it("passes the environment id through to the service status selection", async () => {
+    const fetcher = vi.fn(async () =>
+      jsonResponse({
+        data: { service: { _id: "s1", name: "kd-ttc", template: "PREBUILT_V2", dnsName: "kd-ttc", status: "RUNNING" } },
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await executors["zeabur.get_service"]?.({ serviceId: "s1", environmentId: "e1" }, credential);
+
+    expect(result).toMatchObject({ ok: true, output: { id: "s1", name: "kd-ttc", status: "RUNNING" } });
+    expect(graphqlCall(fetcher).variables).toMatchObject({ id: "s1", environmentId: "e1" });
+  });
+
+  it("flattens the deployment connection edges", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse({
+          data: {
+            deployments: {
+              edges: [
+                {
+                  cursor: "c1",
+                  node: { _id: "d1", status: "RUNNING", ref: "refs/heads/develop", commitMessage: "fix" },
+                },
+              ],
+            },
+          },
+        }),
+      ),
+    );
+
+    const result = await executors["zeabur.list_deployments"]?.(
+      { serviceId: "s1", environmentId: "e1" },
+      credential,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      output: { deployments: [{ id: "d1", status: "RUNNING", ref: "refs/heads/develop", cursor: "c1" }] },
     });
   });
 });
