@@ -100,7 +100,7 @@ export function listMcpToolSummaries(): IMcpToolSummary[] {
 export function createMcpServer(options: IMcpServerOptions): McpServer {
   const server = new McpServer(
     {
-      name: "oomol-connect",
+      name: "open-connector",
       version: "0.1.0",
     },
     {
