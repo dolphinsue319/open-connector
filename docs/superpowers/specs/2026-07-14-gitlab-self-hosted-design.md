@@ -64,7 +64,7 @@ gitlab.com connections that were created without this field.
 
 - Replace `defineApiKeyProviderExecutors(service, handlers)` with
   `defineProviderExecutors<GitlabActionContext>({ service, handlers,
-  createContext, fallbackMessage })`, matching Redmine's `executors.ts`.
+createContext, fallbackMessage })`, matching Redmine's `executors.ts`.
 - `GitlabActionContext` gains `baseUrl: string`.
 - `createContext` calls `requireApiKeyCredential(context, service)` then
   resolves the base URL from `credential.values.baseUrl` / `credential.metadata`.

@@ -31,11 +31,13 @@
 ## Task 1: Per-connection base URL (self-hosted support)
 
 **Files:**
+
 - Create: `src/providers/gitlab/runtime.test.ts`
 - Modify: `src/providers/gitlab/definition.ts`
 - Modify: `src/providers/gitlab/executors.ts`
 
 **Interfaces:**
+
 - Produces (exported from `executors.ts`, consumed by tests and by `createContext`):
   - `normalizeGitlabBaseUrl(value: string | undefined): string` — returns an API base ending in `/api/v4`; empty → `https://gitlab.com/api/v4`.
   - `buildGitlabApiUrl(apiBaseUrl: string, path: string, query?: Record<string, unknown>): string`
@@ -379,11 +381,13 @@ git commit -m "feat(gitlab): support per-connection self-hosted base URL"
 ## Task 2: Issue workflow actions (update issue, create note, list notes)
 
 **Files:**
+
 - Modify: `src/providers/gitlab/actions.ts`
 - Modify: `src/providers/gitlab/executors.ts`
 - Modify: `src/providers/gitlab/runtime.test.ts`
 
 **Interfaces:**
+
 - Consumes (from Task 1): `executors`, `GitlabActionContext`, `buildGitlabApiUrl`, `gitlabRequestJson`/`gitlabRequest` internals.
 - Produces: three new catalog actions `gitlab.update_project_issue`, `gitlab.create_issue_note`, `gitlab.list_issue_notes`; new `GitlabActionName` union members.
 - New input field `issueIid` (integer, ≥1). New handler helper `readIssueIid(input): number`.
@@ -713,6 +717,7 @@ git commit -m "refactor(gitlab): apply review feedback"
 **Files:** none in the fork; uses the deployment repo (`kd-openconnector`) image-build recipe.
 
 **Preconditions (ask the user):**
+
 - A GitLab **personal access token** for `gl.thread.tw` with `api` scope.
 - Confirm the web API is reachable at `https://gl.thread.tw` over https (the previously-seen `:12022` is the git/SSH port, not the API).
 - A real project ID and an issue iid on that instance to test notes against.
@@ -732,6 +737,7 @@ Use the admin-API add-provider recipe (api_key): `PUT /api/connections/gitlab` w
 - [ ] **Step 4: Smoke test the actions via the open-connector MCP tools**
 
 Run, in order, and confirm real responses:
+
 - `gitlab.get_current_user` → your gl.thread.tw user.
 - `gitlab.list_projects` → real projects from the instance.
 - `gitlab.create_issue_note` on a test issue → note created.
@@ -746,6 +752,7 @@ Update the open-connector provider memory (a `gitlab-via-openconnector.md` note)
 ## Self-Review
 
 **Spec coverage:**
+
 - Per-connection base URL (definition extra field + resolve/normalize) → Task 1. ✔
 - Backward-compatible gitlab.com default → Task 1, Step 4c (`defaultGitlabApiBaseUrl`) + test. ✔
 - https-only, private-IP rejection → Task 1, `normalizeGitlabBaseUrl` + tests. ✔
