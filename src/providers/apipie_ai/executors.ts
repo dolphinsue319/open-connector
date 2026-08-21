@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { ApipieAiActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
 import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
@@ -10,7 +10,7 @@ const apipieAiApiBaseUrl = "https://apipie.ai/v1";
 
 type ApipieAiActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const apipieAiActionHandlers: Record<ApipieAiActionName, ApipieAiActionHandler> = {
+export const apipieAiActionHandlers: ProviderActionHandlers<"apipie_ai", ApipieAiActionHandler> = {
   list_models(_input, context) {
     return apipieAiRequest(context, { path: "/models" });
   },

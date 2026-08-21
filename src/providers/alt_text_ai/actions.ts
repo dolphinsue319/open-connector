@@ -267,4 +267,4 @@ export const altTextAiActions: ActionDefinition[] = [
     ),
     outputSchema: pageScrapeOutputSchema,
   }),
-] satisfies ActionDefinition[];
+];

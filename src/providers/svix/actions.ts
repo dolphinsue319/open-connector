@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -23,7 +23,7 @@ export type SvixActionName =
   | "get_message"
   | "create_message";
 
-function action(name: SvixActionName, description: string): ProviderActionDefinition<SvixActionName> {
+function action(name: SvixActionName, description: string): ActionDefinition {
   return defineProviderAction(service, {
     name,
     description,
@@ -32,7 +32,7 @@ function action(name: SvixActionName, description: string): ProviderActionDefini
   });
 }
 
-export const svixActions: ProviderActionDefinition<SvixActionName>[] = [
+export const svixActions: ActionDefinition[] = [
   action("list_event_types", "List Svix event types."),
   action("get_event_type", "Get one Svix event type."),
   action("create_event_type", "Create or unarchive a Svix event type."),

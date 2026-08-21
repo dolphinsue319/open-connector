@@ -13,5 +13,3 @@ export const unifapiActions: ProviderActionDefinition[] = unifapiOperations.map(
     outputSchema: operation.outputSchema,
   }),
 );
-
-export type UnifapiActionName = string;

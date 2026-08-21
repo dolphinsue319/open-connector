@@ -208,5 +208,3 @@ export const apipieAiActions: ActionDefinition[] = [
     outputSchema: embeddingOutputSchema,
   }),
 ];
-
-export type ApipieAiActionName = (typeof apipieAiActions)[number]["name"];

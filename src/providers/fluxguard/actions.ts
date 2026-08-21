@@ -5,15 +5,10 @@ import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "fluxguard";
 
-const nonEmptyStringSchema = (description: string) =>
-  s.string(description, {
-    minLength: 1,
-    pattern: "\\S",
-  });
 const urlSchema = s.url("The absolute URL that Fluxguard should monitor.");
-const siteIdSchema = nonEmptyStringSchema("The Fluxguard site ID.");
-const sessionIdSchema = nonEmptyStringSchema("The Fluxguard session ID.");
-const pageIdSchema = nonEmptyStringSchema("The Fluxguard page ID.");
+const siteIdSchema = s.nonWhitespaceString("The Fluxguard site ID.");
+const sessionIdSchema = s.nonWhitespaceString("The Fluxguard session ID.");
+const pageIdSchema = s.nonWhitespaceString("The Fluxguard page ID.");
 const webhookUrlSchema = s.url("The webhook URL that Fluxguard should notify.");
 const rawObjectSchema = s.unknownObject("The raw object returned by Fluxguard.");
 const accountSchema = s.object("A normalized Fluxguard account response.", {
@@ -51,7 +46,7 @@ const genericResultSchema = s.object("A normalized Fluxguard operation result.",
 });
 const categoryIdsSchema = s.array(
   "Fluxguard site category IDs to assign while creating a site.",
-  nonEmptyStringSchema("A Fluxguard category ID."),
+  s.nonWhitespaceString("A Fluxguard category ID."),
   { minItems: 1 },
 );
 
@@ -75,7 +70,7 @@ export const fluxguardActions: ActionDefinition[] = [
         url: urlSchema,
         siteId: siteIdSchema,
         sessionId: sessionIdSchema,
-        nickname: nonEmptyStringSchema("A nickname for the monitored site or page."),
+        nickname: s.nonWhitespaceString("A nickname for the monitored site or page."),
         categoryIds: categoryIdsSchema,
       },
       { optional: ["siteId", "sessionId", "nickname", "categoryIds"] },
@@ -137,7 +132,7 @@ export const fluxguardActions: ActionDefinition[] = [
         url: webhookUrlSchema,
         siteCategoryIds: s.array(
           "Fluxguard site category IDs to associate with the webhook.",
-          nonEmptyStringSchema("A Fluxguard site category ID."),
+          s.nonWhitespaceString("A Fluxguard site category ID."),
           { minItems: 1 },
         ),
       },
@@ -171,7 +166,7 @@ export const fluxguardActions: ActionDefinition[] = [
     description: "Create a Fluxguard site category.",
     requiredScopes: [],
     inputSchema: s.object("The input payload for creating a Fluxguard site category.", {
-      name: nonEmptyStringSchema("The Fluxguard site category name."),
+      name: s.nonWhitespaceString("The Fluxguard site category name."),
     }),
     outputSchema: s.object("The response returned when creating a Fluxguard site category.", {
       category: categorySchema,
@@ -202,17 +197,3 @@ export const fluxguardActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type FluxguardActionName =
-  | "get_account"
-  | "add_page"
-  | "initiate_crawl"
-  | "get_page"
-  | "get_sample_webhook"
-  | "list_webhooks"
-  | "upsert_webhook"
-  | "delete_webhook"
-  | "list_categories"
-  | "create_category"
-  | "delete_site"
-  | "delete_page";

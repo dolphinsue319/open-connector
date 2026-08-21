@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -65,7 +64,7 @@ export type LogoDevActionName =
   | "search_brands"
   | "describe_brand";
 
-export const logoDevActions: ProviderActionDefinition<LogoDevActionName>[] = [
+export const logoDevActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_logo_by_domain",
     description: "Build a Logo.dev image URL for a company domain.",

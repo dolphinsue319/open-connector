@@ -8,7 +8,7 @@ import type { Docsend2PdfActionName } from "./actions.ts";
 
 import { Buffer } from "node:buffer";
 import { compactObject, optionalBoolean, optionalInteger, optionalString } from "../../core/cast.ts";
-import { assertPublicHttpUrl } from "../../core/request.ts";
+import { assertPublicHttpUrl, readBoundedResponseBytes } from "../../core/request.ts";
 import {
   defineProviderExecutors,
   defineProviderProxy,
@@ -20,6 +20,7 @@ const service = "docsend_2_pdf";
 const convertUrl = "https://docsend2pdf.com/api/convert";
 const docsend2PdfApiBaseUrl = "https://docsend2pdf.com/api";
 const pdfMimeType = "application/pdf";
+const inlinePdfMaxBytes = 20 * 1024 * 1024;
 
 interface Docsend2PdfContext {
   fetcher: typeof fetch;
@@ -53,11 +54,16 @@ export const proxy: ProviderProxyExecutor = defineProviderProxy({
 
 async function convert(input: Record<string, unknown>, context: Docsend2PdfContext): Promise<unknown> {
   const returnPdfBase64 = optionalBoolean(input.returnPdfBase64) ?? false;
-  if (!returnPdfBase64 && !context.transitFiles) {
-    throw new ProviderRequestError(
-      400,
-      "Transit file storage is not enabled; set returnPdfBase64=true to return PDF bytes inline.",
-    );
+  const transitFiles = context.transitFiles;
+  let maxBytes = inlinePdfMaxBytes;
+  if (!returnPdfBase64) {
+    if (!transitFiles) {
+      throw new ProviderRequestError(
+        400,
+        "Transit file storage is not enabled; set returnPdfBase64=true to return PDF bytes inline.",
+      );
+    }
+    maxBytes = transitFiles.maxBytes;
   }
 
   const response = await context.fetcher(convertUrl, {
@@ -77,7 +83,13 @@ async function convert(input: Record<string, unknown>, context: Docsend2PdfConte
     throw new ProviderRequestError(502, `Docsend2pdf convert returned unexpected content type ${contentType}`);
   }
 
-  const bytes = Buffer.from(await response.arrayBuffer());
+  const bytes = Buffer.from(
+    await readBoundedResponseBytes(response, {
+      maxBytes,
+      fieldName: "Docsend2pdf converted PDF",
+      createError: (message) => new ProviderRequestError(413, message),
+    }),
+  );
   const outputName = normalizePdfName(optionalString(input.outputName) ?? readFilename(response));
   const pdf = returnPdfBase64
     ? {

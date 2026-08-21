@@ -204,5 +204,3 @@ export const cardlyActions: ProviderActionDefinition[] = [
 export const cardlyActionByName: Map<string, ProviderActionDefinition> = new Map(
   cardlyActions.map((action) => [action.name, action] as const),
 );
-
-export type CardlyActionName = (typeof cardlyActions)[number]["name"];

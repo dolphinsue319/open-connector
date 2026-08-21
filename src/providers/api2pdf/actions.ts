@@ -43,5 +43,3 @@ export const api2pdfActions: ActionDefinition[] = [
     outputSchema: markdownToPdfOutputSchema,
   }),
 ];
-
-export type Api2pdfActionName = (typeof api2pdfActions)[number]["name"];

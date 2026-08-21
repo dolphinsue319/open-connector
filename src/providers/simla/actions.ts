@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -113,7 +112,7 @@ const editCustomerInputSchema = s.object(
   { required: ["id", "customer"], optional: ["by", "site"] },
 );
 
-export const simlaActions: Array<ProviderActionDefinition<SimlaActionName>> = [
+export const simlaActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_orders",
     description: "List Simla orders with optional pagination and filter parameters.",
@@ -207,14 +206,3 @@ export const simlaActions: Array<ProviderActionDefinition<SimlaActionName>> = [
     }),
   }),
 ];
-
-export type SimlaActionName =
-  | "list_orders"
-  | "get_order"
-  | "create_order"
-  | "edit_order"
-  | "get_order_statuses"
-  | "list_customers"
-  | "get_customer"
-  | "create_customer"
-  | "edit_customer";

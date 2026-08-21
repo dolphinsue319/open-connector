@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -124,6 +123,4 @@ const actionSpecs: OomnitzaActionSpec[] = [
   },
 ];
 
-export const oomnitzaActions: ProviderActionDefinition<OomnitzaActionName>[] = actionSpecs.map((action) =>
-  defineProviderAction(service, action),
-);
+export const oomnitzaActions: ActionDefinition[] = actionSpecs.map((action) => defineProviderAction(service, action));

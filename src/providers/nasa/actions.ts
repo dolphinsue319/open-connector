@@ -353,7 +353,7 @@ function defineNasaAction(
 const donkiDateRangeInputSchema = (description: string) =>
   s.object(description, donkiDateRangeShape, { optional: ["startDate", "endDate"] });
 
-export const nasaActions: Array<ActionDefinition & { name: NasaActionName }> = [
+export const nasaActions: ActionDefinition[] = [
   defineNasaAction(
     "get_apod",
     "Retrieve NASA's Astronomy Picture of the Day metadata for a specific date or the current day.",

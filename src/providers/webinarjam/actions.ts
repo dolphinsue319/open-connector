@@ -153,5 +153,3 @@ export const webinarjamActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type WebinarjamActionName = (typeof webinarjamActions)[number]["name"];

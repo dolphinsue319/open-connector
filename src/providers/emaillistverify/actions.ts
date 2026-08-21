@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -36,17 +36,7 @@ const nullableIntegerSchema = s.nullableInteger("The provider integer value, or 
   minimum: 0,
 });
 
-export type EmailListVerifyActionName =
-  | "verify_email"
-  | "verify_email_detailed"
-  | "get_credits"
-  | "upload_email_list"
-  | "check_disposable"
-  | "get_email_list_progress"
-  | "download_email_list"
-  | "delete_email_list";
-
-export const emailListVerifyActions: ProviderActionDefinition<EmailListVerifyActionName>[] = [
+export const emailListVerifyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "verify_email",
     description: "Verify a single email address with EmailListVerify's real-time API.",

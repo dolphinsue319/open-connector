@@ -345,11 +345,3 @@ export const gladiaActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type GladiaActionName =
-  | "upload_file"
-  | "start_transcription"
-  | "get_transcription"
-  | "list_transcriptions"
-  | "download_transcription_audio"
-  | "delete_transcription";

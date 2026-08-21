@@ -370,8 +370,6 @@ export const stravaActions: ActionDefinition[] = [
   }),
 ];
 
-export type StravaActionName = (typeof stravaActions)[number]["name"];
-
 function listOutput(key: string): JsonSchema {
   return s.object({ [key]: rawArraySchema }, { required: [key], description: `Strava ${key} list response.` });
 }

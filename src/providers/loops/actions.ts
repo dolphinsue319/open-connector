@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -152,17 +151,7 @@ const sendEventInputSchema: JsonSchema = {
   anyOf: [{ required: ["email"] }, { required: ["userId"] }],
 };
 
-export type LoopsActionName =
-  | "create_contact"
-  | "update_contact"
-  | "find_contact"
-  | "delete_contact"
-  | "create_contact_property"
-  | "list_contact_properties"
-  | "list_mailing_lists"
-  | "send_event";
-
-export const loopsActions: ProviderActionDefinition<LoopsActionName>[] = [
+export const loopsActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_contact",
     description: "Create a Loops contact with default and custom contact properties.",

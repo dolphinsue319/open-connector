@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -62,9 +62,7 @@ const forecastDaySchema = s.object("A normalized wttr.in daily forecast summary.
   astronomy: astronomySchema,
 });
 
-export type WttrInActionName = "get_weather";
-
-export const wttrInActions: ProviderActionDefinition<WttrInActionName>[] = [
+export const wttrInActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_weather",
     description: "Get current weather and forecast from wttr.in as JSON.",

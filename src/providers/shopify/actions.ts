@@ -1,10 +1,10 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
+import { shopifyReadContentScope } from "./scopes.ts";
 
-const service = "shopify" as const;
-const contentScope = "content";
+const service = "shopify";
 
 const shopifyIdSchema = (description: string) => s.integer(description, { minimum: 1 });
 const nullableStringSchema = (description: string) => s.nullable(s.string(description));
@@ -99,20 +99,7 @@ const dateFilterInput = {
   published_at_max: dateTimeFilterSchema,
 };
 
-export type ShopifyActionName =
-  | "get_shop"
-  | "list_blogs"
-  | "get_blog"
-  | "count_blogs"
-  | "list_pages"
-  | "get_page"
-  | "count_pages"
-  | "list_articles"
-  | "get_article"
-  | "count_articles"
-  | "list_article_tags";
-
-export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
+export const shopifyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_shop",
     description: "Retrieve the connected Shopify REST Admin shop configuration.",
@@ -125,7 +112,8 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
   defineProviderAction(service, {
     name: "list_blogs",
     description: "List Shopify REST blogs with optional handle filtering and pagination.",
-    requiredScopes: [contentScope],
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
     inputSchema: s.object(
       "The input payload for listing Shopify REST blogs.",
       {
@@ -144,7 +132,8 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
   defineProviderAction(service, {
     name: "get_blog",
     description: "Retrieve one Shopify REST blog by numeric ID.",
-    requiredScopes: [contentScope],
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
     inputSchema: s.object("The input payload for retrieving one Shopify REST blog.", {
       blog_id: shopifyIdSchema("The Shopify blog ID."),
     }),
@@ -155,7 +144,8 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
   defineProviderAction(service, {
     name: "count_blogs",
     description: "Count Shopify REST blogs in the connected shop.",
-    requiredScopes: [contentScope],
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
     inputSchema: s.object("No input is required to count Shopify REST blogs.", {}),
     outputSchema: s.object("The Shopify REST blog count response.", {
       count: countSchema,
@@ -164,7 +154,8 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
   defineProviderAction(service, {
     name: "list_pages",
     description: "List Shopify REST pages with optional filters and pagination.",
-    requiredScopes: [contentScope],
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
     inputSchema: s.object(
       "The input payload for listing Shopify REST pages.",
       {
@@ -201,7 +192,8 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
   defineProviderAction(service, {
     name: "get_page",
     description: "Retrieve one Shopify REST page by numeric ID.",
-    requiredScopes: [contentScope],
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
     inputSchema: s.object("The input payload for retrieving one Shopify REST page.", {
       page_id: shopifyIdSchema("The Shopify page ID."),
     }),
@@ -212,22 +204,19 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
   defineProviderAction(service, {
     name: "count_pages",
     description: "Count Shopify REST pages with optional filters.",
-    requiredScopes: [contentScope],
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
     inputSchema: s.object(
       "The input payload for counting Shopify REST pages.",
       {
         title: nonEmptyStringSchema("Count pages with this exact Shopify page title."),
-        handle: nonEmptyStringSchema("Count pages with this Shopify page handle."),
         published_status: publishedStatusSchema,
-        since_id: sinceIdSchema,
         ...dateFilterInput,
       },
       {
         optional: [
           "title",
-          "handle",
           "published_status",
-          "since_id",
           "created_at_min",
           "created_at_max",
           "updated_at_min",
@@ -244,7 +233,8 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
   defineProviderAction(service, {
     name: "list_articles",
     description: "List Shopify REST articles in a blog with optional filters and pagination.",
-    requiredScopes: [contentScope],
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
     inputSchema: s.object(
       "The input payload for listing Shopify REST articles.",
       {
@@ -284,7 +274,8 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
   defineProviderAction(service, {
     name: "get_article",
     description: "Retrieve one Shopify REST article by blog ID and article ID.",
-    requiredScopes: [contentScope],
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
     inputSchema: s.object("The input payload for retrieving one Shopify REST article.", {
       blog_id: shopifyIdSchema("The Shopify blog ID."),
       article_id: shopifyIdSchema("The Shopify article ID."),
@@ -296,7 +287,8 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
   defineProviderAction(service, {
     name: "count_articles",
     description: "Count Shopify REST articles in a blog with optional filters.",
-    requiredScopes: [contentScope],
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
     inputSchema: s.object(
       "The input payload for counting Shopify REST articles.",
       {
@@ -323,7 +315,8 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
   defineProviderAction(service, {
     name: "list_article_tags",
     description: "List Shopify REST article tags across all articles in the connected shop.",
-    requiredScopes: [contentScope],
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
     inputSchema: s.object(
       "The input payload for listing Shopify REST article tags.",
       {
@@ -334,6 +327,34 @@ export const shopifyActions: ProviderActionDefinition<ShopifyActionName>[] = [
     ),
     outputSchema: s.object("The Shopify REST article tags response.", {
       tags: s.array("Article tags returned by Shopify.", s.string("One article tag.")),
+    }),
+  }),
+  defineProviderAction(service, {
+    name: "list_blog_article_tags",
+    description: "List Shopify REST article tags for one blog.",
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
+    inputSchema: s.object(
+      "The input payload for listing Shopify REST article tags in one blog.",
+      {
+        blog_id: shopifyIdSchema("The Shopify blog ID."),
+        limit: limitSchema,
+        popular: s.boolean("Whether Shopify should order tags by popularity."),
+      },
+      { optional: ["limit", "popular"] },
+    ),
+    outputSchema: s.object("The Shopify REST blog article tags response.", {
+      tags: s.array("Article tags returned by Shopify.", s.string("One article tag.")),
+    }),
+  }),
+  defineProviderAction(service, {
+    name: "list_article_authors",
+    description: "List Shopify REST article authors across the connected shop.",
+    requiredScopes: [shopifyReadContentScope],
+    providerPermissions: [shopifyReadContentScope],
+    inputSchema: s.object("No input is required to list Shopify REST article authors.", {}),
+    outputSchema: s.object("The Shopify REST article authors response.", {
+      authors: s.array("Article authors returned by Shopify.", s.string("One article author.")),
     }),
   }),
 ];

@@ -1,4 +1,5 @@
 import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -139,7 +140,7 @@ export type ShopifyStorefrontActionName =
   | "get_cart"
   | "add_cart_lines";
 
-export const shopifyStorefrontActions: ProviderActionDefinition<ShopifyStorefrontActionName>[] = [
+export const shopifyStorefrontActions: ActionDefinition[] = [
   defineShopifyStorefrontAction({
     name: "get_shop",
     description: "Get public shop metadata from Shopify Storefront.",

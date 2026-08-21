@@ -87,5 +87,3 @@ export const wolframAlphaApiActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type WolframAlphaApiActionName = (typeof wolframAlphaApiActions)[number]["name"];

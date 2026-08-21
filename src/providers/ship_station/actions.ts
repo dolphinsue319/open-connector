@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -28,13 +28,7 @@ const purchaseOrderStatusSchema = s.stringEnum("The purchase order status filter
   "cancelled",
 ]);
 
-export type ShipStationActionName =
-  | "list_inventory_levels"
-  | "list_inventory_warehouses"
-  | "list_purchase_orders"
-  | "get_purchase_order";
-
-export const shipStationActions: ProviderActionDefinition<ShipStationActionName>[] = [
+export const shipStationActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_inventory_levels",
     description: "List ShipStation V2 inventory stock levels and inventory-related properties for SKUs.",

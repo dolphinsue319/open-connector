@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -64,9 +64,7 @@ const verifyPhoneNumberOutputSchema = s.object(
   },
 );
 
-export type VeriphoneActionName = "get_credits" | "verify_phone_number";
-
-export const veriphoneActions: ProviderActionDefinition<VeriphoneActionName>[] = [
+export const veriphoneActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_credits",
     description: "Retrieve the current Veriphone verification credit summary for the account.",

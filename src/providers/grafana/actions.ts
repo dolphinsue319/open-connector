@@ -1,32 +1,21 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "grafana";
 
-export type GrafanaActionName =
-  | "list_folders"
-  | "get_folder"
-  | "create_folder"
-  | "update_folder"
-  | "delete_folder"
-  | "search_dashboards"
-  | "get_dashboard"
-  | "create_dashboard"
-  | "update_dashboard"
-  | "delete_dashboard"
-  | "list_data_sources"
-  | "get_data_source"
-  | "create_data_source"
-  | "update_data_source"
-  | "delete_data_source";
-
 const namespaceSchema = s.string("The Grafana API namespace. Use default for the main organization.", {
   minLength: 1,
 });
 
 const rawObjectSchema = s.looseObject("The raw Grafana API object.");
+
+const alertRuleSchema = s.looseObject("A Grafana-managed alert rule.");
+
+const alertInstanceSchema = s.looseObject("A firing or pending Grafana alert instance.");
+
+const contactPointSchema = s.looseObject("A Grafana notification contact point.");
 
 const folderSchema = s.object("A normalized Grafana folder.", {
   uid: s.nullable(s.string("The Grafana folder UID.")),
@@ -74,7 +63,7 @@ const dataSourcePayloadSchema = s.looseObject(
   "The Grafana data source payload. Use official Grafana data source fields such as name, type, access, url, jsonData, and secureJsonData.",
 );
 
-export const grafanaActions: Array<ProviderActionDefinition<GrafanaActionName>> = [
+export const grafanaActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_folders",
     description: "List Grafana folders in a namespace with optional pagination.",
@@ -323,6 +312,54 @@ export const grafanaActions: Array<ProviderActionDefinition<GrafanaActionName>> 
     outputSchema: s.object("Grafana data source deletion result.", {
       deleted: s.boolean("Whether the connector completed the delete request."),
       raw: s.nullable(rawObjectSchema),
+    }),
+  }),
+  defineProviderAction(service, {
+    name: "list_alert_rules",
+    description: "List all Grafana-managed alert rules via the provisioning API.",
+    requiredScopes: [],
+    inputSchema: s.object("No input is required to list Grafana alert rules.", {}),
+    outputSchema: s.object("Grafana-managed alert rules.", {
+      alertRules: s.array("Alert rules returned by Grafana.", alertRuleSchema),
+    }),
+  }),
+  defineProviderAction(service, {
+    name: "get_alert_rule",
+    description: "Retrieve one Grafana-managed alert rule by UID via the provisioning API.",
+    requiredScopes: [],
+    inputSchema: s.object(
+      "Input for retrieving a Grafana alert rule.",
+      { uid: s.string("The Grafana alert rule UID.", { minLength: 1 }) },
+      { required: ["uid"] },
+    ),
+    outputSchema: s.object("A Grafana-managed alert rule.", {
+      alertRule: alertRuleSchema,
+    }),
+  }),
+  defineProviderAction(service, {
+    name: "list_alert_instances",
+    description: "List currently firing or pending Grafana alert instances from the built-in Alertmanager.",
+    requiredScopes: [],
+    inputSchema: s.object(
+      "Input for listing Grafana alert instances.",
+      {
+        active: s.boolean("Include active (firing) alert instances."),
+        silenced: s.boolean("Include silenced alert instances."),
+        inhibited: s.boolean("Include inhibited alert instances."),
+      },
+      { optional: ["active", "silenced", "inhibited"] },
+    ),
+    outputSchema: s.object("Grafana alert instances.", {
+      alertInstances: s.array("Alert instances returned by Grafana.", alertInstanceSchema),
+    }),
+  }),
+  defineProviderAction(service, {
+    name: "list_contact_points",
+    description: "List Grafana notification contact points via the provisioning API.",
+    requiredScopes: [],
+    inputSchema: s.object("No input is required to list Grafana contact points.", {}),
+    outputSchema: s.object("Grafana notification contact points.", {
+      contactPoints: s.array("Contact points returned by Grafana.", contactPointSchema),
     }),
   }),
 ];

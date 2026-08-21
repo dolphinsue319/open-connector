@@ -1164,5 +1164,3 @@ export const v0Actions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type V0ActionName = (typeof v0Actions)[number]["name"];

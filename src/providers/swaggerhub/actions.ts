@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -21,7 +21,7 @@ export type SwaggerHubActionName =
   | "list_projects"
   | "get_project";
 
-function action(name: SwaggerHubActionName, description: string): ProviderActionDefinition<SwaggerHubActionName> {
+function action(name: SwaggerHubActionName, description: string): ActionDefinition {
   return defineProviderAction(service, {
     name,
     description,
@@ -30,7 +30,7 @@ function action(name: SwaggerHubActionName, description: string): ProviderAction
   });
 }
 
-export const swaggerhubActions: ProviderActionDefinition<SwaggerHubActionName>[] = [
+export const swaggerhubActions: ActionDefinition[] = [
   action("search_registry_specs", "Search SwaggerHub registry specs."),
   action("search_apis", "Search SwaggerHub APIs."),
   action("list_owner_apis", "List APIs for a SwaggerHub owner."),

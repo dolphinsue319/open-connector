@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -266,9 +266,7 @@ const getCreditBalanceOutputSchema = s.object(
   { optional: ["earliest_expiration"] },
 );
 
-export type TheirStackActionName = "search_jobs" | "search_companies" | "list_technographics" | "get_credit_balance";
-
-export const theirstackActions: Array<ProviderActionDefinition<TheirStackActionName>> = [
+export const theirstackActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "search_jobs",
     description: "Search TheirStack job postings with company, title, keyword, location, and posting date filters.",

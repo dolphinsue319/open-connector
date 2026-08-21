@@ -187,5 +187,3 @@ export const assemblyaiActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AssemblyaiActionName = (typeof assemblyaiActions)[number]["name"];

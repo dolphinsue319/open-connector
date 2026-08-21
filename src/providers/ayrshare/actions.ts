@@ -289,5 +289,3 @@ export const ayrshareActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AyrshareActionName = (typeof ayrshareActions)[number]["name"];

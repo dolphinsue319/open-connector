@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -74,9 +74,7 @@ const createTokenOutputSchema = s.object(
   { optional: ["raw"] },
 );
 
-export type SkyfireActionName = "get_all_services" | "get_service" | "get_services_by_agent" | "create_token";
-
-export const skyfireActions: ProviderActionDefinition<SkyfireActionName>[] = [
+export const skyfireActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_all_services",
     description: "List all approved and active services from the Skyfire marketplace directory.",

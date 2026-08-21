@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { StatamicActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
@@ -18,7 +18,7 @@ const statamicDefaultRequestTimeoutMs = 30_000;
 type StatamicPhase = "validate" | "execute";
 type StatamicActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const statamicActionHandlers: Record<StatamicActionName, StatamicActionHandler> = {
+export const statamicActionHandlers: ProviderActionHandlers<"statamic", StatamicActionHandler> = {
   async list_sites(_input, context) {
     const payload = await requestStatamicJson({
       path: "/sites",

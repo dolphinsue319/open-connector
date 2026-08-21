@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -17,9 +17,7 @@ const graphQLErrorSchema = s.looseObject("One GraphQL error returned by Contentf
   extensions: s.looseObject("Provider-specific GraphQL error extensions."),
 });
 
-export type ContentfulGraphqlActionName = "execute_query";
-
-export const contentfulGraphqlActions: Array<ProviderActionDefinition<ContentfulGraphqlActionName>> = [
+export const contentfulGraphqlActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "execute_query",
     description: "Execute a Contentful GraphQL Content API query against a space and environment.",

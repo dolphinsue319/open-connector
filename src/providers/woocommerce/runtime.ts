@@ -1,6 +1,6 @@
 import type { CredentialValidationResult, TransitFileWriter } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { WooCommerceActionName } from "./actions.ts";
 
 import { Buffer } from "node:buffer";
 import {
@@ -15,7 +15,7 @@ import {
   requiredString,
 } from "../../core/cast.ts";
 import { assertPublicHttpUrl, readBoundedResponseBytes } from "../../core/request.ts";
-import { providerUserAgent, ProviderRequestError, readTransitFileInput } from "../provider-runtime.ts";
+import { providerFetch, providerUserAgent, ProviderRequestError, readTransitFileInput } from "../provider-runtime.ts";
 
 const maxMediaUploadSourceBytes = 20 * 1024 * 1024;
 
@@ -58,8 +58,8 @@ interface MediaMetadataUpdateResult {
   metadataError: string | null;
 }
 
-export const woocommerceActionHandlers: Record<
-  WooCommerceActionName,
+export const woocommerceActionHandlers: ProviderActionHandlers<
+  "woocommerce",
   ProviderRuntimeHandler<WooCommerceCredentialContext>
 > = {
   list_products: listProducts,
@@ -136,8 +136,8 @@ export function resolveWooCommerceCredentialContext(
     wpApiBaseUrl: `${storeUrl}/wp-json/wp/v2`,
     consumerKey: requiredProviderString(input.consumerKey, "consumerKey"),
     consumerSecret: requiredProviderString(input.consumerSecret, "consumerSecret"),
-    ...(wordpressUsername ? { wordpressUsername } : {}),
-    ...(wordpressApplicationPassword ? { wordpressApplicationPassword } : {}),
+    wordpressUsername,
+    wordpressApplicationPassword,
     fetcher,
     signal,
     transitFiles,
@@ -753,9 +753,11 @@ async function resolveMediaUploadSource(
 }
 
 async function downloadSourceBytes(sourceUrl: string, context: WooCommerceCredentialContext): Promise<Uint8Array> {
-  const response = await context.fetcher(sourceUrl, {
+  const response = await providerFetch(sourceUrl, {
     method: "GET",
-    redirect: "error",
+    // Workers has no "error" redirect mode; "manual" never follows either, and
+    // the !response.ok check below rejects any 3xx.
+    redirect: "manual",
     signal: context.signal,
   });
   if (!response.ok) throw new ProviderRequestError(502, `failed to fetch upload source: ${response.status}`);

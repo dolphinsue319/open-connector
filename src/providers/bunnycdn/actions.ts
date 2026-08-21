@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -68,9 +68,7 @@ const purgePullZoneCacheInputSchema = s.object(
   { required: ["pullZoneId"], optional: ["cacheTag"] },
 );
 
-export type BunnycdnActionName = "list_pull_zones" | "get_pull_zone" | "purge_pull_zone_cache";
-
-export const bunnycdnActions: ProviderActionDefinition<BunnycdnActionName>[] = [
+export const bunnycdnActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_pull_zones",
     description: "List Bunny Pull Zones with optional pagination, search, and certificate expansion.",

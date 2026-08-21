@@ -1,10 +1,15 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { HereActionName } from "./actions.ts";
 
 import { optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import { jsonObject } from "../../core/request.ts";
-import { defineApiKeyProviderExecutors, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "here";
 const hereGeocodeBaseUrl = "https://geocode.search.hereapi.com/v1";
@@ -18,7 +23,7 @@ type HereRequestPhase = "validate" | "execute";
 type HereActionContext = Pick<ApiKeyProviderContext, "apiKey" | "fetcher" | "signal">;
 type HereActionHandler = (input: Record<string, unknown>, context: HereActionContext) => Promise<unknown>;
 
-export const hereActionHandlers: Record<HereActionName, HereActionHandler> = {
+export const hereActionHandlers: ProviderActionHandlers<"here", HereActionHandler> = {
   geocode(input, context) {
     return hereGetJson(
       buildHereUrl(hereGeocodeBaseUrl, "/geocode", context.apiKey, {
@@ -259,3 +264,9 @@ function assertValidHereSpatialContext(input: Record<string, unknown>, actionNam
 function readRequiredHereString(value: unknown, fieldName: string): string {
   return requiredString(value, fieldName, (message) => new ProviderRequestError(400, message));
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://geocode.search.hereapi.com/v1",
+  auth: { type: "api_key_query", name: "apiKey" },
+});

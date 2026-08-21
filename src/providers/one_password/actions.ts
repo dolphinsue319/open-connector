@@ -26,15 +26,7 @@ const itemSchema = s.looseObject("A full 1Password item object.", {
 });
 const activitySchema = s.looseObject("A 1Password Connect activity event object.");
 
-export type OnePasswordActionName =
-  | "get_health"
-  | "list_vaults"
-  | "get_vault"
-  | "list_items"
-  | "get_item"
-  | "list_activity";
-
-export const onePasswordActions: Array<ActionDefinition & { name: OnePasswordActionName }> = [
+export const onePasswordActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_health",
     description: "Get health details for the configured 1Password Connect Server.",

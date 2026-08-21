@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -98,17 +97,7 @@ const noticeStatusInputSchema = s.actionInput(
   "Input parameters for an Airbrake notice status.",
 );
 
-export type AirbrakeActionName =
-  | "list_projects"
-  | "get_project"
-  | "list_deploys"
-  | "get_deploy"
-  | "list_groups"
-  | "get_group"
-  | "list_notices"
-  | "get_notice_status";
-
-export const airbrakeActions: Array<ProviderActionDefinition<AirbrakeActionName>> = [
+export const airbrakeActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_projects",
     description: "List Airbrake projects visible to the User API key.",

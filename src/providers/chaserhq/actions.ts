@@ -111,6 +111,4 @@ export const chaserhqActions: ActionDefinition[] = [
     inputSchema: idInput("invoiceId", "The Chaser invoice identifier."),
     outputSchema: s.object({ history: raw }),
   }),
-] satisfies ActionDefinition[];
-
-export type ChaserhqActionName = (typeof chaserhqActions)[number]["name"];
+];

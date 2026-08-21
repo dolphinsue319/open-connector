@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -74,17 +74,7 @@ const projectSchema = s.object("A normalized Rollbar project.", {
   raw: rawObjectSchema,
 });
 
-export type RollbarActionName =
-  | "get_project"
-  | "list_items"
-  | "get_item"
-  | "list_item_occurrences"
-  | "get_occurrence"
-  | "list_environments"
-  | "list_deploys"
-  | "get_deploy";
-
-export const rollbarActions: ProviderActionDefinition<RollbarActionName>[] = [
+export const rollbarActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_project",
     description: "Get one Rollbar project by project ID.",

@@ -138,5 +138,3 @@ export const podscribeActions: ProviderActionDefinition[] = [
     outputSchema: showInfoSchema,
   }),
 ];
-
-export type PodscribeActionName = (typeof podscribeActions)[number]["name"];

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -232,16 +232,7 @@ const participantsOutputSchema = s.object("Participants returned by The Odds API
   quota: quotaSchema,
 });
 
-export type TheOddsApiActionName =
-  | "list_sports"
-  | "get_odds"
-  | "get_scores"
-  | "list_events"
-  | "get_event_odds"
-  | "list_event_markets"
-  | "list_participants";
-
-export const theOddsApiActions: Array<ProviderActionDefinition<TheOddsApiActionName>> = [
+export const theOddsApiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_sports",
     description: "List sports supported by The Odds API.",

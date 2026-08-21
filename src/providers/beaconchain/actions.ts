@@ -361,5 +361,3 @@ export const beaconchainActions: ActionDefinition[] = [
     outputSchema: rewardListOutputSchema,
   }),
 ];
-
-export type BeaconchainActionName = (typeof beaconchainActions)[number]["name"];

@@ -319,5 +319,3 @@ export const eodhdApisActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type EodhdApisActionName = (typeof eodhdApisActions)[number]["name"];

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -183,9 +183,7 @@ const inquiryOutputSchema = s.object("The normalized Persona inquiry response.",
   raw: s.looseObject("The raw Persona response payload."),
 });
 
-export type PersonaActionName = "list_inquiries" | "get_inquiry" | "create_inquiry" | "update_inquiry";
-
-export const personaActions: Array<ProviderActionDefinition<PersonaActionName>> = [
+export const personaActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_inquiries",
     description: "List Persona inquiries across inquiry templates with documented cursor pagination and filters.",

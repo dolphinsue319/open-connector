@@ -1,16 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "metronome";
-
-export type MetronomeActionName =
-  | "list_customers"
-  | "get_customer"
-  | "list_billable_metrics"
-  | "list_invoices"
-  | "get_invoice";
 
 const rawObjectSchema = s.looseObject("The raw Metronome object returned by the API.");
 
@@ -188,7 +181,7 @@ const getInvoiceAction = defineProviderAction(service, {
   }),
 });
 
-export const metronomeActions: ProviderActionDefinition<MetronomeActionName>[] = [
+export const metronomeActions: ActionDefinition[] = [
   listCustomersAction,
   getCustomerAction,
   listBillableMetricsAction,

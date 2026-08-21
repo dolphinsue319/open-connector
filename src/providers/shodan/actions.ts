@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -12,16 +12,7 @@ const looseObjectArraySchema = s.array("List of raw JSON objects returned by Sho
 const nonEmptyStringArray = (itemDescription: string, description: string) =>
   s.array(description, nonEmptyString(itemDescription), { minItems: 1 });
 
-export type ShodanActionName =
-  | "get_api_info"
-  | "search_hosts"
-  | "count_search_results"
-  | "get_host"
-  | "get_domain_info"
-  | "resolve_hostnames"
-  | "reverse_dns_lookup";
-
-export const shodanActions: ProviderActionDefinition<ShodanActionName>[] = [
+export const shodanActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_api_info",
     description: "Get API account information and remaining credits from Shodan.",

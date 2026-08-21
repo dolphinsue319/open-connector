@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { ApiverveActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
 import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
@@ -13,7 +13,7 @@ type ApivervePhase = "validate" | "execute";
 type ApiverveQueryValue = number | string | undefined;
 type ApiverveActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const apiverveActionHandlers: Record<ApiverveActionName, ApiverveActionHandler> = {
+export const apiverveActionHandlers: ProviderActionHandlers<"apiverve", ApiverveActionHandler> = {
   async get_word_definition(input, context) {
     const data = await requestApiverveData({
       path: "/v1/dictionary",

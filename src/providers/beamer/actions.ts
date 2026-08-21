@@ -289,5 +289,3 @@ export const beamerActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type BeamerActionName = (typeof beamerActions)[number]["name"];

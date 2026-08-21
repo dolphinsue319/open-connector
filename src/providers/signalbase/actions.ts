@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -403,7 +403,7 @@ const listOutputSchema = (description: string, itemDescription: string) =>
     meta: metaOutputSchema,
   });
 
-export const signalbaseActions: ProviderActionDefinition<SignalbaseActionName>[] = [
+export const signalbaseActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_companies",
     description: "Browse and search Signalbase company profiles with pagination, filters, and sorting.",
@@ -458,7 +458,7 @@ export const signalbaseActions: ProviderActionDefinition<SignalbaseActionName>[]
     inputSchema: investorQueryInputSchema,
     outputSchema: listOutputSchema("Signalbase investors response.", "Investor records returned by Signalbase."),
   }),
-] satisfies ProviderActionDefinition<SignalbaseActionName>[];
+];
 
 export type SignalbaseActionName =
   | "list_companies"

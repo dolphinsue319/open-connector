@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -68,14 +68,7 @@ const conversationInputFields = {
   sourceName: s.nonEmptyString("The source application name for the inbound message."),
 };
 
-export type PersonalAiActionName =
-  | "send_message"
-  | "send_instruction"
-  | "upload_memory"
-  | "upload_text_document"
-  | "upload_url";
-
-export const personalAiActions: Array<ProviderActionDefinition<PersonalAiActionName>> = [
+export const personalAiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "send_message",
     description: "Send a message to a Personal AI persona and receive a response.",

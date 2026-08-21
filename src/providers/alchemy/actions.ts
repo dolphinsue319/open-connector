@@ -205,5 +205,3 @@ export const alchemyActions: ActionDefinition[] = [
     outputSchema: getNftMetadataOutputSchema,
   }),
 ];
-
-export type AlchemyActionName = (typeof alchemyActions)[number]["name"];

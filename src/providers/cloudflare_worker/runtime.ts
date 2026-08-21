@@ -1,6 +1,7 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { CloudflareCurrentUser } from "../cloudflare-current-user.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { CloudflareWorkerActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -11,6 +12,7 @@ import {
   requiredString,
 } from "../../core/cast.ts";
 import { queryParams } from "../../core/request.ts";
+import { readCloudflareCurrentUser } from "../cloudflare-current-user.ts";
 import { ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
 
 export interface CloudflareWorkerContext {
@@ -48,8 +50,8 @@ const cloudflareApiBaseUrl = "https://api.cloudflare.com/client/v4";
 const defaultModuleName = "main.js";
 const defaultModuleContentType = "application/javascript+module";
 
-export const cloudflareWorkerActionHandlers: Record<
-  CloudflareWorkerActionName,
+export const cloudflareWorkerActionHandlers: ProviderActionHandlers<
+  "cloudflare_worker",
   ProviderRuntimeHandler<CloudflareWorkerContext>
 > = {
   list_accounts(input, context) {
@@ -78,6 +80,24 @@ export const cloudflareWorkerActionHandlers: Record<
   },
   search_worker_scripts(input, context) {
     return searchWorkerScripts(input, context);
+  },
+  list_build_triggers(input, context) {
+    return listBuildTriggers(input, context);
+  },
+  create_manual_build(input, context) {
+    return createManualBuild(input, context);
+  },
+  list_builds(input, context) {
+    return listBuilds(input, context);
+  },
+  get_build(input, context) {
+    return getBuild(input, context);
+  },
+  get_build_logs(input, context) {
+    return getBuildLogs(input, context);
+  },
+  cancel_build(input, context) {
+    return cancelBuild(input, context);
   },
   upload_worker_script(input, context) {
     return uploadWorkerScript(input, context);
@@ -204,6 +224,15 @@ export async function requestCloudflareWorkerAccounts(
     accounts: envelope.result.map((item) => normalizeAccount(item)),
     resultInfo: normalizeResultInfo(envelope.result_info),
   };
+}
+
+export async function requestCloudflareWorkerCurrentUser(
+  accessToken: string,
+  fetcher: typeof fetch,
+  signal?: AbortSignal,
+): Promise<CloudflareCurrentUser> {
+  const envelope = await cloudflareRequestEnvelope(accessToken, { path: "/user" }, { fetcher, signal }, "validate");
+  return readCloudflareCurrentUser(envelope.result);
 }
 
 async function listAccounts(input: Record<string, unknown>, context: CloudflareWorkerContext): Promise<unknown> {
@@ -363,6 +392,116 @@ async function searchWorkerScripts(input: Record<string, unknown>, context: Clou
     scripts: normalizeWorkerScriptList(envelope.result),
     resultInfo: normalizeResultInfo(envelope.result_info),
   };
+}
+
+async function listBuildTriggers(input: Record<string, unknown>, context: CloudflareWorkerContext): Promise<unknown> {
+  const accountId = resolveAccountId(input, context);
+  const scriptTag = requiredString(input.scriptTag, "scriptTag", (message) => new ProviderRequestError(400, message));
+  const envelope = await requestEnvelope(
+    context,
+    {
+      path: `/accounts/${encodeURIComponent(accountId)}/builds/workers/${encodeURIComponent(scriptTag)}/triggers`,
+    },
+    "execute",
+  );
+  return { triggers: normalizeBuildTriggerList(envelope.result) };
+}
+
+async function createManualBuild(input: Record<string, unknown>, context: CloudflareWorkerContext): Promise<unknown> {
+  const accountId = resolveAccountId(input, context);
+  const triggerUuid = requiredString(
+    input.triggerUuid,
+    "triggerUuid",
+    (message) => new ProviderRequestError(400, message),
+  );
+  const branch = optionalString(input.branch);
+  const commitHash = optionalString(input.commitHash);
+  if (!branch && !commitHash) {
+    throw new ProviderRequestError(400, "branch or commitHash is required");
+  }
+  const envelope = await requestEnvelope(
+    context,
+    {
+      method: "POST",
+      path: `/accounts/${encodeURIComponent(accountId)}/builds/triggers/${encodeURIComponent(triggerUuid)}/builds`,
+      body: compactObject({ branch, commit_hash: commitHash }),
+    },
+    "execute",
+  );
+  const build = readObject(envelope.result, "cloudflare worker build creation");
+  return compactObject({
+    buildUuid: readRequiredString(build, "build_uuid"),
+    createdOn: optionalString(build.created_on),
+  });
+}
+
+async function listBuilds(input: Record<string, unknown>, context: CloudflareWorkerContext): Promise<unknown> {
+  const accountId = resolveAccountId(input, context);
+  const scriptTag = requiredString(input.scriptTag, "scriptTag", (message) => new ProviderRequestError(400, message));
+  const envelope = await requestEnvelope(
+    context,
+    {
+      path: `/accounts/${encodeURIComponent(accountId)}/builds/workers/${encodeURIComponent(scriptTag)}/builds`,
+      query: {
+        page: optionalInteger(input.page),
+        per_page: optionalInteger(input.perPage),
+      },
+    },
+    "execute",
+  );
+  return compactObject({
+    builds: normalizeBuildList(envelope.result),
+    resultInfo: normalizeResultInfo(envelope.result_info),
+  });
+}
+
+async function getBuild(input: Record<string, unknown>, context: CloudflareWorkerContext): Promise<unknown> {
+  const accountId = resolveAccountId(input, context);
+  const buildUuid = requiredString(input.buildUuid, "buildUuid", (message) => new ProviderRequestError(400, message));
+  const envelope = await requestEnvelope(
+    context,
+    { path: `/accounts/${encodeURIComponent(accountId)}/builds/builds/${encodeURIComponent(buildUuid)}` },
+    "execute",
+  );
+  return { build: normalizeBuild(envelope.result) };
+}
+
+async function getBuildLogs(input: Record<string, unknown>, context: CloudflareWorkerContext): Promise<unknown> {
+  const accountId = resolveAccountId(input, context);
+  const buildUuid = requiredString(input.buildUuid, "buildUuid", (message) => new ProviderRequestError(400, message));
+  const envelope = await requestEnvelope(
+    context,
+    {
+      path: `/accounts/${encodeURIComponent(accountId)}/builds/builds/${encodeURIComponent(buildUuid)}/logs`,
+      query: { cursor: optionalString(input.cursor) },
+    },
+    "execute",
+  );
+  const logs = readObject(envelope.result, "cloudflare worker build logs");
+  return compactObject({
+    lines: normalizeBuildLogLines(logs.lines),
+    cursor: optionalString(logs.cursor),
+    truncated: optionalBoolean(logs.truncated),
+  });
+}
+
+async function cancelBuild(input: Record<string, unknown>, context: CloudflareWorkerContext): Promise<unknown> {
+  const accountId = resolveAccountId(input, context);
+  const buildUuid = requiredString(input.buildUuid, "buildUuid", (message) => new ProviderRequestError(400, message));
+  const envelope = await requestEnvelope(
+    context,
+    {
+      method: "PUT",
+      path: `/accounts/${encodeURIComponent(accountId)}/builds/builds/${encodeURIComponent(buildUuid)}/cancel`,
+    },
+    "execute",
+  );
+  const build = readObject(envelope.result, "cloudflare cancelled worker build");
+  return compactObject({
+    buildUuid: optionalString(build.build_uuid) ?? buildUuid,
+    buildOutcome: optionalString(build.build_outcome),
+    stoppedOn: build.stopped_on === null ? null : optionalString(build.stopped_on),
+  });
 }
 
 async function uploadWorkerScript(input: Record<string, unknown>, context: CloudflareWorkerContext): Promise<unknown> {
@@ -584,32 +723,15 @@ function resolveAccountId(input: Record<string, unknown>, context: CloudflareWor
   if (!accountId) {
     throw new ProviderRequestError(
       400,
-      Array.isArray(context.metadata.availableAccounts)
-        ? "accountId is required for this Cloudflare Worker action because the OAuth credential can access multiple accounts"
+      context.authType === "oauth2"
+        ? "accountId is required for this Cloudflare Worker action. Use list_accounts to find an accessible Cloudflare account ID."
         : "accountId is required in the connected credential",
     );
   }
   if (context.authType === "custom_credential" && inputAccountId && inputAccountId !== accountId) {
     throw new ProviderRequestError(400, "accountId must match the connected credential");
   }
-  ensureAccountIsAvailable(accountId, context.metadata);
   return accountId;
-}
-
-function ensureAccountIsAvailable(accountId: string, metadata: Record<string, unknown>): void {
-  if (!Array.isArray(metadata.availableAccounts)) {
-    return;
-  }
-  const matched = metadata.availableAccounts.some((item) => {
-    const account = optionalRecord(item);
-    return optionalString(account?.id) === accountId;
-  });
-  if (!matched) {
-    throw new ProviderRequestError(
-      400,
-      "accountId must be one of the Cloudflare accounts accessible by this OAuth credential",
-    );
-  }
 }
 
 function buildWorkerMutationBody(input: Record<string, unknown>): Record<string, unknown> {
@@ -967,7 +1089,7 @@ function normalizeWorkerScript(value: unknown): Record<string, unknown> {
   const name = optionalString(script.script_name) ?? optionalString(script.name) ?? id;
   return compactObject({
     name,
-    scriptTag: optionalString(script.script_tag) ?? (id && id !== name ? id : undefined),
+    scriptTag: optionalString(script.tag) ?? optionalString(script.script_tag) ?? (id && id !== name ? id : undefined),
     createdOn: optionalString(script.created_on),
     modifiedOn: optionalString(script.modified_on),
     compatibilityDate: optionalString(script.compatibility_date),
@@ -982,6 +1104,142 @@ function normalizeWorkerScript(value: unknown): Record<string, unknown> {
     serviceName: optionalString(script.service_name),
     tags: readOptionalStringArray(script.tags),
     observability: optionalRecord(script.observability),
+  });
+}
+
+function normalizeBuildTriggerList(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {
+    throw new ProviderRequestError(502, "malformed cloudflare build trigger list response");
+  }
+  return value.map((item) => normalizeBuildTrigger(item));
+}
+
+function normalizeBuildTrigger(value: unknown): Record<string, unknown> {
+  const trigger = readObject(value, "cloudflare worker build trigger");
+  return compactObject({
+    triggerUuid: readRequiredString(trigger, "trigger_uuid"),
+    triggerName: optionalString(trigger.trigger_name),
+    externalScriptId: optionalString(trigger.external_script_id),
+    buildCommand: optionalString(trigger.build_command),
+    deployCommand: optionalString(trigger.deploy_command),
+    rootDirectory: optionalString(trigger.root_directory),
+    branchIncludes: readOptionalStringArray(trigger.branch_includes),
+    branchExcludes: readOptionalStringArray(trigger.branch_excludes),
+    pathIncludes: readOptionalStringArray(trigger.path_includes),
+    pathExcludes: readOptionalStringArray(trigger.path_excludes),
+    buildCachingEnabled: optionalBoolean(trigger.build_caching_enabled),
+    buildTokenUuid: optionalString(trigger.build_token_uuid),
+    buildTokenName: optionalString(trigger.build_token_name),
+    createdOn: optionalString(trigger.created_on),
+    modifiedOn: optionalString(trigger.modified_on),
+    deletedOn: trigger.deleted_on === null ? null : optionalString(trigger.deleted_on),
+    repoConnection: normalizeBuildRepoConnection(trigger.repo_connection),
+  });
+}
+
+function normalizeBuildRepoConnection(value: unknown): Record<string, unknown> | undefined {
+  const connection = optionalRecord(value);
+  if (!connection) {
+    return undefined;
+  }
+  return compactObject({
+    providerAccountId: optionalString(connection.provider_account_id),
+    providerAccountName: optionalString(connection.provider_account_name),
+    providerType: optionalString(connection.provider_type),
+    repoConnectionUuid: optionalString(connection.repo_connection_uuid),
+    repoId: optionalString(connection.repo_id),
+    repoName: optionalString(connection.repo_name),
+    createdOn: optionalString(connection.created_on),
+    modifiedOn: optionalString(connection.modified_on),
+    deletedOn: connection.deleted_on === null ? null : optionalString(connection.deleted_on),
+  });
+}
+
+function normalizeBuildList(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {
+    throw new ProviderRequestError(502, "malformed cloudflare worker build list response");
+  }
+  return value.map((item) => normalizeBuild(item));
+}
+
+function normalizeBuild(value: unknown): Record<string, unknown> {
+  const build = readObject(value, "cloudflare worker build");
+  const status = optionalString(build.status);
+  const buildOutcome = optionalString(build.build_outcome);
+  return compactObject({
+    buildUuid: readRequiredString(build, "build_uuid"),
+    state: normalizeBuildState(status, buildOutcome),
+    status,
+    buildOutcome,
+    createdOn: optionalString(build.created_on),
+    initializingOn: build.initializing_on === null ? null : optionalString(build.initializing_on),
+    runningOn: build.running_on === null ? null : optionalString(build.running_on),
+    stoppedOn: build.stopped_on === null ? null : optionalString(build.stopped_on),
+    modifiedOn: optionalString(build.modified_on),
+    triggerMetadata: normalizeBuildTriggerMetadata(build.build_trigger_metadata),
+    trigger: build.trigger == null ? undefined : normalizeBuildTrigger(build.trigger),
+    pullRequest: normalizeBuildPullRequest(build.pull_request),
+  });
+}
+
+function normalizeBuildState(status: string | undefined, buildOutcome: string | undefined): string {
+  if (status === "queued" || status === "initializing" || status === "running") {
+    return status;
+  } else if (status === "stopped" && (buildOutcome === "success" || buildOutcome === "skipped")) {
+    return "succeeded";
+  } else if (
+    status === "stopped" &&
+    (buildOutcome === "fail" || buildOutcome === "cancelled" || buildOutcome === "terminated")
+  ) {
+    return "failed";
+  } else {
+    return "stopped";
+  }
+}
+
+function normalizeBuildTriggerMetadata(value: unknown): Record<string, unknown> | undefined {
+  const metadata = optionalRecord(value);
+  if (!metadata) {
+    return undefined;
+  }
+  return compactObject({
+    author: optionalString(metadata.author),
+    branch: optionalString(metadata.branch),
+    buildCommand: optionalString(metadata.build_command),
+    deployCommand: optionalString(metadata.deploy_command),
+    buildTokenName: optionalString(metadata.build_token_name),
+    buildTokenUuid: optionalString(metadata.build_token_uuid),
+    buildTriggerSource: optionalString(metadata.build_trigger_source),
+    commitHash: optionalString(metadata.commit_hash),
+    commitMessage: optionalString(metadata.commit_message),
+    environmentVariables: optionalRecord(metadata.environment_variables),
+    providerAccountName: optionalString(metadata.provider_account_name),
+    providerType: optionalString(metadata.provider_type),
+    repoName: optionalString(metadata.repo_name),
+    rootDirectory: optionalString(metadata.root_directory),
+  });
+}
+
+function normalizeBuildPullRequest(value: unknown): Record<string, unknown> | undefined {
+  const pullRequest = optionalRecord(value);
+  if (!pullRequest) {
+    return undefined;
+  }
+  return compactObject({
+    createdOn: optionalString(pullRequest.created_on),
+    pullRequestUrl: optionalString(pullRequest.pull_request_url),
+  });
+}
+
+function normalizeBuildLogLines(value: unknown): Array<{ timestamp: number; message: string }> {
+  if (!Array.isArray(value)) {
+    throw new ProviderRequestError(502, "malformed cloudflare worker build logs response");
+  }
+  return value.map((line) => {
+    if (!Array.isArray(line) || typeof line[0] !== "number" || typeof line[1] !== "string") {
+      throw new ProviderRequestError(502, "malformed cloudflare worker build log line");
+    }
+    return { timestamp: line[0], message: line[1] };
   });
 }
 

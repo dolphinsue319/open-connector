@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -123,18 +123,7 @@ const myIpOutputSchema = s.object("The public IP address observed by DNSFilter."
   ip: s.string("The caller public IP address returned by DNSFilter."),
 });
 
-export type DnsFilterActionName =
-  | "get_current_user"
-  | "list_categories"
-  | "get_category"
-  | "list_application_categories"
-  | "list_applications"
-  | "list_policies"
-  | "list_networks"
-  | "list_ip_addresses"
-  | "get_my_ip";
-
-export const dnsFilterActions: Array<ProviderActionDefinition<DnsFilterActionName>> = [
+export const dnsFilterActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the DNSFilter user associated with the API key.",

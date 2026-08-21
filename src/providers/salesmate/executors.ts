@@ -6,17 +6,18 @@ import type {
   ProviderProxyExecutor,
   ProxyExecutionResult,
 } from "../../core/types.ts";
-import type { SalesmateActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
-  createProviderTimeout,
   createProviderProxyUrl,
+  createProviderTimeout,
   defineProviderExecutors,
   isAbortLikeError,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
+  providerFetch,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireApiKeyCredential,
@@ -44,7 +45,7 @@ interface SalesmateRequestInput {
   phase: SalesmatePhase;
 }
 
-export const salesmateActionHandlers: Record<SalesmateActionName, SalesmateActionHandler> = {
+export const salesmateActionHandlers: ProviderActionHandlers<"salesmate", SalesmateActionHandler> = {
   async create_company(input, context) {
     const payload = await requestSalesmateJson(
       { method: "POST", path: "/apis/company/v4", body: buildBodyWithCustomFields(input), phase: "execute" },
@@ -136,7 +137,7 @@ export const proxy: ProviderProxyExecutor = async (input, context): Promise<Prox
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await providerFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `provider request failed with HTTP ${response.status}`);

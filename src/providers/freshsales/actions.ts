@@ -1,17 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "freshsales";
-
-export type FreshsalesActionName =
-  | "list_contact_filters"
-  | "list_contacts"
-  | "get_contact"
-  | "create_contact"
-  | "update_contact"
-  | "delete_contact";
 
 const positiveIdSchema = (description: string) => s.positiveInteger(description);
 const pageSchema = s.positiveInteger("One-based Freshsales page number.");
@@ -47,7 +39,7 @@ const contactOutputSchema = s.object("Freshsales contact response wrapper.", {
   contact: contactSchema,
 });
 
-export const freshsalesActions: Array<ProviderActionDefinition<FreshsalesActionName>> = [
+export const freshsalesActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_contact_filters",
     description: "List Freshsales contact filters used to discover contact view IDs.",

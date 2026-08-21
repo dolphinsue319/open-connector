@@ -332,6 +332,4 @@ export const nethuntActions: readonly ActionDefinition[] = [
     inputSchema: s.actionInput({}, [], "Input parameters for verifying NetHunt credentials."),
     outputSchema: s.actionOutput({ user: authUserSchema }, "NetHunt auth-test response."),
   }),
-] as const satisfies readonly ActionDefinition[];
-
-export type NethuntActionName = (typeof nethuntActions)[number]["name"];
+];

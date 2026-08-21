@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -263,7 +263,7 @@ const getVendorAction = defineProviderAction(service, {
   }),
 });
 
-export const drataActions: ProviderActionDefinition<DrataActionName>[] = [
+export const drataActions: ActionDefinition[] = [
   getCompanyAction,
   listWorkspacesAction,
   listPersonnelAction,
@@ -274,6 +274,6 @@ export const drataActions: ProviderActionDefinition<DrataActionName>[] = [
   getVendorAction,
 ];
 
-export const drataActionByName: Map<DrataActionName, ProviderActionDefinition<DrataActionName>> = new Map(
+export const drataActionByName: Map<DrataActionName, ActionDefinition> = new Map(
   drataActions.map((action) => [action.name as DrataActionName, action]),
 );

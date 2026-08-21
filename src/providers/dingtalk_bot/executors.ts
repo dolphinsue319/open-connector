@@ -5,18 +5,19 @@ import type {
   ProviderProxyExecutor,
   ProxyExecutionResult,
 } from "../../core/types.ts";
-import type { DingtalkBotActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { createHash, createHmac } from "node:crypto";
 import { compactObject, objectArray, optionalNumber, optionalString, requiredString } from "../../core/cast.ts";
 import {
-  createProviderTimeout,
+  createProviderFetch,
   createProviderProxyUrl,
+  createProviderTimeout,
   defineProviderExecutors,
   isAbortLikeError,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireApiKeyCredential,
@@ -29,6 +30,8 @@ const webhookPath = "/robot/send";
 const requestTimeoutMs = 30_000;
 const validationProbePayload = { msgtype: "__validation_probe__" };
 const validationSuccessCodes = new Set([40035, 400105]);
+
+const dingtalkBotFetch = createProviderFetch({ skipDnsValidation: true });
 
 interface DingtalkBotContext {
   apiKey: string;
@@ -50,7 +53,7 @@ interface DingtalkBotRequestResult {
 
 type DingtalkBotActionHandler = (input: Record<string, unknown>, context: DingtalkBotContext) => Promise<unknown>;
 
-export const dingtalkBotActionHandlers: Record<DingtalkBotActionName, DingtalkBotActionHandler> = {
+export const dingtalkBotActionHandlers: ProviderActionHandlers<"dingtalk_bot", DingtalkBotActionHandler> = {
   send_text_message(input, context) {
     return sendDingtalkBotMessage(
       compactObject({
@@ -114,6 +117,7 @@ export const dingtalkBotActionHandlers: Record<DingtalkBotActionName, DingtalkBo
 
 export const executors: ProviderExecutors = defineProviderExecutors<DingtalkBotContext>({
   service,
+  skipDnsValidation: true,
   handlers: dingtalkBotActionHandlers,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<DingtalkBotContext> {
     const credential = await requireApiKeyCredential(context, service);
@@ -144,7 +148,7 @@ export const proxy: ProviderProxyExecutor = async (input, context): Promise<Prox
       headers.set("content-type", "application/json");
     }
 
-    const response = await fetch(url, {
+    const response = await dingtalkBotFetch(url, {
       method: input.method,
       headers,
       body:

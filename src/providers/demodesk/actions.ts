@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -183,17 +182,7 @@ const scorecard = s.looseObject("A Demodesk scorecard result.", {
   questions: s.array(scorecardQuestion, { description: "Question-level scorecard results." }),
 });
 
-export type DemodeskActionName =
-  | "get_current_user"
-  | "list_users"
-  | "list_recordings"
-  | "get_recording"
-  | "get_recording_transcript"
-  | "batch_get_recording_transcripts"
-  | "list_recording_summaries"
-  | "list_recording_scorecards";
-
-export const demodeskActions: Array<ProviderActionDefinition<DemodeskActionName>> = [
+export const demodeskActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the Demodesk user represented by the current API key.",

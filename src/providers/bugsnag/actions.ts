@@ -1,18 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "bugsnag";
-
-export type BugsnagActionName =
-  | "list_organizations"
-  | "get_organization"
-  | "list_organization_projects"
-  | "list_project_errors"
-  | "list_error_events"
-  | "get_latest_error_event"
-  | "list_project_releases";
 
 const paginationSchema = s.object(
   "Pagination metadata normalized from Bugsnag response headers.",
@@ -97,7 +88,7 @@ const perPageSchema = (description: string, maximum?: number) =>
     description,
   });
 
-export const bugsnagActions: ProviderActionDefinition<BugsnagActionName>[] = [
+export const bugsnagActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_organizations",
     description: "List the organizations accessible to the current Bugsnag user.",

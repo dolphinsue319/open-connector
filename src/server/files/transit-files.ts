@@ -1,4 +1,9 @@
-import type { ITransitFileService, TransitFileRead, TransitFileUpload } from "./transit-file-store.ts";
+import type {
+  IStagedTransitFileService,
+  StagedTransitFile,
+  TransitFileRead,
+  TransitFileUpload,
+} from "./transit-file-store.ts";
 
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
@@ -7,7 +12,7 @@ import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:
 import { extname, join } from "node:path";
 import { Readable } from "node:stream";
 import { finished } from "node:stream/promises";
-import { contentTypeFromFileId, TransitFileError } from "./transit-file-store.ts";
+import { contentDispositionForFileName, contentTypeFromFileId, TransitFileError } from "./transit-file-store.ts";
 
 export interface TransitFileOptions {
   rootDir: string;
@@ -21,7 +26,7 @@ interface TransitFileMetadata {
   mimeType: string;
 }
 
-export class TransitFileService implements ITransitFileService {
+export class TransitFileService implements IStagedTransitFileService {
   private readonly rootDir: string;
   private readonly publicOrigin: string;
   private readonly ttlMs: number;
@@ -54,6 +59,29 @@ export class TransitFileService implements ITransitFileService {
       fileId,
       downloadUrl: `${this.publicOrigin}/api/files/${encodeURIComponent(fileId)}`,
       sizeBytes,
+      name: metadata.name,
+      mimeType: metadata.mimeType,
+    };
+  }
+
+  async createFromPath(file: StagedTransitFile): Promise<TransitFileUpload> {
+    this.assertFileSize(file.sizeBytes);
+    await this.cleanupExpired();
+    await mkdir(this.rootDir, { recursive: true });
+
+    const fileId = `${randomBytes(16).toString("hex")}${safeExtension(file.name)}`;
+    const path = join(this.rootDir, fileId);
+    await rename(file.path, path);
+    const metadata = normalizeMetadata({
+      name: file.name || fileId,
+      mimeType: file.mimeType || contentTypeFromFileId(fileId),
+    });
+    await writeFile(metadataPath(path), JSON.stringify(metadata), { flag: "wx" });
+
+    return {
+      fileId,
+      downloadUrl: `${this.publicOrigin}/api/files/${encodeURIComponent(fileId)}`,
+      sizeBytes: file.sizeBytes,
       name: metadata.name,
       mimeType: metadata.mimeType,
     };
@@ -97,7 +125,7 @@ export class TransitFileService implements ITransitFileService {
       headers: {
         "content-length": String(stats.size),
         "content-type": metadata.mimeType,
-        "content-disposition": `attachment; filename="${escapeHeaderValue(metadata.name)}"`,
+        "content-disposition": contentDispositionForFileName(metadata.name),
       },
     });
   }
@@ -217,8 +245,4 @@ function normalizeMetadata(
   const mimeType =
     typeof input.mimeType === "string" && input.mimeType.trim() ? input.mimeType.trim() : fallback.mimeType;
   return { name, mimeType };
-}
-
-function escapeHeaderValue(value: string): string {
-  return value.replace(/["\\\r\n]/g, "_");
 }

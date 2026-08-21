@@ -70,6 +70,24 @@ const customCredentialProvider: ProviderDefinition = {
   actions: [],
 };
 
+const catalogOnlyProvider: ProviderDefinition = {
+  ...customCredentialProvider,
+  service: "catalog_only",
+  displayName: "Catalog Only",
+  actions: [
+    {
+      id: "catalog_only.query",
+      service: "catalog_only",
+      name: "query",
+      description: "Query the catalog-only provider.",
+      requiredScopes: [],
+      providerPermissions: [],
+      inputSchema: {},
+      outputSchema: {},
+    },
+  ],
+};
+
 const oauthProvider: ProviderDefinition = {
   service: "example",
   displayName: "Example",
@@ -113,6 +131,24 @@ afterEach(() => {
 });
 
 describe("ConnectionService", () => {
+  it("rejects connections for providers unavailable in the current runtime", async () => {
+    const service = createService([catalogOnlyProvider]);
+
+    await expect(
+      service.connectWithCustomCredential("catalog_only", {
+        values: {
+          host: "localhost",
+          password: "secret",
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: "provider_unavailable",
+      message: "Catalog Only is not available in this runtime.",
+    });
+
+    await expect(service.listConnections()).resolves.toEqual([]);
+  });
+
   it("exposes no_auth providers as virtual connections", async () => {
     const service = createService([hackernewsProvider]);
 
@@ -294,6 +330,38 @@ describe("ConnectionService", () => {
     expect(logger.info).toHaveBeenCalledWith({ service: "uptimerobot" }, "validator log");
   });
 
+  it("passes a receiver-safe fetcher to credential validators", async () => {
+    let nativeFetchThis: unknown = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(function (this: unknown) {
+        nativeFetchThis = this;
+        if (this !== undefined) {
+          throw new TypeError("Illegal invocation: function called with incorrect `this` reference");
+        }
+        return Promise.resolve(Response.json({ ok: true }));
+      }),
+    );
+    const service = createService([apiKeyProvider], {
+      providerLoader: new FakeProviderLoader({
+        async apiKey(_input, { fetcher }) {
+          const context = { fetcher };
+          await context.fetcher("https://example.com/validate");
+        },
+      }),
+    });
+
+    await expect(
+      service.connectWithApiKey("uptimerobot", {
+        values: {
+          apiKey: "valid-key",
+          accountId: "account-1",
+        },
+      }),
+    ).resolves.toMatchObject({ service: "uptimerobot", configured: true });
+    expect(nativeFetchThis).toBeUndefined();
+  });
+
   it("exposes connection profiles to local users and agents", async () => {
     const service = createService([apiKeyProvider], {
       providerLoader: new FakeProviderLoader({
@@ -409,8 +477,10 @@ describe("ConnectionService", () => {
       },
     });
     await expect(store.get("example", "default")).resolves.toMatchObject({
-      authType: "oauth2",
-      accessToken: "fresh-token",
+      credential: {
+        authType: "oauth2",
+        accessToken: "fresh-token",
+      },
     });
     expect(fetch).toHaveBeenCalledWith(
       "https://example.com/oauth/token",
@@ -418,6 +488,200 @@ describe("ConnectionService", () => {
         method: "POST",
       }),
     );
+  });
+
+  it("shares an in-flight OAuth refresh across concurrent requests", async () => {
+    const store = new MemoryConnectionStore();
+    const oauthClientConfigs = createOAuthClientConfigs([oauthProvider]);
+    const service = createService([oauthProvider], {
+      oauthCredentials: new OAuthCredentialRefreshService(oauthClientConfigs),
+      store,
+    });
+    await oauthClientConfigs.upsertConfig({
+      service: "example",
+      clientId: "client-id",
+      clientSecret: "client-secret",
+    });
+    await store.set("example", "default", {
+      authType: "oauth2",
+      accessToken: "expired-token",
+      tokenType: "Bearer",
+      refreshToken: "refresh-token",
+      expiresAt: "2026-01-01T00:00:00.000Z",
+      profile: testProfile,
+      metadata: {},
+    });
+
+    const fetcher = vi.fn(async () =>
+      Response.json({
+        access_token: "fresh-token",
+        expires_in: 3600,
+        token_type: "Bearer",
+      }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+
+    const credentials = await Promise.all([service.getCredential("example"), service.getCredential("example")]);
+
+    expect(credentials).toEqual([
+      expect.objectContaining({ accessToken: "fresh-token" }),
+      expect.objectContaining({ accessToken: "fresh-token" }),
+    ]);
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("does not overwrite a connection recreated during OAuth refresh", async () => {
+    const store = new MemoryConnectionStore();
+    const oauthClientConfigs = createOAuthClientConfigs([oauthProvider]);
+    const service = createService([oauthProvider], {
+      oauthCredentials: new OAuthCredentialRefreshService(oauthClientConfigs),
+      store,
+    });
+    await oauthClientConfigs.upsertConfig({
+      service: "example",
+      clientId: "client-id",
+      clientSecret: "client-secret",
+    });
+    const original = await store.set("example", "default", {
+      authType: "oauth2",
+      accessToken: "expired-token",
+      tokenType: "Bearer",
+      refreshToken: "refresh-token",
+      expiresAt: "2026-01-01T00:00:00.000Z",
+      profile: testProfile,
+      metadata: {},
+    });
+    let markRefreshStarted!: () => void;
+    const refreshStarted = new Promise<void>((resolve) => {
+      markRefreshStarted = resolve;
+    });
+    let completeRefresh!: (response: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        const response = new Promise<Response>((resolve) => {
+          completeRefresh = resolve;
+        });
+        markRefreshStarted();
+        return response;
+      }),
+    );
+
+    const execution = service.resolveForExecution("example");
+    await refreshStarted;
+    await store.delete("example", "default");
+    const recreated = await store.set("example", "default", {
+      authType: "oauth2",
+      accessToken: "replacement-token",
+      tokenType: "Bearer",
+      refreshToken: "replacement-refresh-token",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      profile: testProfile,
+      metadata: {},
+    });
+    completeRefresh(
+      Response.json({
+        access_token: "stale-refreshed-token",
+        expires_in: 3600,
+        token_type: "Bearer",
+      }),
+    );
+
+    await expect(execution).rejects.toMatchObject({ code: "connection_not_found" });
+    expect(recreated.id).not.toBe(original.id);
+    await expect(store.get("example", "default")).resolves.toMatchObject({
+      id: recreated.id,
+      credential: { accessToken: "replacement-token" },
+    });
+  });
+
+  it("refreshes a replaced connection independently without accepting the stale result", async () => {
+    const store = new MemoryConnectionStore();
+    const oauthClientConfigs = createOAuthClientConfigs([oauthProvider]);
+    const service = createService([oauthProvider], {
+      oauthCredentials: new OAuthCredentialRefreshService(oauthClientConfigs),
+      store,
+    });
+    await oauthClientConfigs.upsertConfig({
+      service: "example",
+      clientId: "client-id",
+      clientSecret: "client-secret",
+    });
+    const original = await store.set("example", "default", {
+      authType: "oauth2",
+      accessToken: "expired-token",
+      tokenType: "Bearer",
+      refreshToken: "refresh-token",
+      expiresAt: "2026-01-01T00:00:00.000Z",
+      profile: testProfile,
+      metadata: {},
+    });
+    let markOriginalRefreshStarted!: () => void;
+    const originalRefreshStarted = new Promise<void>((resolve) => {
+      markOriginalRefreshStarted = resolve;
+    });
+    let markReplacementRefreshStarted!: () => void;
+    const replacementRefreshStarted = new Promise<void>((resolve) => {
+      markReplacementRefreshStarted = resolve;
+    });
+    const completeRefreshes: Array<(response: Response) => void> = [];
+    let refreshCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => {
+        const refreshIndex = refreshCount++;
+        const response = new Promise<Response>((resolve) => {
+          completeRefreshes[refreshIndex] = resolve;
+        });
+        if (refreshIndex === 0) {
+          markOriginalRefreshStarted();
+        } else {
+          markReplacementRefreshStarted();
+        }
+        return response;
+      }),
+    );
+
+    const originalExecution = service.resolveForExecution("example");
+    await originalRefreshStarted;
+    const replaced = await store.set("example", "default", {
+      authType: "oauth2",
+      accessToken: "replacement-token",
+      tokenType: "Bearer",
+      refreshToken: "replacement-refresh-token",
+      expiresAt: "2026-01-01T00:00:00.000Z",
+      profile: testProfile,
+      metadata: {},
+    });
+    const replacementExecution = service.resolveForExecution("example");
+    await replacementRefreshStarted;
+    expect(fetch).toHaveBeenCalledTimes(2);
+    completeRefreshes[1]!(
+      Response.json({
+        access_token: "replacement-refreshed-token",
+        expires_in: 3600,
+        token_type: "Bearer",
+      }),
+    );
+    const current = await replacementExecution;
+    await expect(current.getCredential("example")).resolves.toMatchObject({
+      accessToken: "replacement-refreshed-token",
+    });
+    completeRefreshes[0]!(
+      Response.json({
+        access_token: "stale-refreshed-token",
+        expires_in: 3600,
+        token_type: "Bearer",
+      }),
+    );
+
+    await expect(originalExecution).rejects.toMatchObject({ code: "connection_not_found" });
+    expect(replaced.id).toBe(original.id);
+    expect(replaced.revision).not.toBe(original.revision);
+    await expect(store.get("example", "default")).resolves.toMatchObject({
+      id: replaced.id,
+      credential: { accessToken: "replacement-refreshed-token" },
+    });
   });
 
   it("uses provider refresh token URLs when refreshing expired OAuth credentials", async () => {
@@ -481,6 +745,34 @@ describe("ConnectionService", () => {
       code: "oauth_token_expired",
     });
   });
+
+  it("resolves the execution credential and summary from one connection snapshot", async () => {
+    const store = new MemoryConnectionStore();
+    const service = createService([apiKeyProvider], { store });
+    const original = await store.set("uptimerobot", "default", {
+      authType: "api_key",
+      apiKey: "original-key",
+      values: { apiKey: "original-key", accountId: "account-1" },
+      profile: testProfile,
+      metadata: {},
+    });
+
+    const resolved = await service.resolveForExecution("uptimerobot");
+    const updated = await store.set("uptimerobot", "default", {
+      authType: "api_key",
+      apiKey: "replacement-key",
+      values: { apiKey: "replacement-key", accountId: "account-2" },
+      profile: { ...testProfile, accountId: "replacement" },
+      metadata: {},
+    });
+
+    expect(updated.id).toBe(original.id);
+    expect(resolved.summary?.id).toBe(original.id);
+    await expect(resolved.getCredential("uptimerobot")).resolves.toMatchObject({
+      apiKey: "original-key",
+      profile: { accountId: "example-account" },
+    });
+  });
 });
 
 interface CreateServiceOptions {
@@ -539,14 +831,31 @@ class FakeProviderLoader implements IProviderLoader {
 }
 
 class MemoryConnectionStore implements IConnectionStore {
-  private readonly store = new Map<string, ResolvedCredential>();
+  private readonly store = new Map<string, StoredConnection>();
 
-  async get(service: string, connectionName: string): Promise<ResolvedCredential | undefined> {
+  async get(service: string, connectionName: string): Promise<StoredConnection | undefined> {
     return this.store.get(createConnectionKey(service, connectionName));
   }
 
-  async set(service: string, connectionName: string, credential: ResolvedCredential): Promise<void> {
-    this.store.set(createConnectionKey(service, connectionName), credential);
+  async set(service: string, connectionName: string, credential: ResolvedCredential): Promise<StoredConnection> {
+    const key = createConnectionKey(service, connectionName);
+    const connection = {
+      id: this.store.get(key)?.id ?? crypto.randomUUID(),
+      revision: crypto.randomUUID(),
+      service,
+      connectionName,
+      credential,
+    };
+    this.store.set(key, connection);
+    return connection;
+  }
+
+  async updateCredential(input: StoredConnection): Promise<boolean> {
+    const key = createConnectionKey(input.service, input.connectionName);
+    const current = this.store.get(key);
+    if (current?.id !== input.id || current.revision !== input.revision) return false;
+    this.store.set(key, { ...input, revision: crypto.randomUUID() });
+    return true;
   }
 
   async delete(service: string, connectionName: string): Promise<void> {
@@ -554,14 +863,7 @@ class MemoryConnectionStore implements IConnectionStore {
   }
 
   async list(): Promise<StoredConnection[]> {
-    return [...this.store.entries()].map(([key, credential]) => {
-      const [service, connectionName] = key.split(":");
-      return {
-        service: service!,
-        connectionName: connectionName!,
-        credential,
-      };
-    });
+    return [...this.store.values()];
   }
 }
 

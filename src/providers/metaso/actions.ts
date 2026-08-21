@@ -228,5 +228,3 @@ export const metasoActions: ActionDefinition[] = [
     }),
   }),
 ] as ActionDefinition[];
-
-export type MetasoActionName = (typeof metasoActions)[number]["name"];

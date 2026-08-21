@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { ApolloActionName } from "./actions.ts";
 
 import { compactObject, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
 import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
@@ -13,7 +13,7 @@ type ApolloQueryValue = boolean | number | string | string[] | undefined;
 type ApolloRequestPhase = "validate" | "execute";
 type ApolloActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const apolloActionHandlers: Record<ApolloActionName, ApolloActionHandler> = {
+export const apolloActionHandlers: ProviderActionHandlers<"apollo", ApolloActionHandler> = {
   get_api_usage_stats(_input, context) {
     return getApiUsageStats(context);
   },
@@ -173,7 +173,7 @@ async function requestApolloJson(input: {
   try {
     const headers: Record<string, string> = {
       accept: "application/json",
-      authorization: `Bearer ${input.apiKey}`,
+      "x-api-key": input.apiKey,
       "user-agent": providerUserAgent,
     };
     if (input.body) {

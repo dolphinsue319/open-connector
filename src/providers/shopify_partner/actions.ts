@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -208,14 +208,7 @@ const listAppEventsInputSchema = s.object(
   { optional: ["first", "after", "chargeId", "occurredAtMin", "occurredAtMax", "shopId", "types"] },
 );
 
-export type ShopifyPartnerActionName =
-  | "get_app"
-  | "list_app_events"
-  | "list_partner_events"
-  | "list_transactions"
-  | "execute_graphql";
-
-export const shopifyPartnerActions: ProviderActionDefinition<ShopifyPartnerActionName>[] = [
+export const shopifyPartnerActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_app",
     description: "Retrieve one Shopify Partner app by GraphQL global ID.",

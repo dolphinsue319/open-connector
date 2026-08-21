@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -94,24 +94,7 @@ const seasonTicketingInput = s.object(
   { required: ["header", "command"] },
 );
 
-export type TicketmasterActionName =
-  | "get_events"
-  | "get_event_details"
-  | "get_event_images"
-  | "get_attractions"
-  | "get_attraction_details"
-  | "get_venues"
-  | "get_venue_details"
-  | "get_suggestions"
-  | "get_classifications"
-  | "get_classification_details"
-  | "get_segment_details"
-  | "get_genre_details"
-  | "get_subgenre_details"
-  | "get_section_map_image"
-  | "execute_season_ticketing_command";
-
-export const ticketmasterActions: Array<ProviderActionDefinition<TicketmasterActionName>> = [
+export const ticketmasterActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_events",
     description: "Search Discovery API events with Ticketmaster filters.",

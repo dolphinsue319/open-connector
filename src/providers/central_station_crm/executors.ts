@@ -4,9 +4,13 @@ import type {
   ProviderExecutors,
   ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { CentralStationCrmActionName } from "./actions.ts";
 
-import { defineProviderExecutors, defineProviderProxy, requireApiKeyCredential } from "../provider-runtime.ts";
+import {
+  defineProviderExecutors,
+  defineProviderProxy,
+  mapProviderActionSources,
+  requireApiKeyCredential,
+} from "../provider-runtime.ts";
 import {
   centralStationCrmActionHandlers,
   readCentralStationCrmApiBaseUrl,
@@ -22,23 +26,22 @@ interface CentralStationCrmExecutorContext {
   signal?: AbortSignal;
 }
 
-const centralStationCrmExecutorHandlers = Object.fromEntries(
-  Object.entries(centralStationCrmActionHandlers).map(([actionName, handler]) => [
-    actionName,
-    (input: Record<string, unknown>, context: CentralStationCrmExecutorContext) =>
-      handler(
-        {
-          actionName: actionName as CentralStationCrmActionName,
-          apiKey: context.apiKey,
-          providerMetadata: {
-            apiBaseUrl: context.apiBaseUrl,
-          },
-          input,
-          signal: context.signal,
+const centralStationCrmExecutorHandlers = mapProviderActionSources(
+  service,
+  centralStationCrmActionHandlers,
+  (actionName, handler) => (input: Record<string, unknown>, context: CentralStationCrmExecutorContext) =>
+    handler(
+      {
+        actionName,
+        apiKey: context.apiKey,
+        providerMetadata: {
+          apiBaseUrl: context.apiBaseUrl,
         },
-        context.fetcher,
-      ),
-  ]),
+        input,
+        signal: context.signal,
+      },
+      context.fetcher,
+    ),
 );
 
 export const executors: ProviderExecutors = defineProviderExecutors({

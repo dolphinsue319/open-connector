@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -8,11 +7,15 @@ const service = "cloudflare_worker";
 
 const workersReadScope = "workers-scripts.read";
 const workersWriteScope = "workers-scripts.write";
+const workersCiReadScope = "workers-ci.read";
+const workersCiWriteScope = "workers-ci.write";
 const workersReadPermission = "Workers Scripts Read";
 const workersWritePermission = "Workers Scripts Write";
+const workersCiReadPermission = "Workers CI Read";
+const workersCiWritePermission = "Workers CI Write";
 
 const accountIdSchema = s.nonEmptyString(
-  "The Cloudflare account ID. Custom-credential connections reuse the connected account ID when this is omitted.",
+  "The Cloudflare account ID. Omit this when the connection can uniquely determine the account. This field is required for multi-account OAuth connections; use list_accounts to find an accessible account ID.",
 );
 const workerIdSchema = s.nonEmptyString("The Cloudflare Worker ID.");
 const workerNameSchema = s.nonEmptyString("The Worker name.");
@@ -116,6 +119,166 @@ const workerScriptSchema = s.object(
     additionalProperties: true,
   },
 );
+
+const workerBuildIdSchema = s.uuid("The Workers Builds job UUID.");
+const workerBuildTriggerIdSchema = s.uuid("The Workers Builds trigger UUID.");
+const workerBuildRepoConnectionSchema = s.object(
+  "The source repository connected to a Workers Builds trigger.",
+  {
+    providerAccountId: s.string("The source provider account identifier."),
+    providerAccountName: s.string("The source provider account name."),
+    providerType: s.string("The source repository provider type."),
+    repoConnectionUuid: s.uuid("The repository connection UUID."),
+    repoId: s.string("The source repository identifier."),
+    repoName: s.string("The source repository name."),
+    createdOn: s.string("The repository connection creation timestamp."),
+    modifiedOn: s.string("The repository connection modification timestamp."),
+    deletedOn: s.nullableString("The repository connection deletion timestamp, or null when active."),
+  },
+  {
+    optional: [
+      "providerAccountId",
+      "providerAccountName",
+      "providerType",
+      "repoConnectionUuid",
+      "repoId",
+      "repoName",
+      "createdOn",
+      "modifiedOn",
+      "deletedOn",
+    ],
+  },
+);
+const workerBuildTriggerSchema = s.object(
+  "A Cloudflare Workers Builds trigger.",
+  {
+    triggerUuid: workerBuildTriggerIdSchema,
+    triggerName: s.string("The build trigger name."),
+    externalScriptId: s.string("The immutable Worker script tag."),
+    buildCommand: s.string("The command that builds the Worker."),
+    deployCommand: s.string("The command that deploys the Worker."),
+    rootDirectory: s.string("The repository directory where the build runs."),
+    branchIncludes: s.stringArray("Branches that can trigger builds."),
+    branchExcludes: s.stringArray("Branches excluded from builds."),
+    pathIncludes: s.stringArray("Repository paths that can trigger builds."),
+    pathExcludes: s.stringArray("Repository paths excluded from builds."),
+    buildCachingEnabled: s.boolean("Whether build caching is enabled."),
+    buildTokenUuid: s.uuid("The UUID of the build token used by this trigger."),
+    buildTokenName: s.string("The name of the build token used by this trigger."),
+    createdOn: s.string("The trigger creation timestamp."),
+    modifiedOn: s.string("The last trigger update timestamp."),
+    deletedOn: s.nullableString("The trigger deletion timestamp, or null when active."),
+    repoConnection: workerBuildRepoConnectionSchema,
+  },
+  {
+    required: ["triggerUuid"],
+    optional: [
+      "triggerName",
+      "externalScriptId",
+      "buildCommand",
+      "deployCommand",
+      "rootDirectory",
+      "branchIncludes",
+      "branchExcludes",
+      "pathIncludes",
+      "pathExcludes",
+      "buildCachingEnabled",
+      "buildTokenUuid",
+      "buildTokenName",
+      "createdOn",
+      "modifiedOn",
+      "deletedOn",
+      "repoConnection",
+    ],
+  },
+);
+const workerBuildTriggerMetadataSchema = s.object(
+  "The source revision and build configuration that triggered a Workers Builds job.",
+  {
+    author: s.string("The source revision author."),
+    branch: s.string("The source branch name."),
+    buildCommand: s.string("The build command used by the job."),
+    deployCommand: s.string("The deploy command used by the job."),
+    buildTokenName: s.string("The build token name."),
+    buildTokenUuid: s.uuid("The build token UUID."),
+    buildTriggerSource: s.string("The event source that triggered the build."),
+    commitHash: s.string("The source commit hash."),
+    commitMessage: s.string("The source commit message."),
+    environmentVariables: s.looseObject("The environment variables supplied to the build."),
+    providerAccountName: s.string("The source provider account name."),
+    providerType: s.string("The source repository provider type."),
+    repoName: s.string("The source repository name."),
+    rootDirectory: s.string("The repository directory where the build ran."),
+  },
+  {
+    optional: [
+      "author",
+      "branch",
+      "buildCommand",
+      "deployCommand",
+      "buildTokenName",
+      "buildTokenUuid",
+      "buildTriggerSource",
+      "commitHash",
+      "commitMessage",
+      "environmentVariables",
+      "providerAccountName",
+      "providerType",
+      "repoName",
+      "rootDirectory",
+    ],
+  },
+);
+const workerBuildPullRequestSchema = s.object(
+  "The pull request that triggered a Workers Builds job.",
+  {
+    createdOn: s.string("The pull request creation timestamp."),
+    pullRequestUrl: s.url("The pull request URL."),
+  },
+  { optional: ["createdOn", "pullRequestUrl"] },
+);
+const workerBuildSchema = s.object(
+  "A Cloudflare Workers Builds job.",
+  {
+    buildUuid: workerBuildIdSchema,
+    state: s.stringEnum(["queued", "initializing", "running", "succeeded", "failed", "stopped"], {
+      description: "The normalized build lifecycle state.",
+    }),
+    status: s.stringEnum(["queued", "initializing", "running", "stopped"], {
+      description: "The Cloudflare build status.",
+    }),
+    buildOutcome: s.stringEnum(["success", "fail", "skipped", "cancelled", "terminated"], {
+      description: "The Cloudflare build outcome.",
+    }),
+    createdOn: s.string("The build creation timestamp."),
+    initializingOn: s.nullableString("The build initialization timestamp."),
+    runningOn: s.nullableString("The build start timestamp."),
+    stoppedOn: s.nullableString("The build stop timestamp."),
+    modifiedOn: s.string("The last build update timestamp."),
+    triggerMetadata: workerBuildTriggerMetadataSchema,
+    trigger: workerBuildTriggerSchema,
+    pullRequest: workerBuildPullRequestSchema,
+  },
+  {
+    required: ["buildUuid", "state"],
+    optional: [
+      "status",
+      "buildOutcome",
+      "createdOn",
+      "initializingOn",
+      "runningOn",
+      "stoppedOn",
+      "modifiedOn",
+      "triggerMetadata",
+      "trigger",
+      "pullRequest",
+    ],
+  },
+);
+const workerBuildLogLineSchema = s.object("One line from a Workers Builds log.", {
+  timestamp: s.number("The log timestamp supplied by Cloudflare."),
+  message: s.string("The log message."),
+});
 
 const workerScriptSettingsSchema = s.object(
   "Cloudflare Worker script settings.",
@@ -276,28 +439,7 @@ patchWorkerScriptSettingsInputSchema.anyOf = [
   "migrations",
 ].map((field) => ({ required: [field] }));
 
-export type CloudflareWorkerActionName =
-  | "list_accounts"
-  | "list_workers"
-  | "get_worker"
-  | "create_worker"
-  | "update_worker"
-  | "edit_worker"
-  | "delete_worker"
-  | "list_worker_scripts"
-  | "search_worker_scripts"
-  | "upload_worker_script"
-  | "put_worker_script_content"
-  | "get_worker_script_content"
-  | "get_worker_script_settings"
-  | "patch_worker_script_settings"
-  | "list_worker_script_secrets"
-  | "get_worker_script_secret"
-  | "put_worker_script_secret"
-  | "delete_worker_script_secret"
-  | "delete_worker_script";
-
-export const cloudflareWorkerActions: ProviderActionDefinition<CloudflareWorkerActionName>[] = [
+export const cloudflareWorkerActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_accounts",
     description: "List Cloudflare accounts visible to the current credential.",
@@ -453,6 +595,140 @@ export const cloudflareWorkerActions: ProviderActionDefinition<CloudflareWorkerA
         resultInfo: resultInfoSchema,
       },
       { optional: ["resultInfo"] },
+    ),
+  }),
+  defineProviderAction(service, {
+    name: "list_build_triggers",
+    description: "List Workers Builds triggers configured for one Worker script tag.",
+    requiredScopes: [workersCiReadScope],
+    providerPermissions: [workersCiReadPermission],
+    inputSchema: s.object(
+      "The input payload for this action.",
+      {
+        accountId: accountIdSchema,
+        scriptTag: s.nonEmptyString("The immutable Worker script tag."),
+      },
+      { required: ["scriptTag"], optional: ["accountId"] },
+    ),
+    outputSchema: s.object("The output payload for this action.", {
+      triggers: s.array("The configured Workers Builds triggers.", workerBuildTriggerSchema),
+    }),
+  }),
+  defineProviderAction(service, {
+    name: "create_manual_build",
+    description: "Start a Workers Builds job from a configured trigger and branch or commit.",
+    requiredScopes: [workersCiWriteScope],
+    providerPermissions: [workersCiWritePermission],
+    asyncLifecycle: {
+      startActionId: "cloudflare_worker.create_manual_build",
+      statusActionId: "cloudflare_worker.get_build",
+      cancelActionId: "cloudflare_worker.cancel_build",
+    },
+    inputSchema: {
+      ...s.object(
+        "The input payload for this action.",
+        {
+          accountId: accountIdSchema,
+          triggerUuid: workerBuildTriggerIdSchema,
+          branch: s.nonEmptyString("The Git branch to build."),
+          commitHash: s.nonEmptyString("The Git commit hash to build."),
+        },
+        { required: ["triggerUuid"], optional: ["accountId", "branch", "commitHash"] },
+      ),
+      anyOf: [{ required: ["branch"] }, { required: ["commitHash"] }],
+    },
+    outputSchema: s.object(
+      "The output payload for this action.",
+      {
+        buildUuid: workerBuildIdSchema,
+        createdOn: s.string("The build creation timestamp."),
+      },
+      { required: ["buildUuid"], optional: ["createdOn"] },
+    ),
+  }),
+  defineProviderAction(service, {
+    name: "list_builds",
+    description: "List Workers Builds jobs for one Worker script tag.",
+    requiredScopes: [workersCiReadScope],
+    providerPermissions: [workersCiReadPermission],
+    inputSchema: s.object(
+      "The input payload for this action.",
+      {
+        accountId: accountIdSchema,
+        scriptTag: s.nonEmptyString("The immutable Worker script tag."),
+        page: s.positiveInteger("The result page number."),
+        perPage: s.integer("The page size, up to 200.", { minimum: 1, maximum: 200 }),
+      },
+      { required: ["scriptTag"], optional: ["accountId", "page", "perPage"] },
+    ),
+    outputSchema: s.object(
+      "The output payload for this action.",
+      {
+        builds: s.array("The Workers Builds jobs.", workerBuildSchema),
+        resultInfo: resultInfoSchema,
+      },
+      { required: ["builds"], optional: ["resultInfo"] },
+    ),
+  }),
+  defineProviderAction(service, {
+    name: "get_build",
+    description: "Get the current status and outcome of one Workers Builds job.",
+    requiredScopes: [workersCiReadScope],
+    providerPermissions: [workersCiReadPermission],
+    asyncLifecycle: {
+      startActionId: "cloudflare_worker.create_manual_build",
+      statusActionId: "cloudflare_worker.get_build",
+      cancelActionId: "cloudflare_worker.cancel_build",
+    },
+    inputSchema: s.object(
+      "The input payload for this action.",
+      { accountId: accountIdSchema, buildUuid: workerBuildIdSchema },
+      { required: ["buildUuid"], optional: ["accountId"] },
+    ),
+    outputSchema: s.object("The output payload for this action.", { build: workerBuildSchema }),
+  }),
+  defineProviderAction(service, {
+    name: "get_build_logs",
+    description: "Get one page of log lines for a Workers Builds job.",
+    requiredScopes: [workersCiReadScope],
+    providerPermissions: [workersCiReadPermission],
+    inputSchema: s.object(
+      "The input payload for this action.",
+      {
+        accountId: accountIdSchema,
+        buildUuid: workerBuildIdSchema,
+        cursor: s.nonEmptyString("The cursor returned by the previous log page."),
+      },
+      { required: ["buildUuid"], optional: ["accountId", "cursor"] },
+    ),
+    outputSchema: s.object(
+      "The output payload for this action.",
+      {
+        lines: s.array("The build log lines.", workerBuildLogLineSchema),
+        cursor: s.string("The cursor for the next log page."),
+        truncated: s.boolean("Whether Cloudflare truncated the returned log page."),
+      },
+      { required: ["lines"], optional: ["cursor", "truncated"] },
+    ),
+  }),
+  defineProviderAction(service, {
+    name: "cancel_build",
+    description: "Cancel a queued or running Workers Builds job.",
+    requiredScopes: [workersCiWriteScope],
+    providerPermissions: [workersCiWritePermission],
+    inputSchema: s.object(
+      "The input payload for this action.",
+      { accountId: accountIdSchema, buildUuid: workerBuildIdSchema },
+      { required: ["buildUuid"], optional: ["accountId"] },
+    ),
+    outputSchema: s.object(
+      "The output payload for this action.",
+      {
+        buildUuid: workerBuildIdSchema,
+        buildOutcome: s.string("The build outcome returned after cancellation."),
+        stoppedOn: s.nullableString("The build stop timestamp."),
+      },
+      { required: ["buildUuid"], optional: ["buildOutcome", "stoppedOn"] },
     ),
   }),
   defineProviderAction(service, {

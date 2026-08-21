@@ -5,8 +5,6 @@ import { gorgiasGeneratedActionSchemas } from "./generated.ts";
 
 const service = "gorgias";
 
-export type GorgiasActionName = (typeof gorgiasGeneratedActionSchemas)[number]["name"];
-
 export const gorgiasActions: ActionDefinition[] = gorgiasGeneratedActionSchemas.map((actionSchema) =>
   defineProviderAction(service, {
     name: actionSchema.name,

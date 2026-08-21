@@ -1,5 +1,4 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { DeeplActionName } from "./actions.ts";
 
 import { compactObject, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
 import { createProviderTimeout, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
@@ -23,7 +22,7 @@ interface DeeplRequestInput {
 }
 
 interface DeeplActionInput {
-  actionName: DeeplActionName;
+  actionName: string;
   input: Record<string, unknown>;
   apiKey: string;
 }

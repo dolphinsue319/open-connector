@@ -1,17 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "gong";
-
-export type GongActionName =
-  | "list_users"
-  | "get_user"
-  | "list_calls"
-  | "get_call"
-  | "get_call_transcripts"
-  | "list_call_outcomes";
 
 const gongId = (description: string) => s.nonEmptyString(description);
 const cursorSchema = s.nonEmptyString("The Gong cursor value returned by the previous page response.");
@@ -157,7 +149,7 @@ const callOutcomesOutputSchema = s.object("Gong call outcomes response.", {
   outcomes: s.array("Gong call outcomes returned by the request.", callOutcomeSchema),
 });
 
-export const gongActions: Array<ProviderActionDefinition<GongActionName>> = [
+export const gongActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_users",
     description: "List Gong users with optional cursor pagination and avatar inclusion.",

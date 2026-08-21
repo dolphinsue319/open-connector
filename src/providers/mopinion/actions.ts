@@ -1,22 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "mopinion";
-
-export type MopinionActionName =
-  | "get_account"
-  | "get_report"
-  | "get_dataset"
-  | "list_deployments"
-  | "get_deployment"
-  | "list_dataset_feedback"
-  | "get_dataset_feedback"
-  | "list_report_feedback"
-  | "get_report_feedback"
-  | "list_dataset_fields"
-  | "list_report_fields";
 
 const emptyInputSchema = s.actionInput({}, [], "No input is required for this action.");
 const optionalPositiveIntegerSchema = s.positiveInteger("The collection page number to retrieve.");
@@ -144,7 +131,7 @@ const fieldSchema = s.looseObject("A Mopinion report or dataset field object.", 
   group_key: s.nullableString("The Mopinion field group key."),
 });
 
-export const mopinionActions: Array<ProviderActionDefinition<MopinionActionName>> = [
+export const mopinionActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description: "Fetch the current Mopinion account profile and available account limits.",

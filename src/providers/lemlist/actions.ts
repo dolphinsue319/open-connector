@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -90,9 +90,7 @@ const teamSchema = s.looseRequiredObject(
   },
 );
 
-export type LemlistActionName = "get_team" | "list_campaigns" | "get_campaign" | "list_campaign_leads";
-
-export const lemlistActions: Array<ProviderActionDefinition<LemlistActionName>> = [
+export const lemlistActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_team",
     description: "Retrieve information about the lemlist team for the API key.",

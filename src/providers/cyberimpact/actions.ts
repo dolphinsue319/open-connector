@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -67,24 +66,7 @@ const deletionOutput = s.actionOutput(
   "The Cyberimpact deletion response.",
 );
 
-export type CyberimpactActionName =
-  | "list_members"
-  | "get_member"
-  | "create_member"
-  | "update_member"
-  | "delete_member"
-  | "list_groups"
-  | "get_group"
-  | "create_group"
-  | "update_group"
-  | "delete_group"
-  | "list_templates"
-  | "get_template"
-  | "create_template"
-  | "replace_template"
-  | "delete_template";
-
-export const cyberimpactActions: Array<ProviderActionDefinition<CyberimpactActionName>> = [
+export const cyberimpactActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_members",
     description: "Retrieve a paginated list of Cyberimpact members with optional status, date, and sort filters.",

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -93,15 +93,7 @@ const currencySchema = s.object("Normalized currency returned by Marketstack.", 
   symbolNative: s.nullableString("Native currency symbol."),
 });
 
-export type MarketstackActionName =
-  | "list_tickers"
-  | "get_ticker_info"
-  | "get_latest_eod"
-  | "get_historical_eod"
-  | "list_exchanges"
-  | "list_currencies";
-
-export const marketstackActions: ProviderActionDefinition<MarketstackActionName>[] = [
+export const marketstackActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_tickers",
     description: "List Marketstack tickers with optional search, exchange, and pagination filters.",

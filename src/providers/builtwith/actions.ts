@@ -1,16 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "builtwith";
-
-export type BuiltwithActionName =
-  | "lookup_domain_profile"
-  | "lookup_domain_summary"
-  | "lookup_redirect_history"
-  | "lookup_social_profiles"
-  | "get_domain_recommendations";
 
 const builtwithErrorSchema = s.object(
   "One error entry returned by BuiltWith.",
@@ -216,7 +209,7 @@ const builtwithRecommendationResultSchema = s.object(
   },
 );
 
-export const builtwithActions: ProviderActionDefinition<BuiltwithActionName>[] = [
+export const builtwithActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "lookup_domain_profile",
     description:

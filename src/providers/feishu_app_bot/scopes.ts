@@ -1,4 +1,25 @@
-export const feishuAppBotScopes = {
+interface FeishuAppBotScopes {
+  resource: string;
+  sendMessage: string;
+  readMessage: string;
+  recallMessage: string;
+  updateMessage: string;
+  groupMessage: string;
+  chatRead: string;
+  chatMembersRead: string;
+  reactionRead: string;
+  reactionWrite: string;
+  pinRead: string;
+  pinWrite: string;
+  p2pReadonly: string;
+  groupAtReadonly: string;
+  groupAtWithBotReadonly: string;
+  groupReadonly: string;
+  applicationRead: string;
+  applicationVersionRead: string;
+}
+
+export const feishuAppBotScopes: FeishuAppBotScopes = {
   resource: "im:resource",
   sendMessage: "im:message:send_as_bot",
   readMessage: "im:message:readonly",
@@ -15,23 +36,6 @@ export const feishuAppBotScopes = {
   groupAtReadonly: "im:message.group_at_msg:readonly",
   groupAtWithBotReadonly: "im:message.group_at_msg.include_bot:readonly",
   groupReadonly: "im:message.group_msg:readonly",
-} as const;
-
-export const feishuAppBotProviderScopes: string[] = [
-  feishuAppBotScopes.resource,
-  feishuAppBotScopes.sendMessage,
-  feishuAppBotScopes.readMessage,
-  feishuAppBotScopes.recallMessage,
-  feishuAppBotScopes.updateMessage,
-  feishuAppBotScopes.chatRead,
-  feishuAppBotScopes.chatMembersRead,
-  feishuAppBotScopes.reactionRead,
-  feishuAppBotScopes.reactionWrite,
-  feishuAppBotScopes.pinRead,
-  feishuAppBotScopes.pinWrite,
-  feishuAppBotScopes.p2pReadonly,
-  feishuAppBotScopes.groupAtReadonly,
-  feishuAppBotScopes.groupAtWithBotReadonly,
-  feishuAppBotScopes.groupMessage,
-  feishuAppBotScopes.groupReadonly,
-];
+  applicationRead: "application:application:readonly",
+  applicationVersionRead: "application:application.app_version:readonly",
+};

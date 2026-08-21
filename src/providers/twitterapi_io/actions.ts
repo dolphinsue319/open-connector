@@ -839,6 +839,4 @@ export const twitterapiIoActions: ProviderActionDefinition[] = [
     inputSchema: removeMonitoredTweetUserInputSchema,
     outputSchema: mutationStatusOutputSchema,
   }),
-] satisfies ProviderActionDefinition[];
-
-export type TwitterApiIoActionName = (typeof twitterapiIoActions)[number]["name"];
+];

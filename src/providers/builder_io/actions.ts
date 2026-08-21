@@ -1,16 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "builder_io";
-
-export type BuilderIoActionName =
-  | "list_content"
-  | "get_content"
-  | "create_content"
-  | "update_content"
-  | "delete_content";
 
 const builderObjectSchema = s.looseObject("A Builder.io object with provider-defined fields.");
 const builderDataObjectSchema = s.looseObject("The Builder.io content data object.");
@@ -35,7 +28,7 @@ const contentSchema = s.object(
   },
 );
 
-export const builderIoActions: ProviderActionDefinition<BuilderIoActionName>[] = [
+export const builderIoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_content",
     description: "List Builder.io content entries for a model using the Content API.",

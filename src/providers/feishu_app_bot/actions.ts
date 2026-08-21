@@ -2,9 +2,52 @@ import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
+import { createFeishuApplicationActions } from "../feishu/shared/application-actions.ts";
+import { createFeishuBaseActions } from "../feishu/shared/base-actions.ts";
+import { createFeishuBaseAdvancedActions } from "../feishu/shared/base-advanced-actions.ts";
+import { createFeishuCalendarActions } from "../feishu/shared/calendar-actions.ts";
+import { createFeishuContactActions } from "../feishu/shared/contact-actions.ts";
+import { createFeishuDocsActions } from "../feishu/shared/docs-actions.ts";
+import { createFeishuDomainMediaActions } from "../feishu/shared/domain-media-actions.ts";
+import { createFeishuDriveActions } from "../feishu/shared/drive-actions.ts";
+import { createFeishuDriveAdvancedActions } from "../feishu/shared/drive-advanced-actions.ts";
+import { createFeishuFileActions } from "../feishu/shared/file-actions.ts";
+import { createFeishuImActions } from "../feishu/shared/im-actions.ts";
+import { createFeishuMailActions } from "../feishu/shared/mail-actions.ts";
+import { createFeishuMailAdvancedActions } from "../feishu/shared/mail-advanced-actions.ts";
+import { createFeishuMarkdownActions } from "../feishu/shared/markdown-actions.ts";
+import { createFeishuOkrActions } from "../feishu/shared/okr-actions.ts";
+import { createFeishuSheetsActions } from "../feishu/shared/sheets-actions.ts";
+import { createFeishuSheetsAdvancedActions } from "../feishu/shared/sheets-advanced-actions.ts";
+import { createFeishuSlidesActions } from "../feishu/shared/slides-actions.ts";
+import { createFeishuTaskActions } from "../feishu/shared/task-actions.ts";
+import { createFeishuVcActions } from "../feishu/shared/vc-actions.ts";
+import { createFeishuWhiteboardActions } from "../feishu/shared/whiteboard-actions.ts";
+import { createFeishuWikiActions } from "../feishu/shared/wiki-actions.ts";
 import { feishuAppBotScopes } from "./scopes.ts";
 
 const service = "feishu_app_bot";
+const feishuAppBotMailActionNames = new Set([
+  "list_mail_messages",
+  "get_mail_message",
+  "get_mail_thread",
+  "create_mail_template",
+  "update_mail_template",
+  "triage_mail_messages",
+  "recall_sent_mail",
+  "get_mail_recall_detail",
+]);
+const tenantUnsupportedSharedActions = new Set([
+  "list_tasks",
+  "search_tasks",
+  "search_tasklists",
+  "get_related_tasks",
+  "create_wiki_space",
+  "search_documents",
+  "upload_minutes_media",
+  "search_calendar_events",
+  "get_calendar_meeting_info",
+]);
 
 const sendMessageTypeSchema = s.stringEnum("The Feishu message type to send.", [
   "text",
@@ -296,13 +339,39 @@ const fileUploadEnvelopeSchema = s.requiredObject("A Feishu file-upload response
     file_key: s.string("The Feishu file key returned by the upload API."),
   }),
 });
-const downloadableFileSchema = s.requiredObject("A downloadable file uploaded to connector transit storage.", {
+const downloadableFileSchema = s.requiredObject("A downloadable file uploaded to local transit storage.", {
+  fileId: s.string("The local transit file identifier."),
+  downloadUrl: s.url("The local URL for downloading the transit file."),
+  sizeBytes: s.nonNegativeInteger("The downloaded file size in bytes."),
   name: s.string("The downloaded file name."),
-  mimetype: s.string("The MIME type of the downloaded file."),
-  downloadUrl: s.string("The local transit URL for downloading the file."),
+  mimeType: s.string("The MIME type of the downloaded file."),
 });
 
 export const feishuAppBotActions: ActionDefinition[] = [
+  defineProviderAction(service, {
+    name: "get_app_info",
+    description: "Get the Feishu custom app profile and configured scopes for this connection.",
+    requiredScopes: [feishuAppBotScopes.applicationRead],
+    providerPermissions: [feishuAppBotScopes.applicationRead],
+    inputSchema: s.object("No input is required.", {}),
+    outputSchema: s.requiredObject("The connected Feishu app profile.", {
+      app: s.looseObject("The application object returned by Feishu."),
+    }),
+  }),
+  defineProviderAction(service, {
+    name: "get_app_permissions",
+    description: "Get the currently published Feishu app version, tenant scopes, and subscribed events.",
+    requiredScopes: [feishuAppBotScopes.applicationVersionRead],
+    providerPermissions: [feishuAppBotScopes.applicationVersionRead],
+    inputSchema: s.object("No input is required.", {}),
+    outputSchema: s.requiredObject("The published Feishu app permission snapshot.", {
+      versionId: s.nullableString("The published version identifier."),
+      version: s.nullableString("The published version label."),
+      scopes: s.stringArray("The published tenant_access_token scopes."),
+      events: s.stringArray("The event types subscribed by the published app version."),
+      raw: s.looseObject("The raw published app version item."),
+    }),
+  }),
   defineProviderAction(service, {
     name: "upload_image",
     description: "Upload one public image URL to Feishu/Lark and return the image key for message sending.",
@@ -608,26 +677,78 @@ export const feishuAppBotActions: ActionDefinition[] = [
     }),
     outputSchema: emptyEnvelopeSchema,
   }),
+  ...createFeishuContactActions({
+    service,
+    identity: "tenant",
+  }),
+  ...createFeishuImActions({
+    service,
+    identity: "tenant",
+  }),
+  ...createFeishuBaseActions(service),
+  ...createFeishuBaseAdvancedActions(service),
+  ...tenantSupportedActions(createFeishuCalendarActions(service)),
+  ...tenantSupportedActions(createFeishuTaskActions(service)),
+  ...tenantSupportedActions(createFeishuWikiActions(service)),
+  ...tenantSupportedActions(createFeishuDocsActions(service)),
+  ...createFeishuDriveActions(service),
+  ...createFeishuDriveAdvancedActions({
+    service,
+    identity: "bot",
+  }),
+  ...createFeishuSlidesActions(service),
+  ...createFeishuWhiteboardActions(service),
+  ...createFeishuSheetsActions(service),
+  ...createFeishuSheetsAdvancedActions(service),
+  ...tenantMailActions([...createFeishuMailActions(service), ...createFeishuMailAdvancedActions(service)]),
+  ...createFeishuOkrActions(service),
+  ...createFeishuFileActions(service),
+  ...createFeishuVcActions({
+    service,
+    identity: "tenant",
+  }),
+  ...createFeishuApplicationActions(service),
+  ...createFeishuMarkdownActions(service),
+  ...tenantSupportedActions(createFeishuDomainMediaActions(service)),
 ];
 
-export type FeishuAppBotActionName =
-  | "upload_image"
-  | "download_image"
-  | "upload_file"
-  | "download_file"
-  | "send_message"
-  | "reply_message"
-  | "get_message"
-  | "list_messages"
-  | "list_chats"
-  | "search_chats"
-  | "get_chat"
-  | "list_chat_members"
-  | "recall_message"
-  | "edit_message"
-  | "add_message_reaction"
-  | "list_message_reactions"
-  | "remove_message_reaction"
-  | "pin_message"
-  | "list_pins"
-  | "remove_pin";
+export const feishuAppBotProviderScopes: string[] = Array.from(
+  new Set(feishuAppBotActions.flatMap((action) => action.providerPermissions)),
+);
+
+function tenantSupportedActions(actions: readonly ActionDefinition[]): readonly ActionDefinition[] {
+  return actions.filter((action) => !tenantUnsupportedSharedActions.has(action.name));
+}
+
+function tenantMailActions(actions: readonly ActionDefinition[]): readonly ActionDefinition[] {
+  return actions.filter((action) => feishuAppBotMailActionNames.has(action.name)).map(requireExplicitMailbox);
+}
+
+function requireExplicitMailbox(action: ActionDefinition): ActionDefinition {
+  const properties = action.inputSchema.properties;
+  const mailboxSchema =
+    properties && typeof properties === "object" && !Array.isArray(properties)
+      ? (properties as Record<string, unknown>).mailboxId
+      : undefined;
+  const required = Array.isArray(action.inputSchema.required)
+    ? action.inputSchema.required.filter((field): field is string => typeof field === "string")
+    : [];
+  if (!mailboxSchema || typeof mailboxSchema !== "object" || Array.isArray(mailboxSchema)) {
+    return action;
+  }
+  return {
+    ...action,
+    inputSchema: {
+      ...action.inputSchema,
+      properties: {
+        ...(properties as Record<string, unknown>),
+        mailboxId: {
+          ...mailboxSchema,
+          description: "The explicit user mailbox email address. App identity does not support `me`.",
+          not: { const: "me" },
+        },
+      },
+      required: required.includes("mailboxId") ? required : [...required, "mailboxId"],
+    },
+  };
+}

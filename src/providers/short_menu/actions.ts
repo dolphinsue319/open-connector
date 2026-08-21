@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -69,7 +69,7 @@ const deleteLinkOutputSchema = s.object("Normalized delete result returned after
   deleted: s.boolean("Whether the short link was deleted successfully."),
 });
 
-export const shortMenuActions: ProviderActionDefinition<ShortMenuActionName>[] = [
+export const shortMenuActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_link",
     description: "Create a Short Menu short link.",
@@ -91,6 +91,4 @@ export const shortMenuActions: ProviderActionDefinition<ShortMenuActionName>[] =
     inputSchema: deleteLinkInputSchema,
     outputSchema: deleteLinkOutputSchema,
   }),
-] satisfies ProviderActionDefinition<ShortMenuActionName>[];
-
-export type ShortMenuActionName = "create_link" | "update_link" | "delete_link";
+];

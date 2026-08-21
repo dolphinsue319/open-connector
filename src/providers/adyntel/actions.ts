@@ -153,5 +153,3 @@ export const adyntelActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type AdyntelActionName = (typeof adyntelActions)[number]["name"];

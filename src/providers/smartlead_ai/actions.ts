@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -81,9 +81,7 @@ const campaignLeadSchema = s.looseRequiredObject("A Smartlead lead inside a camp
   raw: s.looseObject("The raw campaign lead object returned by Smartlead."),
 });
 
-export type SmartleadAiActionName = "list_campaigns" | "get_campaign" | "list_email_accounts" | "list_campaign_leads";
-
-export const smartleadAiActions: ProviderActionDefinition<SmartleadAiActionName>[] = [
+export const smartleadAiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_campaigns",
     description: "List Smartlead campaigns with optional client and tag filters.",

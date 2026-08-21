@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -93,9 +92,7 @@ const parseraMarkdownOutputSchema = s.object("The normalized Markdown extraction
 
 const parseraListOutputSchema = s.looseObject("The list payload returned by Parsera.");
 
-export type ParseraActionName = "extract" | "parse" | "extract_markdown" | "list_llm_specs" | "list_proxy_countries";
-
-export const parseraActions: Array<ProviderActionDefinition<ParseraActionName>> = [
+export const parseraActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "extract",
     description: "Extract structured data from a webpage URL with Parsera using a prompt, attributes, or both.",

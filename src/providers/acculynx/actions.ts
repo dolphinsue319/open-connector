@@ -483,4 +483,3 @@ export const acculynxActions: ActionDefinition[] = [
     outputSchema: initialAppointmentOutputSchema,
   }),
 ];
-export type AcculynxActionName = (typeof acculynxActions)[number]["name"];

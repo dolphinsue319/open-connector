@@ -1,17 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "mailercloud";
-
-export type MailercloudActionName =
-  | "create_contact"
-  | "create_list"
-  | "list_contact_properties"
-  | "create_contact_property"
-  | "update_contact_property"
-  | "delete_contact_property";
 
 const nonEmptyString = (description: string) => s.string(description, { minLength: 1 });
 const boundedString = (description: string, options: { minLength?: number; maxLength?: number }) =>
@@ -160,7 +152,7 @@ const deletePropertyInputSchema = s.object(
   { required: ["property_id"] },
 );
 
-export const mailercloudActions: ProviderActionDefinition<MailercloudActionName>[] = [
+export const mailercloudActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_contact",
     description: "Create a Mailercloud contact in a recipient list with optional standard and custom fields.",

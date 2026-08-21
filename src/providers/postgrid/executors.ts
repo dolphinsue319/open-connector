@@ -1,6 +1,6 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { PostgridActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -13,9 +13,10 @@ import {
 import {
   createProviderTimeout,
   defineApiKeyProviderExecutors,
+  defineProviderProxy,
   isAbortLikeError,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
 } from "../provider-runtime.ts";
 
 const service = "postgrid";
@@ -25,7 +26,7 @@ const postgridDefaultRequestTimeoutMs = 30_000;
 type PostgridPhase = "validate" | "execute";
 type PostgridActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const postgridActionHandlers: Record<PostgridActionName, PostgridActionHandler> = {
+export const postgridActionHandlers: ProviderActionHandlers<"postgrid", PostgridActionHandler> = {
   create_contact(input, context) {
     return requestPostgridJson({
       path: "/contacts",
@@ -305,3 +306,9 @@ function readOptionalNumberString(value: unknown): string | undefined {
   const parsed = optionalNumber(value);
   return parsed === undefined ? undefined : String(parsed);
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.postgrid.com/print-mail/v1",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

@@ -1,5 +1,10 @@
-import type { CredentialValidators, ExecutionContext, ProviderExecutors } from "../../core/types.ts";
-import type { AbyssaleActionName } from "./actions.ts";
+import type {
+  CredentialValidators,
+  ExecutionContext,
+  ProviderExecutors,
+  ProviderProxyExecutor,
+} from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import {
   compactObject,
@@ -11,8 +16,9 @@ import {
 } from "../../core/cast.ts";
 import {
   defineProviderExecutors,
-  providerUserAgent,
+  defineProviderProxy,
   ProviderRequestError,
+  providerUserAgent,
   requireApiKeyCredential,
 } from "../provider-runtime.ts";
 
@@ -29,7 +35,7 @@ interface AbyssaleActionContext {
 
 type AbyssaleActionHandler = (input: Record<string, unknown>, context: AbyssaleActionContext) => Promise<unknown>;
 
-export const abyssaleActionHandlers: Record<AbyssaleActionName, AbyssaleActionHandler> = {
+export const abyssaleActionHandlers: ProviderActionHandlers<"abyssale", AbyssaleActionHandler> = {
   list_designs(_input, context) {
     return listDesigns(context);
   },
@@ -439,3 +445,9 @@ function readOptionalObjectArray(value: unknown): Record<string, unknown>[] {
   }
   return value.filter((item) => optionalRecord(item)) as Record<string, unknown>[];
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.abyssale.com",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

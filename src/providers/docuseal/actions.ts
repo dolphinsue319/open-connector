@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -192,7 +192,7 @@ const submitterInputSchema = s.object(
 
 export type DocusealActionName = "list_templates" | "get_template" | "create_submission";
 
-export const docusealActions: Array<ProviderActionDefinition<DocusealActionName>> = [
+export const docusealActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_templates",
     description: "List DocuSeal document templates with optional filters and ID-based pagination.",

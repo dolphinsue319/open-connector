@@ -363,5 +363,3 @@ export const slabActions: ProviderActionDefinition[] = [
     outputSchema: searchOutputSchema,
   }),
 ];
-
-export type SlabActionName = (typeof slabActions)[number]["name"];

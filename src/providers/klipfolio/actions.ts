@@ -1,19 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "klipfolio";
-
-export type KlipfolioActionName =
-  | "list_clients"
-  | "get_client"
-  | "list_dashboards"
-  | "get_dashboard"
-  | "list_klips"
-  | "get_klip"
-  | "list_data_sources"
-  | "get_data_source";
 
 const nonEmptyString = (description: string) => s.nonEmptyString(description);
 const positiveInteger = (description: string) => s.positiveInteger(description);
@@ -53,7 +43,7 @@ const getOutputSchema = (assetName: string, outputKey: string) =>
     raw: rawPayloadSchema,
   });
 
-export const klipfolioActions: Array<ProviderActionDefinition<KlipfolioActionName>> = [
+export const klipfolioActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_clients",
     description: "List Klipfolio client assets visible to the current API key.",

@@ -212,8 +212,6 @@ export const aviationstackActions: ActionDefinition[] = [
   ),
 ];
 
-export type AviationstackActionName = (typeof aviationstackActions)[number]["name"];
-
 function collectionAction(
   name: string,
   description: string,

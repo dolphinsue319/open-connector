@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -19,9 +19,7 @@ const paginationMetaSchema = s.object("Jam pagination metadata for a data-export
 
 const dataExportRecordSchema = s.looseObject("One Jam data-export record.");
 
-export type WejamAiActionName = "export_data";
-
-export const wejamAiActions: readonly ProviderActionDefinition<WejamAiActionName>[] = [
+export const wejamAiActions: readonly ActionDefinition[] = [
   defineProviderAction(service, {
     name: "export_data",
     description: "Export one page of Jam training data for reporting or BI workflows.",

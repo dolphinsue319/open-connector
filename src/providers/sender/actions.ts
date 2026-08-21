@@ -1,26 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "sender";
-
-export type SenderActionName =
-  | "list_subscribers"
-  | "get_subscriber"
-  | "create_subscriber"
-  | "update_subscriber"
-  | "add_subscribers_to_group"
-  | "remove_subscribers_from_group"
-  | "list_groups"
-  | "get_group"
-  | "list_fields"
-  | "create_field"
-  | "list_campaigns"
-  | "get_campaign"
-  | "list_workflows"
-  | "get_workflow";
 
 const pageField = s.positiveInteger("Page number for Sender pagination.");
 const limitField = s.positiveInteger("Number of records to return per page.");
@@ -248,7 +231,7 @@ const subscriberIdentifierInputSchema = s.object(
   { required: ["identifier"] },
 );
 
-export const senderActions: ProviderActionDefinition<SenderActionName>[] = [
+export const senderActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_subscribers",
     description: "List Sender subscribers with pagination.",

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -53,15 +53,7 @@ const updateRecordInputSchema = s.object("Input parameters for updating a Twenty
   data: jsonObjectSchema,
 });
 
-export type TwentyCrmActionName =
-  | "list_metadata_objects"
-  | "list_records"
-  | "retrieve_record"
-  | "create_record"
-  | "update_record"
-  | "delete_record";
-
-export const twentyCrmActions: ProviderActionDefinition<TwentyCrmActionName>[] = [
+export const twentyCrmActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_metadata_objects",
     description: "List Twenty metadata objects for the connected workspace.",

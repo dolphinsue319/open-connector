@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -203,9 +202,7 @@ const sendMessageInputSchema = withAllOf(
   ],
 );
 
-export type UserlistActionName = "push_user" | "push_company" | "push_relationship" | "create_event" | "send_message";
-
-export const userlistActions: Array<ProviderActionDefinition<UserlistActionName>> = [
+export const userlistActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "push_user",
     description: "Create or update a Userlist user through the Push API.",

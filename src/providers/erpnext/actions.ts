@@ -157,5 +157,3 @@ export const erpnextActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type ErpnextActionName = (typeof erpnextActions)[number]["name"];

@@ -1,4 +1,4 @@
-import type { AppData, AuthDefinition, ProviderDefinition } from "./model";
+import type { AppData, AuthDefinition, CredentialField, OAuthConfig, ProviderDefinition } from "./model";
 
 import { I18nProvider } from "@embra/i18n/react";
 import { createElement } from "react";
@@ -6,43 +6,28 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppI18n } from "./i18n";
+import { clientConfigFieldsFor, initialClientConfigFieldValues, splitClientConfigFieldValues } from "./oauth-app-form";
 import {
+  configurableConnectionsForProvider,
+  connectionDeletePath,
+  connectionDisplayLabel,
   connectionSubmitLabel,
   createOAuthPopupFeatures,
-  oauthClientActionLabel,
+  credentialConnectionRequestBody,
+  isProviderLocallyAvailable,
+  oauthAuthorizationRequestBody,
   oauthConfigForProvider,
   providerBrowserResetKey,
   ProvidersPage,
-  shouldClearOAuthClientStatus,
   shouldEnableConnectionSubmit,
   shouldShowConnectionActions,
   shouldShowDisconnectAction,
-  shouldShowOAuthClientForm,
   startOAuthRefreshPolling,
+  validateNewConnectionName,
 } from "./providers-page";
 
 afterEach(() => {
   vi.useRealTimers();
-});
-
-describe("shouldShowOAuthClientForm", () => {
-  it("keeps OAuth client settings collapsed until the user expands them", () => {
-    const auth: AuthDefinition = { type: "oauth2", scopes: [] };
-
-    expect(shouldShowOAuthClientForm(auth, false)).toBe(false);
-  });
-
-  it("hides OAuth client settings while API key auth is selected", () => {
-    const auth: AuthDefinition = { type: "api_key" };
-
-    expect(shouldShowOAuthClientForm(auth, true)).toBe(false);
-  });
-
-  it("shows OAuth client settings while OAuth auth is selected and expanded", () => {
-    const auth: AuthDefinition = { type: "oauth2", scopes: [] };
-
-    expect(shouldShowOAuthClientForm(auth, true)).toBe(true);
-  });
 });
 
 describe("shouldShowConnectionActions", () => {
@@ -93,25 +78,181 @@ describe("shouldEnableConnectionSubmit", () => {
       ),
     ).toBe(true);
   });
-});
 
-describe("oauthClientActionLabel", () => {
-  it("asks the user to configure missing OAuth client settings", () => {
-    expect(oauthClientActionLabel(undefined)).toBe("Configure OAuth Client");
+  it("validates a manually entered OAuth client", () => {
+    const auth: AuthDefinition = {
+      type: "oauth2",
+      scopes: [],
+      tokenEndpointAuthMethod: "client_secret_post",
+      clientConfigFields: [
+        {
+          key: "tenant",
+          label: "Tenant",
+          inputType: "text",
+          required: true,
+          secret: false,
+        },
+      ],
+    };
+
+    expect(
+      shouldEnableConnectionSubmit(auth, undefined, {
+        clientId: "client-id",
+        clientSecret: "",
+        extraValues: { tenant: "common" },
+      }),
+    ).toBe(false);
+    expect(
+      shouldEnableConnectionSubmit(auth, undefined, {
+        clientId: "client-id",
+        clientSecret: "client-secret",
+        extraValues: { tenant: "common" },
+      }),
+    ).toBe(true);
   });
 
-  it("shows an edit action for saved OAuth client settings", () => {
-    expect(oauthClientActionLabel({ service: "gmail", configured: true, clientId: "gmail-client-id" })).toBe(
-      "Edit OAuth Client",
-    );
+  it("allows public OAuth clients without a secret", () => {
+    expect(
+      shouldEnableConnectionSubmit({ type: "oauth2", scopes: [], tokenEndpointAuthMethod: "none" }, undefined, {
+        clientId: "public-client",
+        clientSecret: "",
+        extraValues: {},
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("clientConfigFieldsFor", () => {
+  const tenantField: CredentialField = {
+    key: "tenant",
+    label: "Tenant",
+    inputType: "text",
+    required: true,
+    secret: false,
+    defaultValue: "common",
+  };
+
+  it("returns the oauth2 auth definition's clientConfigFields", () => {
+    const auth: AuthDefinition = { type: "oauth2", scopes: [], clientConfigFields: [tenantField] };
+
+    expect(clientConfigFieldsFor(auth)).toEqual([tenantField]);
+  });
+
+  it("returns an empty array for non-oauth2 auth", () => {
+    const auth: AuthDefinition = { type: "api_key" };
+
+    expect(clientConfigFieldsFor(auth)).toEqual([]);
+  });
+
+  it("returns an empty array when oauth2 auth declares no clientConfigFields", () => {
+    const auth: AuthDefinition = { type: "oauth2", scopes: [] };
+
+    expect(clientConfigFieldsFor(auth)).toEqual([]);
+  });
+});
+
+describe("initialClientConfigFieldValues", () => {
+  const tenantField: CredentialField = {
+    key: "tenant",
+    label: "Tenant",
+    inputType: "text",
+    required: true,
+    secret: false,
+    defaultValue: "common",
+  };
+
+  it("falls back to the field's default value when nothing is stored", () => {
+    expect(initialClientConfigFieldValues([tenantField], undefined)).toEqual({ tenant: "common" });
+  });
+
+  it("prefers a previously stored non-secret value over the default", () => {
+    const config: OAuthConfig = {
+      service: "microsoft_todo",
+      configured: true,
+      clientId: "client-id",
+      extra: { tenant: "consumers" },
+    };
+
+    expect(initialClientConfigFieldValues([tenantField], config)).toEqual({ tenant: "consumers" });
+  });
+
+  it("leaves the value empty when there is neither a stored value nor a default", () => {
+    const field: CredentialField = { ...tenantField, defaultValue: undefined };
+
+    expect(initialClientConfigFieldValues([field], undefined)).toEqual({ tenant: "" });
+  });
+});
+
+describe("splitClientConfigFieldValues", () => {
+  const tenantField: CredentialField = {
+    key: "tenant",
+    label: "Tenant",
+    inputType: "text",
+    required: true,
+    secret: false,
+  };
+  const appSecretField: CredentialField = {
+    key: "appSecret",
+    label: "App secret",
+    inputType: "password",
+    required: true,
+    secret: true,
+    location: "secretExtra",
+  };
+
+  it("routes fields without a location to extra", () => {
+    const { extra, secretExtra } = splitClientConfigFieldValues([tenantField], { tenant: "consumers" });
+
+    expect(extra).toEqual({ tenant: "consumers" });
+    expect(secretExtra).toEqual({});
+  });
+
+  it("routes fields marked secretExtra separately from extra", () => {
+    const { extra, secretExtra } = splitClientConfigFieldValues([tenantField, appSecretField], {
+      tenant: "consumers",
+      appSecret: "shh",
+    });
+
+    expect(extra).toEqual({ tenant: "consumers" });
+    expect(secretExtra).toEqual({ appSecret: "shh" });
   });
 });
 
 describe("ProvidersPage OAuth client settings", () => {
-  it("shows a reset action for saved OAuth client settings", () => {
+  it("shows an edit action for a configured OAuth app", () => {
     const markup = renderProvidersPage(providerData, "/providers/gmail");
 
-    expect(markup).toContain("Reset OAuth Client");
+    expect(markup).toContain("Edit Default App");
+    expect(markup).not.toContain("Reset Default App");
+  });
+
+  it("offers manual input only when connection-scoped OAuth clients are available", () => {
+    const availableMarkup = renderProvidersPage(
+      {
+        ...providerData,
+        oauthConfigs: [
+          {
+            service: "gmail",
+            configured: false,
+            customClientAvailable: true,
+            clientId: null,
+            expectedRedirectUri: "http://localhost:3000/oauth/callback",
+          },
+        ],
+      },
+      "/providers/gmail",
+    );
+    const unavailableMarkup = renderProvidersPage(
+      {
+        ...providerData,
+        oauthConfigs: [{ service: "gmail", configured: false, customClientAvailable: false, clientId: null }],
+      },
+      "/providers/gmail",
+    );
+
+    expect(availableMarkup).toContain("Default App");
+    expect(availableMarkup).toContain("Custom App");
+    expect(unavailableMarkup).not.toContain("Custom App");
   });
 });
 
@@ -121,7 +262,7 @@ describe("ProvidersPage route shell", () => {
 
     expect(markup).toContain("Providers");
     expect(markup).toContain("Showing 1 / 1");
-    expect(markup).not.toContain("Reset OAuth Client");
+    expect(markup).not.toContain("Reset Default App");
   });
 
   it("renders a full provider detail page at /providers/:service", () => {
@@ -184,14 +325,172 @@ describe("ProvidersPage route shell", () => {
     const markup = renderProvidersPage({ ...providerData, oauthConfigs: [] }, "/providers/gmail");
 
     expect(markup).toContain("OAuth client required");
-    expect(markup).toContain("Configure OAuth Client");
+    expect(markup).toContain("Configure Default App");
+  });
+
+  it("does not show an OAuth warning when an API-key connection is already usable", () => {
+    const githubProvider: ProviderDefinition = {
+      ...oauthProvider,
+      service: "github",
+      displayName: "GitHub",
+      authTypes: ["oauth2", "api_key"],
+      auth: [{ type: "oauth2", scopes: [] }, { type: "api_key" }],
+    };
+    const markup = renderProvidersPage(
+      {
+        ...providerData,
+        providers: [githubProvider],
+        connections: [
+          {
+            id: "github-default",
+            service: "github",
+            connectionName: "default",
+            authType: "api_key",
+            configured: true,
+            metadata: {},
+          },
+        ],
+        oauthConfigs: [],
+      },
+      "/providers/github",
+    );
+
+    expect(markup).toContain("Configured");
+    expect(markup).toContain("Saved connections: 1. Select one to manage or add another.");
+    expect(markup).not.toContain("OAuth client required");
+    expect(markup).not.toContain('class="form-grid connection-form"');
+  });
+
+  it("shows every named connection and only safe account profile fields", () => {
+    const markup = renderProvidersPage(
+      {
+        ...providerData,
+        connections: [
+          {
+            id: "gmail-default",
+            service: "gmail",
+            connectionName: "default",
+            authType: "oauth2",
+            configured: true,
+            default: true,
+            profile: { displayName: "personal@example.com" },
+            metadata: { accessToken: "must-not-render" },
+          },
+          {
+            id: "gmail-work",
+            service: "gmail",
+            connectionName: "work",
+            authType: "oauth2",
+            configured: true,
+            profile: { displayName: "work@example.com" },
+            metadata: { refreshToken: "must-not-render-either" },
+          },
+        ],
+      },
+      "/providers/gmail",
+    );
+
+    expect(markup).toContain("default · personal@example.com");
+    expect(markup).toContain("work · work@example.com");
+    expect(markup).toContain("2 connections");
+    expect(markup).toContain("Add Connection");
+    expect(markup).not.toContain("Reconnect Gmail");
+    expect(markup).not.toContain("Clear selection");
+    expect(markup).not.toContain("must-not-render");
+  });
+
+  it("keeps the original connection form visible when no connection exists", () => {
+    const markup = renderProvidersPage(providerData, "/providers/gmail");
+
+    expect(markup).toContain('value="default"');
+    expect(markup).toContain("Connect Gmail");
+    expect(markup).toContain("Edit Default App");
+    expect(markup).not.toContain("Add Connection");
+  });
+
+  it("lists OAuth and API-key connections together before opening either editor", () => {
+    const githubProvider: ProviderDefinition = {
+      ...oauthProvider,
+      service: "github",
+      displayName: "GitHub",
+      authTypes: ["oauth2", "api_key"],
+      auth: [
+        { type: "oauth2", scopes: [] },
+        { type: "api_key", label: "Personal access token" },
+      ],
+    };
+    const markup = renderProvidersPage(
+      {
+        ...providerData,
+        providers: [githubProvider],
+        connections: [
+          {
+            id: "github-personal",
+            service: "github",
+            connectionName: "personal",
+            authType: "oauth2",
+            configured: true,
+            profile: { displayName: "octocat" },
+            metadata: {},
+          },
+          {
+            id: "github-work",
+            service: "github",
+            connectionName: "work",
+            authType: "api_key",
+            configured: true,
+            profile: { displayName: "work account" },
+            metadata: {},
+          },
+        ],
+      },
+      "/providers/github",
+    );
+
+    expect(markup).toContain("personal · octocat");
+    expect(markup).toContain("work · work account");
+    expect(markup).toContain("Add Connection");
+    expect(markup).not.toContain("Connection name");
+    expect(markup).not.toContain("Personal access token");
+  });
+
+  it("shows catalog-only providers as unavailable without connection controls", () => {
+    const data = { ...providerData, providers: [catalogOnlyProvider], oauthConfigs: [] };
+    const browserMarkup = renderProvidersPage(data, "/providers");
+    const detailMarkup = renderProvidersPage(data, "/providers/catalog-only");
+
+    expect(browserMarkup).toContain("Unavailable");
+    expect(browserMarkup).toContain("Details");
+    expect(browserMarkup).not.toContain(">Connect<");
+    expect(detailMarkup).toContain("Unavailable in this runtime");
+    expect(detailMarkup).toContain(
+      "Catalog Only remains visible for catalog reference, but connections and actions are unavailable in the current runtime.",
+    );
+    expect(detailMarkup).not.toContain("Save Connection");
+    expect(detailMarkup).not.toContain("Host");
+  });
+
+  it("keeps stale catalog-only connections available to manage", () => {
+    const markup = renderProvidersPage(
+      {
+        ...providerData,
+        providers: [catalogOnlyProvider],
+        connections: [{ service: "catalog-only", authType: "custom_credential", metadata: {} }],
+        oauthConfigs: [],
+      },
+      "/providers/catalog-only",
+    );
+
+    expect(markup).toContain("Manage");
+    expect(markup).not.toContain("Disconnect");
+    expect(markup).not.toContain("Save Connection");
   });
 
   it("omits OAuth client warning badges in the provider browser cards", () => {
     const markup = renderProvidersPage({ ...providerData, oauthConfigs: [] }, "/providers");
 
     expect(markup).not.toContain("OAuth client required");
-    expect(markup).toContain("Configure OAuth Client");
+    expect(markup).toContain("Configure Default App");
   });
 
   it("starts the provider browser with a 48 item visible limit", () => {
@@ -212,20 +511,117 @@ describe("ProvidersPage route shell", () => {
   });
 });
 
-describe("providerBrowserResetKey", () => {
-  it("changes when search or status filters change", () => {
-    expect(providerBrowserResetKey("gmail", "all")).not.toBe(providerBrowserResetKey("gmail", "connected"));
-    expect(providerBrowserResetKey("gmail", "all")).not.toBe(providerBrowserResetKey("slack", "all"));
+describe("named provider connections", () => {
+  const connections: AppData["connections"] = [
+    {
+      service: "gmail",
+      connectionName: "default",
+      authType: "oauth2",
+      profile: { displayName: "personal@example.com" },
+      metadata: {},
+    },
+    { service: "gmail", connectionName: "work", authType: "oauth2", metadata: {} },
+  ];
+
+  it("filters configurable records and formats safe labels", () => {
+    expect(
+      configurableConnectionsForProvider(
+        [
+          ...connections,
+          { service: "gmail", connectionName: "virtual", authType: "oauth2", virtual: true, metadata: {} },
+          { service: "slack", connectionName: "work", authType: "oauth2", metadata: {} },
+        ],
+        "gmail",
+      ).map((connection) => connection.connectionName),
+    ).toEqual(["default", "work"]);
+    expect(connectionDisplayLabel(connections[0]!)).toBe("default · personal@example.com");
+    expect(connectionDisplayLabel(connections[1]!)).toBe("work");
+  });
+
+  it("validates names before sending credentials", () => {
+    expect(validateNewConnectionName("", connections)).toBe("required");
+    expect(validateNewConnectionName("bad name", connections)).toBe("invalid");
+    expect(validateNewConnectionName("work", connections)).toBe("duplicate");
+    expect(validateNewConnectionName("team-2", connections)).toBeUndefined();
+  });
+
+  it("targets one encoded connection when disconnecting", () => {
+    expect(connectionDeletePath("google/mail", "work team")).toBe(
+      "/api/connections/google%2Fmail?connectionName=work%20team",
+    );
+  });
+
+  it("includes the named connection in credential and OAuth requests", () => {
+    expect(credentialConnectionRequestBody("api_key", "work", { apiKey: "secret" })).toEqual({
+      authType: "api_key",
+      connectionName: "work",
+      values: { apiKey: "secret" },
+    });
+    expect(oauthAuthorizationRequestBody("gmail", "personal")).toEqual({
+      service: "gmail",
+      connectionName: "personal",
+    });
+    expect(
+      oauthAuthorizationRequestBody("gmail", "work", {
+        auth: {
+          type: "oauth2",
+          scopes: [],
+          clientConfigFields: [
+            {
+              key: "tenant",
+              label: "Tenant",
+              inputType: "text",
+              required: true,
+              secret: false,
+            },
+            {
+              key: "appToken",
+              label: "App token",
+              inputType: "password",
+              required: true,
+              secret: true,
+              location: "secretExtra",
+            },
+          ],
+        },
+        values: {
+          clientId: "client-id",
+          clientSecret: "client-secret",
+          extraValues: { tenant: "common", appToken: "secret-token" },
+        },
+      }),
+    ).toEqual({
+      service: "gmail",
+      connectionName: "work",
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      extra: { tenant: "common" },
+      secretExtra: { appToken: "secret-token" },
+    });
   });
 });
 
-describe("shouldClearOAuthClientStatus", () => {
-  it("keeps the reset status when refresh removes the OAuth config for the same provider", () => {
-    expect(shouldClearOAuthClientStatus({ providerChanged: false, skipNextConfigClear: true })).toBe(false);
+describe("isProviderLocallyAvailable", () => {
+  it("distinguishes catalog-only providers from providers with local actions", () => {
+    expect(isProviderLocallyAvailable(catalogOnlyProvider)).toBe(false);
+    expect(
+      isProviderLocallyAvailable({
+        ...catalogOnlyProvider,
+        actions: [{ ...catalogOnlyProvider.actions[0]!, execution: executableActionExecution }],
+      }),
+    ).toBe(true);
   });
+});
 
-  it("clears the reset status when the selected provider changes", () => {
-    expect(shouldClearOAuthClientStatus({ providerChanged: true, skipNextConfigClear: true })).toBe(true);
+describe("providerBrowserResetKey", () => {
+  it("changes when search, status, or category filters change", () => {
+    expect(providerBrowserResetKey("gmail", "all", "all")).not.toBe(
+      providerBrowserResetKey("gmail", "connected", "all"),
+    );
+    expect(providerBrowserResetKey("gmail", "all", "all")).not.toBe(providerBrowserResetKey("slack", "all", "all"));
+    expect(providerBrowserResetKey("gmail", "all", "all")).not.toBe(
+      providerBrowserResetKey("gmail", "all", "Communication"),
+    );
   });
 });
 
@@ -292,6 +688,53 @@ const noAuthProvider: ProviderDefinition = {
   actions: [],
 };
 
+const catalogOnlyActionExecution = {
+  locallyExecutable: false,
+  catalogOnly: true,
+  requiredAuthTypes: ["custom_credential"],
+  noAuthRunnable: false,
+  needsCredential: true,
+};
+
+const executableActionExecution = {
+  ...catalogOnlyActionExecution,
+  locallyExecutable: true,
+  catalogOnly: false,
+};
+
+const catalogOnlyProvider: ProviderDefinition = {
+  service: "catalog-only",
+  displayName: "Catalog Only",
+  categories: ["Developer Tools"],
+  authTypes: ["custom_credential"],
+  auth: [
+    {
+      type: "custom_credential",
+      fields: [
+        {
+          key: "host",
+          label: "Host",
+          inputType: "text",
+          required: true,
+          secret: false,
+        },
+      ],
+    },
+  ],
+  actions: [
+    {
+      id: "catalog-only.query",
+      service: "catalog-only",
+      name: "query",
+      description: "Query the provider.",
+      requiredScopes: [],
+      inputSchema: {},
+      outputSchema: {},
+      execution: catalogOnlyActionExecution,
+    },
+  ],
+};
+
 const providerData: AppData = {
   providers: [oauthProvider],
   connections: [],
@@ -341,7 +784,12 @@ describe("oauthConfigForProvider", () => {
     });
   });
 
-  it("ignores unconfigured OAuth config summaries", () => {
-    expect(oauthConfigForProvider([{ service: "gmail", configured: false, clientId: null }], "gmail")).toBeUndefined();
+  it("keeps unconfigured summaries so provider capabilities remain available", () => {
+    expect(
+      oauthConfigForProvider(
+        [{ service: "gmail", configured: false, customClientAvailable: true, clientId: null }],
+        "gmail",
+      ),
+    ).toMatchObject({ service: "gmail", configured: false, customClientAvailable: true });
   });
 });

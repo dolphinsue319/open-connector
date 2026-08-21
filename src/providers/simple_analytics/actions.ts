@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -73,7 +73,7 @@ const metadataSchema = s.record(
   ]),
 );
 
-export const simpleAnalyticsActions: Array<ProviderActionDefinition<SimpleAnalyticsActionName>> = [
+export const simpleAnalyticsActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_websites",
     description: "List websites available to the authenticated Simple Analytics account.",
@@ -219,5 +219,3 @@ export const simpleAnalyticsActions: Array<ProviderActionDefinition<SimpleAnalyt
     ),
   }),
 ];
-
-export type SimpleAnalyticsActionName = "list_websites" | "get_aggregated_stats" | "export_data_points" | "send_event";

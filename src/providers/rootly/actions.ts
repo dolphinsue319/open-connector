@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -97,9 +97,7 @@ const configurationFilterFields = {
 const incidentOptional = Object.keys(incidentFilterFields);
 const configurationOptional = Object.keys(configurationFilterFields);
 
-export type RootlyActionName = "get_current_user" | "list_incidents" | "get_incident" | "list_services" | "list_teams";
-
-export const rootlyActions: ProviderActionDefinition<RootlyActionName>[] = [
+export const rootlyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the Rootly user associated with the API key.",

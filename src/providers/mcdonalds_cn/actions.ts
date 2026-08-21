@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -186,16 +185,7 @@ const productSearchDataSchema = s.object(
   },
 );
 
-export type McdonaldsCnActionName =
-  | "get_cities"
-  | "search_stores"
-  | "get_store"
-  | "get_store_business"
-  | "get_menu"
-  | "get_product_detail"
-  | "search_products";
-
-export const mcdonaldsCnActions: Array<ProviderActionDefinition<McdonaldsCnActionName>> = [
+export const mcdonaldsCnActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_cities",
     description: "Get McDonald's China cities that support restaurant and menu lookup.",

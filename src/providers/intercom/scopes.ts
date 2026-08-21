@@ -4,6 +4,12 @@ export const intercomPermissionLabels = {
   contactsWrite: "Read and write users",
   conversationsRead: "Read conversations",
   conversationsWrite: "Write conversations",
+  eventsRead: "Read events",
+  tagsRead: "Read tags",
+  countsRead: "Read counts",
+  ticketsRead: "Read tickets",
+  jobsRead: "Read status of jobs",
+  articlesRead: "Read and List articles",
 };
 
 export const intercomGrantedPermissions: string[] = [
@@ -12,4 +18,10 @@ export const intercomGrantedPermissions: string[] = [
   intercomPermissionLabels.contactsWrite,
   intercomPermissionLabels.conversationsRead,
   intercomPermissionLabels.conversationsWrite,
+  intercomPermissionLabels.eventsRead,
+  intercomPermissionLabels.tagsRead,
+  intercomPermissionLabels.countsRead,
+  intercomPermissionLabels.ticketsRead,
+  intercomPermissionLabels.jobsRead,
+  intercomPermissionLabels.articlesRead,
 ];

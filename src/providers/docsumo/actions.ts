@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -118,7 +118,7 @@ export type DocsumoActionName =
   | "get_extracted_data"
   | "get_documents_summary";
 
-export const docsumoActions: Array<ProviderActionDefinition<DocsumoActionName>> = [
+export const docsumoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account_info",
     description: "Get Docsumo account details, monthly document quota usage, and the currently enabled document types.",

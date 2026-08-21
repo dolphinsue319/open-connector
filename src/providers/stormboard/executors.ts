@@ -1,9 +1,14 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { StormboardActionName } from "./actions.ts";
 
 import { compactObject, objectArray, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "stormboard";
 const stormboardApiBaseUrl = "https://api.stormboard.com";
@@ -11,7 +16,7 @@ const stormboardApiBaseUrl = "https://api.stormboard.com";
 type StormboardRequestMode = "validate" | "execute";
 type StormboardActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const stormboardActionHandlers: Record<StormboardActionName, StormboardActionHandler> = {
+export const stormboardActionHandlers: ProviderActionHandlers<"stormboard", StormboardActionHandler> = {
   async get_profile(_input, context) {
     return { profile: await requestStormboardObject("/users/profile", context, "execute") };
   },
@@ -243,3 +248,9 @@ function readRequiredString(value: unknown, label: string): string {
 function providerError(message: string): ProviderRequestError {
   return new ProviderRequestError(502, message);
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.stormboard.com",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -100,17 +100,7 @@ const messageOutputSchema = s.object("Rocket.Chat message response.", {
   success: s.boolean("Whether Rocket.Chat reported success."),
 });
 
-export type RocketChatActionName =
-  | "get_me"
-  | "list_rooms"
-  | "get_room"
-  | "list_channel_messages"
-  | "get_message"
-  | "post_message"
-  | "update_message"
-  | "delete_message";
-
-export const rocketChatActions: ProviderActionDefinition<RocketChatActionName>[] = [
+export const rocketChatActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_me",
     description: "Get the authenticated Rocket.Chat profile.",

@@ -1,19 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "lattice";
-
-export type LatticeActionName =
-  | "get_current_user"
-  | "list_users"
-  | "get_user"
-  | "list_departments"
-  | "get_department"
-  | "list_tags"
-  | "list_goals"
-  | "get_goal";
 
 const rawSchema = s.unknownObject("The raw Lattice API response payload.");
 const latticeUserSchema = s.unknownObject("A Lattice user object.");
@@ -90,7 +80,7 @@ const goalsOutputSchema = s.object("The normalized Lattice goal list response.",
   raw: rawSchema,
 });
 
-export const latticeActions: Array<ProviderActionDefinition<LatticeActionName>> = [
+export const latticeActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the Lattice user associated with the configured API key.",

@@ -179,5 +179,3 @@ export const stormboardActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type StormboardActionName = (typeof stormboardActions)[number]["name"];

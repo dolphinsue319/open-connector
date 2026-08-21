@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -63,14 +63,7 @@ const usageAdditionalInfoSchema = s.looseObject("Additional monthly pricing meta
   PricePerPage: s.number("The in-contract price per page when returned."),
 });
 
-export type EagleDocActionName =
-  | "process_finance_document"
-  | "get_current_usage"
-  | "list_monthly_usage"
-  | "list_usage_logs"
-  | "get_quota";
-
-export const eagleDocActions: ProviderActionDefinition<EagleDocActionName>[] = [
+export const eagleDocActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "process_finance_document",
     description:

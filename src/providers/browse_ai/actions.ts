@@ -327,6 +327,4 @@ export const browseAiActions: ProviderActionDefinition[] = [
       "The Browse AI robot cookie update response.",
     ),
   }),
-] satisfies ProviderActionDefinition[];
-
-export type BrowseAiActionName = (typeof browseAiActions)[number]["name"];
+];

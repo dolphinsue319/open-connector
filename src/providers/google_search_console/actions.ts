@@ -446,6 +446,4 @@ export const googleSearchConsoleActions: ActionDefinition[] = [
       },
     ),
   }),
-] satisfies ActionDefinition[];
-
-export type GoogleSearchConsoleActionName = (typeof googleSearchConsoleActions)[number]["name"];
+];

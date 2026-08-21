@@ -34,5 +34,3 @@ export const openPageRankActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type OpenPageRankActionName = (typeof openPageRankActions)[number]["name"];

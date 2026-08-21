@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -39,8 +38,6 @@ const commonMessageFields = {
 
 const commonOptionalFields = ["userId", "anonymousId", "context", "integrations", "timestamp", "sentAt", "messageId"];
 
-export type SegmentActionName = "identify" | "track" | "page" | "screen" | "group" | "alias" | "batch";
-
 function requireUserIdOrAnonymousId(schema: JsonSchema): JsonSchema {
   return {
     ...schema,
@@ -48,7 +45,7 @@ function requireUserIdOrAnonymousId(schema: JsonSchema): JsonSchema {
   };
 }
 
-const identifyAction: ProviderActionDefinition<SegmentActionName> = defineProviderAction(service, {
+const identifyAction: ActionDefinition = defineProviderAction(service, {
   name: "identify",
   description: "Send a Segment Identify call to record user traits.",
   inputSchema: requireUserIdOrAnonymousId(
@@ -64,7 +61,7 @@ const identifyAction: ProviderActionDefinition<SegmentActionName> = defineProvid
   outputSchema: acceptedOutputSchema,
 });
 
-const trackAction: ProviderActionDefinition<SegmentActionName> = defineProviderAction(service, {
+const trackAction: ActionDefinition = defineProviderAction(service, {
   name: "track",
   description: "Send a Segment Track call to record one user event.",
   inputSchema: requireUserIdOrAnonymousId(
@@ -81,7 +78,7 @@ const trackAction: ProviderActionDefinition<SegmentActionName> = defineProviderA
   outputSchema: acceptedOutputSchema,
 });
 
-const pageAction: ProviderActionDefinition<SegmentActionName> = defineProviderAction(service, {
+const pageAction: ActionDefinition = defineProviderAction(service, {
   name: "page",
   description: "Send a Segment Page call to record a website page view.",
   inputSchema: requireUserIdOrAnonymousId(
@@ -98,7 +95,7 @@ const pageAction: ProviderActionDefinition<SegmentActionName> = defineProviderAc
   outputSchema: acceptedOutputSchema,
 });
 
-const screenAction: ProviderActionDefinition<SegmentActionName> = defineProviderAction(service, {
+const screenAction: ActionDefinition = defineProviderAction(service, {
   name: "screen",
   description: "Send a Segment Screen call to record a mobile app screen view.",
   inputSchema: requireUserIdOrAnonymousId(
@@ -115,7 +112,7 @@ const screenAction: ProviderActionDefinition<SegmentActionName> = defineProvider
   outputSchema: acceptedOutputSchema,
 });
 
-const groupAction: ProviderActionDefinition<SegmentActionName> = defineProviderAction(service, {
+const groupAction: ActionDefinition = defineProviderAction(service, {
   name: "group",
   description: "Send a Segment Group call to associate a user with a group.",
   inputSchema: requireUserIdOrAnonymousId(
@@ -132,7 +129,7 @@ const groupAction: ProviderActionDefinition<SegmentActionName> = defineProviderA
   outputSchema: acceptedOutputSchema,
 });
 
-const aliasAction: ProviderActionDefinition<SegmentActionName> = defineProviderAction(service, {
+const aliasAction: ActionDefinition = defineProviderAction(service, {
   name: "alias",
   description: "Send a Segment Alias call to associate one user identity with another.",
   inputSchema: s.object(
@@ -155,7 +152,7 @@ const batchEventSchema = s.looseRequiredObject("One Segment batch event.", {
   type: s.stringEnum("Segment event type for this batch item.", ["identify", "track", "page", "screen", "group"]),
 });
 
-const batchAction: ProviderActionDefinition<SegmentActionName> = defineProviderAction(service, {
+const batchAction: ActionDefinition = defineProviderAction(service, {
   name: "batch",
   description: "Send a Segment Batch call containing Identify, Group, Track, Page, or Screen items.",
   inputSchema: s.object(
@@ -173,7 +170,7 @@ const batchAction: ProviderActionDefinition<SegmentActionName> = defineProviderA
   outputSchema: acceptedOutputSchema,
 });
 
-export const segmentActions: ProviderActionDefinition<SegmentActionName>[] = [
+export const segmentActions: ActionDefinition[] = [
   identifyAction,
   trackAction,
   pageAction,

@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -36,7 +35,7 @@ const eventStreamOutputSchema = s.object("A normalized 1Password Events API stre
   raw: s.looseObject("The raw 1Password Events API response object."),
 });
 
-export const onePasswordEventsActions: ProviderActionDefinition<OnePasswordEventsActionName>[] = [
+export const onePasswordEventsActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_audit_events",
     description: "List 1Password audit events using the official cursor-based Events API.",

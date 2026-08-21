@@ -3,24 +3,32 @@ import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 const rootDir = process.cwd();
-const registryPath = join(process.cwd(), "src/providers/registry.generated.ts");
+const generatedPaths = [
+  join(process.cwd(), "src/providers/registry.generated.ts"),
+  join(process.cwd(), "src/providers/registry.cloudflare.generated.ts"),
+  join(process.cwd(), "src/providers/action-contracts.generated.ts"),
+];
 const catalogDir = join(process.cwd(), "catalog/apps");
 const sourcePaths = [
   join(rootDir, "src/core"),
   join(rootDir, "src/providers"),
   join(rootDir, "scripts/generate-catalog.ts"),
   join(rootDir, "scripts/generate-provider-registry.ts"),
+  join(rootDir, "scripts/provider-source.ts"),
 ];
-const generatedPaths = new Set([registryPath]);
+const generatedPathSet = new Set(generatedPaths);
 
 const sourceMtimeMs = await newestMtimeMs(sourcePaths);
 
-if (!(await isFreshFile(registryPath, sourceMtimeMs))) {
-  runNodeScript("scripts/generate-provider-registry.ts");
-}
-
-if (!(await isFreshCatalog(sourceMtimeMs))) {
+const [generatedFilesPresent, catalogFresh] = await Promise.all([
+  Promise.all(generatedPaths.map((path) => isFile(path))),
+  isFreshCatalog(sourceMtimeMs),
+]);
+// A fresh catalog proves all generated provider files were produced from the same source set.
+if (!catalogFresh) {
   runNodeScript("scripts/generate-catalog.ts");
+} else if (generatedFilesPresent.some((present) => !present)) {
+  runNodeScript("scripts/generate-provider-registry.ts");
 }
 
 function runNodeScript(script: string): void {
@@ -34,10 +42,10 @@ function runNodeScript(script: string): void {
   }
 }
 
-async function isFreshFile(path: string, sourceMtimeMs: number): Promise<boolean> {
+async function isFile(path: string): Promise<boolean> {
   try {
     const stats = await stat(path);
-    return stats.isFile() && stats.mtimeMs >= sourceMtimeMs;
+    return stats.isFile();
   } catch (error) {
     if (isNotFoundError(error)) {
       return false;
@@ -58,7 +66,9 @@ async function isFreshCatalog(sourceMtimeMs: number): Promise<boolean> {
       return false;
     }
 
-    const catalogServices = jsonFiles.map((entry) => entry.name.slice(0, -".json".length)).sort();
+    const catalogServices = jsonFiles
+      .map((entry) => entry.name.slice(0, -".json".length))
+      .sort((a, b) => a.localeCompare(b));
     if (
       catalogServices.length !== services.length ||
       catalogServices.some((service, index) => service !== services[index])
@@ -93,7 +103,7 @@ async function newestMtimeMs(paths: string[]): Promise<number> {
 }
 
 async function newestPathMtimeMs(path: string): Promise<number> {
-  if (generatedPaths.has(path)) {
+  if (generatedPathSet.has(path)) {
     return 0;
   }
 

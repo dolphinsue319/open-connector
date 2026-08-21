@@ -152,5 +152,3 @@ export const espocrmActions: ActionDefinition[] = [
     outputSchema: deleteRecordOutputSchema,
   }),
 ];
-
-export type EspocrmActionName = (typeof espocrmActions)[number]["name"];

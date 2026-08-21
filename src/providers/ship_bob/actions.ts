@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -53,14 +53,7 @@ const locationSchema = s.object("A normalized ShipBob location.", {
 
 const productSchema = s.looseObject("A ShipBob product object returned by the Products API.");
 
-export type ShipBobActionName =
-  | "list_channels"
-  | "list_inventory_levels"
-  | "get_inventory_level"
-  | "list_products"
-  | "list_locations";
-
-export const shipBobActions: ProviderActionDefinition<ShipBobActionName>[] = [
+export const shipBobActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_channels",
     description: "List ShipBob channels available to the authenticated Personal Access Token.",

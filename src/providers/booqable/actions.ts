@@ -156,5 +156,3 @@ export const booqableActions: ProviderActionDefinition[] = [
     outputSchema: singleOutput("productGroup", "The Booqable product group response."),
   }),
 ];
-
-export type BooqableActionName = (typeof booqableActions)[number]["name"];

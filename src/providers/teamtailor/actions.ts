@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -51,9 +51,7 @@ const resourceOutputSchema = s.actionOutput(
   "A Teamtailor JSON:API single-resource response.",
 );
 
-export type TeamtailorActionName = "list_jobs" | "retrieve_job" | "list_departments" | "list_locations";
-
-export const teamtailorActions: ProviderActionDefinition<TeamtailorActionName>[] = [
+export const teamtailorActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_jobs",
     description:

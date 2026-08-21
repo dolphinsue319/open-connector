@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderFetch } from "../provider-runtime.ts";
-import type { AgoraActionName } from "./actions.ts";
 
 import { Buffer } from "node:buffer";
 import { compactObject, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
@@ -33,7 +33,7 @@ interface AgoraRequestOptions {
 
 type AgoraActionHandler = (input: Record<string, unknown>, context: AgoraActionContext) => Promise<unknown>;
 
-export const agoraActionHandlers: Record<AgoraActionName, AgoraActionHandler> = {
+export const agoraActionHandlers: ProviderActionHandlers<"agora", AgoraActionHandler> = {
   list_projects(_input, context) {
     return listProjects(context);
   },

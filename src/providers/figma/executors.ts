@@ -5,8 +5,8 @@ import type {
   ProviderProxyExecutor,
   ProxyExecutionResult,
 } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderFetch, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { FigmaActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -17,19 +17,22 @@ import {
   requiredString,
 } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   defineProviderExecutors,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   toProviderProxyError,
 } from "../provider-runtime.ts";
-import { figmaProviderScopes } from "./scopes.ts";
+import { figmaPersonalAccessTokenScopes } from "./scopes.ts";
 
 const service = "figma";
 const figmaApiBaseUrl = "https://api.figma.com";
+
+const figmaFetch = createProviderFetch({ skipDnsValidation: true });
 
 type FigmaRequestPhase = "validate" | "execute";
 
@@ -61,7 +64,7 @@ interface FigmaResponse {
 
 type FigmaActionHandler = ProviderRuntimeHandler<FigmaActionContext>;
 
-export const figmaActionHandlers: Record<FigmaActionName, FigmaActionHandler> = {
+export const figmaActionHandlers: ProviderActionHandlers<"figma", FigmaActionHandler> = {
   get_current_user(_input, context) {
     return getCurrentUser(context);
   },
@@ -144,6 +147,7 @@ export const figmaActionHandlers: Record<FigmaActionName, FigmaActionHandler> = 
 
 export const executors: ProviderExecutors = defineProviderExecutors<FigmaActionContext>({
   service,
+  skipDnsValidation: true,
   handlers: figmaActionHandlers,
   async createContext(context: ExecutionContext, fetcher: ProviderFetch): Promise<FigmaActionContext> {
     const credential = await context.getCredential(service);
@@ -183,7 +187,7 @@ export const proxy: ProviderProxyExecutor = async (input, context): Promise<Prox
       headers.set("content-type", "application/json");
     }
 
-    const response = await fetch(url, {
+    const response = await figmaFetch(url, {
       method: input.method,
       headers,
       body:
@@ -212,7 +216,7 @@ export const credentialValidators: CredentialValidators = {
 
     return {
       profile: normalizeFigmaCurrentAccount(user),
-      grantedScopes: [...figmaProviderScopes],
+      grantedScopes: [...figmaPersonalAccessTokenScopes],
       metadata: {
         apiBaseUrl: figmaApiBaseUrl,
         validationEndpoint: "/v1/me",

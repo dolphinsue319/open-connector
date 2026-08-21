@@ -1,5 +1,5 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { UnipileActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { createHash } from "node:crypto";
 import { compactObject, optionalBoolean, optionalRecord, optionalString } from "../../core/cast.ts";
@@ -40,7 +40,7 @@ interface UnipileListPayload {
   raw: Record<string, unknown>;
 }
 
-export const unipileActionHandlers: Record<UnipileActionName, UnipileActionHandler> = {
+export const unipileActionHandlers: ProviderActionHandlers<"unipile", UnipileActionHandler> = {
   async list_accounts(input, context) {
     return normalizeListAccounts(
       await requestUnipileJson({

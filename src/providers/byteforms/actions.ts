@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -94,9 +93,7 @@ const listFormResponsesInputSchema = s.object(
   { required: ["formId"], optional: ["limit", "order", "query", "after", "before"] },
 );
 
-export type ByteformsActionName = "list_forms" | "get_form" | "list_form_responses";
-
-export const byteformsActions: ProviderActionDefinition<ByteformsActionName>[] = [
+export const byteformsActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_forms",
     description: "List forms available to the authenticated ByteForms account.",

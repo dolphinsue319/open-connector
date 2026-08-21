@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -590,7 +589,7 @@ function action(
   inputSchema: JsonSchema,
   outputSchema: JsonSchema,
   requiredScopes: string[],
-): ProviderActionDefinition<CalActionName> {
+): ActionDefinition {
   return defineProviderAction(service, {
     name,
     description,
@@ -600,7 +599,7 @@ function action(
   });
 }
 
-export const calActions: ProviderActionDefinition<CalActionName>[] = [
+export const calActions: ActionDefinition[] = [
   action(
     "get_my_profile",
     "Get the current Cal.com user profile from the authenticated OAuth account.",

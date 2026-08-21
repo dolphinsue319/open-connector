@@ -267,5 +267,3 @@ export const enigmaActions: ActionDefinition[] = [
     outputSchema: s.looseObject("The normalized output of the Enigma verify_business_v2 action."),
   }),
 ];
-
-export type EnigmaActionName = (typeof enigmaActions)[number]["name"];

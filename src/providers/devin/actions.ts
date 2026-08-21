@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -81,15 +81,7 @@ const sessionOutput = s.object("The response returned with a Devin session.", {
   raw,
 });
 
-export type DevinActionName =
-  | "get_self"
-  | "create_session"
-  | "list_sessions"
-  | "get_session"
-  | "send_message"
-  | "terminate_session";
-
-export const devinActions: Array<ProviderActionDefinition<DevinActionName>> = [
+export const devinActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_self",
     description: "Get identity information for the authenticated Devin API credential.",

@@ -5,8 +5,6 @@ import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "storecensus";
 
-const nonEmptyStringSchema = (description: string) => s.string({ minLength: 1, pattern: "\\S", description });
-
 const storecensusSectionSchema = s.stringEnum("A StoreCensus response section to include.", [
   "basic_info",
   "contact_info",
@@ -81,7 +79,7 @@ export const storecensusActions: ProviderActionDefinition[] = [
     inputSchema: s.object(
       "The input payload for retrieving one StoreCensus website.",
       {
-        domain: nonEmptyStringSchema(
+        domain: s.nonWhitespaceString(
           "The domain name or numeric StoreCensus lead ID to retrieve, such as example-store.com or 12345.",
         ),
         sections: sectionsSchema,
@@ -104,7 +102,7 @@ export const storecensusActions: ProviderActionDefinition[] = [
         sort: s.object(
           "The StoreCensus sort configuration.",
           {
-            column: nonEmptyStringSchema("The StoreCensus column to sort by."),
+            column: s.nonWhitespaceString("The StoreCensus column to sort by."),
             direction: s.stringEnum("The sort direction.", ["asc", "desc"]),
           },
           { optional: ["direction"] },
@@ -113,7 +111,7 @@ export const storecensusActions: ProviderActionDefinition[] = [
           minimum: 1,
           maximum: 500,
         }),
-        cursor: nonEmptyStringSchema("The StoreCensus cursor returned by the previous page."),
+        cursor: s.nonWhitespaceString("The StoreCensus cursor returned by the previous page."),
         sections: sectionsSchema,
       },
       { optional: ["filters", "sort", "pageSize", "cursor", "sections"] },
@@ -139,7 +137,7 @@ export const storecensusActions: ProviderActionDefinition[] = [
         }),
         app_id: s.integer("The specific StoreCensus app ID to retrieve.", { minimum: 1 }),
         minRating: s.number("The minimum app rating to return.", { minimum: 0, maximum: 5 }),
-        search: nonEmptyStringSchema("A text search applied to app name, description, or developer."),
+        search: s.nonWhitespaceString("A text search applied to app name, description, or developer."),
         categoryId: s.integer("The StoreCensus app category ID to filter by.", { minimum: 1 }),
       },
       { optional: ["page", "pageSize", "app_id", "minRating", "search", "categoryId"] },
@@ -160,5 +158,3 @@ export const storecensusActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type StorecensusActionName = (typeof storecensusActions)[number]["name"];

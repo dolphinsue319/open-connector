@@ -1,12 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "owl_protocol";
-
-export type OwlProtocolActionName = "get_project_info" | "get_project_token" | "patch_project_token";
 
 const chainIdSchema = s.positiveInteger("The EVM chain identifier for the Owl Protocol project.");
 
@@ -128,7 +125,7 @@ const tokenSelectorProperties = {
   tokenId: tokenIdSchema,
 } satisfies Record<string, JsonSchema>;
 
-export const owlProtocolActions: ProviderActionDefinition<OwlProtocolActionName>[] = [
+export const owlProtocolActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_project_info",
     description: "Read the connected Owl Protocol project's summary information.",

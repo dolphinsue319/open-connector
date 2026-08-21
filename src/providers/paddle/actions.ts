@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -175,21 +175,7 @@ const updateCustomerInputSchema = s.object(
   { optional: ["name", "email", "locale", "custom_data", "status"] },
 );
 
-export type PaddleActionName =
-  | "list_products"
-  | "get_product"
-  | "create_product"
-  | "update_product"
-  | "list_prices"
-  | "get_price"
-  | "create_price"
-  | "update_price"
-  | "list_customers"
-  | "get_customer"
-  | "create_customer"
-  | "update_customer";
-
-export const paddleActions: Array<ProviderActionDefinition<PaddleActionName>> = [
+export const paddleActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_products",
     description: "List Paddle products with optional filtering, pagination, and price inclusion.",

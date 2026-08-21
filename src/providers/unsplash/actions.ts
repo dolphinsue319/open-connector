@@ -273,5 +273,3 @@ export const unsplashActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type UnsplashActionName = (typeof unsplashActions)[number]["name"];

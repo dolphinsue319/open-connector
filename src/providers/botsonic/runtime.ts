@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { BotsonicActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
 import { ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
@@ -11,7 +11,7 @@ export const botsonicAuthHeader = "X-BOT-KEY";
 
 type BotsonicContext = Pick<ApiKeyProviderContext, "apiKey" | "fetcher" | "signal">;
 
-export const botsonicActionHandlers: Record<BotsonicActionName, ProviderRuntimeHandler<BotsonicContext>> = {
+export const botsonicActionHandlers: ProviderActionHandlers<"botsonic", ProviderRuntimeHandler<BotsonicContext>> = {
   async generate_response(input, context) {
     return asRecord(
       await requestBotsonic({

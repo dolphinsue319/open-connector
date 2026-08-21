@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderFetch } from "../provider-runtime.ts";
-import type { AffinityActionName } from "./actions.ts";
 
 import { compactObject, nullableString, optionalRecord, optionalString } from "../../core/cast.ts";
 import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
@@ -23,7 +23,7 @@ type AffinityPagedResponse = {
   pagination: unknown;
 };
 
-export const affinityActionHandlers: Record<AffinityActionName, AffinityActionHandler> = {
+export const affinityActionHandlers: ProviderActionHandlers<"affinity", AffinityActionHandler> = {
   get_current_user(_input, context) {
     return getCurrentUser(context);
   },
@@ -84,7 +84,7 @@ export const affinityActionHandlers: Record<AffinityActionName, AffinityActionHa
   list_saved_view_list_entries(input, context) {
     return listSavedViewListEntries(input, context);
   },
-} satisfies Record<AffinityActionName, AffinityActionHandler>;
+} satisfies Record<string, AffinityActionHandler>;
 
 export async function validateAffinityCredential(
   apiKey: string,

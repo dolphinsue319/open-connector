@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -33,9 +33,7 @@ const smsReportSchema = s.actionOutput(
   "The normalized TelTel outbound SMS delivery report.",
 );
 
-export type TeltelActionName = "get_account_balance" | "send_sms" | "list_sms_reports" | "get_sms_report";
-
-export const teltelActions: ProviderActionDefinition<TeltelActionName>[] = [
+export const teltelActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account_balance",
     description: "Get the current TelTel account balance, credit, and credit limit.",

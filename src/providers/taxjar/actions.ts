@@ -429,5 +429,3 @@ export const taxjarActions: ActionDefinition[] = [
     outputSchema: s.actionOutput({ validation: rawObject }, "TaxJar VAT validation response."),
   }),
 ];
-
-export type TaxjarActionName = (typeof taxjarActions)[number]["name"];

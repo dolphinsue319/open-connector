@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -122,9 +121,7 @@ const chatCompletionOutputSchema = s.looseRequiredObject(
   { optional: ["usage", "system_fingerprint", "service_tier"] },
 );
 
-export type WriterActionName = "list_models" | "create_chat_completion";
-
-export const writerActions: readonly ProviderActionDefinition<WriterActionName>[] = [
+export const writerActions: readonly ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_models",
     description: "Retrieve the Writer models available for text generation, chat completions, and other AI tasks.",

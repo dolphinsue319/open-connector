@@ -1,18 +1,28 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { GroqcloudActionName } from "./actions.ts";
 
 import { createHash } from "node:crypto";
-import { compactObject, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
+import {
+  base64Bytes,
+  compactObject,
+  optionalRecord,
+  optionalScalarString,
+  optionalString,
+  requiredString,
+} from "../../core/cast.ts";
+import { assertPublicHttpUrl } from "../../core/request.ts";
 import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
 
 const service = "groqcloud";
 const groqcloudApiBaseUrl = "https://api.groq.com/openai/v1";
+// Multipart attachments are capped at 25 MB; larger audio must use url.
+const groqcloudAudioAttachmentMaxBytes = 25 * 1024 * 1024;
 
 type GroqcloudRequestPhase = "validate" | "execute";
 type GroqcloudActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const groqcloudActionHandlers: Record<GroqcloudActionName, GroqcloudActionHandler> = {
+export const groqcloudActionHandlers: ProviderActionHandlers<"groqcloud", GroqcloudActionHandler> = {
   list_models(_input, context) {
     return groqcloudRequest({
       context,
@@ -34,6 +44,24 @@ export const groqcloudActionHandlers: Record<GroqcloudActionName, GroqcloudActio
       method: "POST",
       path: "/chat/completions",
       body: compactObject(input),
+      phase: "execute",
+    });
+  },
+  create_audio_transcription(input, context) {
+    return groqcloudRequest({
+      context,
+      method: "POST",
+      path: "/audio/transcriptions",
+      body: buildGroqcloudAudioFormData(input),
+      phase: "execute",
+    });
+  },
+  create_audio_translation(input, context) {
+    return groqcloudRequest({
+      context,
+      method: "POST",
+      path: "/audio/translations",
+      body: buildGroqcloudAudioFormData(input),
       phase: "execute",
     });
   },
@@ -78,14 +106,16 @@ async function groqcloudRequest(input: {
   phase: GroqcloudRequestPhase;
   method?: "GET" | "POST";
   path: string;
-  body?: Record<string, unknown>;
+  body?: Record<string, unknown> | FormData;
 }): Promise<unknown> {
+  // Multipart carries its own boundary, so omit the JSON content type.
+  const isMultipart = input.body instanceof FormData;
   let response: Response;
   try {
     response = await input.context.fetcher(`${groqcloudApiBaseUrl}${input.path}`, {
       method: input.method ?? "GET",
-      headers: groqcloudHeaders(input.context.apiKey, input.body !== undefined),
-      body: input.body ? JSON.stringify(input.body) : undefined,
+      headers: groqcloudHeaders(input.context.apiKey, input.body !== undefined && !isMultipart),
+      body: isMultipart ? (input.body as FormData) : input.body ? JSON.stringify(input.body) : undefined,
       signal: input.context.signal,
     });
   } catch (error) {
@@ -167,4 +197,73 @@ function tryParseJson(raw: string): unknown | undefined {
 
 function readInputString(value: unknown, fieldName: string): string {
   return requiredString(value, fieldName, (message) => new ProviderRequestError(400, message));
+}
+
+function buildGroqcloudAudioFormData(input: Record<string, unknown>): FormData {
+  const file = optionalRecord(input.file);
+  if (!file) {
+    throw new ProviderRequestError(400, "file is required");
+  }
+  const url = optionalString(file.url);
+  const contentBase64 = optionalString(file.content_base64);
+  if (!url && !contentBase64) {
+    throw new ProviderRequestError(400, "file must include url or content_base64");
+  }
+  if (url && contentBase64) {
+    throw new ProviderRequestError(400, "provide only one of file.url or file.content_base64");
+  }
+  assertGroqcloudTimestampGranularities(input);
+
+  const formData = new FormData();
+  if (contentBase64) {
+    const name = readInputString(file.name, "file.name");
+    const bytes = base64Bytes(
+      contentBase64,
+      "file.content_base64",
+      (message) => new ProviderRequestError(400, message),
+    );
+    if (bytes.byteLength > groqcloudAudioAttachmentMaxBytes) {
+      throw new ProviderRequestError(400, `file.content_base64 exceeds ${groqcloudAudioAttachmentMaxBytes} bytes`);
+    }
+    const mimetype = optionalString(file.mimetype) ?? "application/octet-stream";
+    formData.set("file", new File([bytes], name, { type: mimetype }));
+  } else {
+    // GroqCloud fetches this URL, not the connector, so screen it before forwarding.
+    assertPublicHttpUrl(url!, {
+      fieldName: "file.url",
+      createError: (message) => new ProviderRequestError(400, message),
+    });
+    formData.set("url", url!);
+  }
+
+  for (const [key, value] of Object.entries(input)) {
+    if (key === "file" || value === undefined || value === null) {
+      continue;
+    }
+    if (key === "timestamp_granularities" && Array.isArray(value)) {
+      for (const granularity of value) {
+        appendGroqcloudField(formData, "timestamp_granularities[]", granularity);
+      }
+      continue;
+    }
+    appendGroqcloudField(formData, key, value);
+  }
+
+  return formData;
+}
+
+function assertGroqcloudTimestampGranularities(input: Record<string, unknown>): void {
+  if (input.timestamp_granularities === undefined) {
+    return;
+  }
+  if (input.response_format !== "verbose_json") {
+    throw new ProviderRequestError(400, "timestamp_granularities requires response_format=verbose_json");
+  }
+}
+
+function appendGroqcloudField(formData: FormData, key: string, value: unknown): void {
+  if (value === undefined || value === null) {
+    return;
+  }
+  formData.append(key, optionalScalarString(value) ?? JSON.stringify(value));
 }

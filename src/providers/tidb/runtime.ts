@@ -1,5 +1,5 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { TiDBActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { createHash, randomBytes } from "node:crypto";
 import {
@@ -7,7 +7,7 @@ import {
   optionalString as asOptionalString,
   stringArray as asStringArray,
 } from "../../core/cast.ts";
-import { ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
+import { providerFetch, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
 
 const tidbApiBaseUrlByFamily = {
   starter_essential: "https://serverless.tidbapi.com/v1beta1",
@@ -82,7 +82,7 @@ type TiDBListPayload = {
   totalSize?: unknown;
 };
 
-export const tidbActionHandlers: Record<TiDBActionName, TiDBActionHandler> = {
+export const tidbActionHandlers: ProviderActionHandlers<"tidb", TiDBActionHandler> = {
   list_api_keys(input, context) {
     return tidbListApiKeys(input, context);
   },
@@ -134,11 +134,11 @@ export const tidbActionHandlers: Record<TiDBActionName, TiDBActionHandler> = {
   get_branch(input, context) {
     return tidbGetBranch(input, context);
   },
-} satisfies Record<TiDBActionName, TiDBActionHandler>;
+};
 
 export async function validateTiDBCredential(
   input: Record<string, string>,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = providerFetch,
 ): Promise<CredentialValidationResult> {
   const context = {
     publicKey: requireTiDBCredentialField(input.publicKey, "publicKey"),

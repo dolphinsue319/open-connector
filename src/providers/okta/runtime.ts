@@ -1,19 +1,36 @@
-import type { QueryValue } from "../../core/request.ts";
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { OktaActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
+import type { ProviderFetch, ProviderRuntimeHandler } from "../provider-runtime.ts";
 
 import {
+  compactObject,
+  objectArray,
   optionalBoolean,
   optionalInteger,
   optionalRecord,
   optionalString,
+  pickOptionalString,
   requiredRecord,
   requiredString,
+  stringArray,
 } from "../../core/cast.ts";
-import { assertPublicHttpUrl, compactJson, queryParams } from "../../core/request.ts";
-import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import { assertPublicHttpUrl, queryParams } from "../../core/request.ts";
+import { createProviderTimeout, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
 
-type OktaActionHandler = (input: Record<string, unknown>, context: OktaActionContext) => Promise<unknown>;
+const oktaRequestTimeoutMs = 30_000;
+export const oktaApiTokenHelpUrl = "https://developer.okta.com/docs/guides/create-an-api-token/main/";
+const oktaLifecycleOperations: Set<string> = new Set([
+  "activate",
+  "reactivate",
+  "deactivate",
+  "suspend",
+  "unsuspend",
+  "unlock",
+  "expire_password",
+]);
+
+type OktaMethod = "GET" | "POST" | "PUT" | "DELETE";
+type OktaPhase = "validate" | "execute";
 type OktaLifecycleOperation =
   | "activate"
   | "reactivate"
@@ -22,21 +39,32 @@ type OktaLifecycleOperation =
   | "unsuspend"
   | "unlock"
   | "expire_password";
-type OktaPhase = "validate" | "execute";
 
-interface OktaRequestInput {
-  context: OktaActionContext;
-  method: "GET" | "POST" | "PUT" | "DELETE";
+export interface OktaContext {
+  orgUrl: string;
+  authorization: string;
+  fetcher: ProviderFetch;
+  signal?: AbortSignal;
+}
+
+export interface OktaCredentialValidationInput {
+  orgUrl: unknown;
+  authorization: string;
+  grantedScopes?: string[];
+  credentialHelpUrl?: string;
+}
+
+interface OktaRequestInput extends OktaContext {
   path: string;
+  method: OktaMethod;
   phase: OktaPhase;
-  query?: Record<string, QueryValue>;
+  query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
 }
 
 interface OktaResponse {
   data: unknown;
   headers: Headers;
-  status: number;
 }
 
 interface NormalizedOktaUser {
@@ -63,115 +91,270 @@ interface NormalizedOktaGroup {
   raw: Record<string, unknown>;
 }
 
-export interface OktaActionContext {
-  orgUrl: string;
-  apiToken: string;
-  fetcher: typeof fetch;
-  signal?: AbortSignal;
-}
+export const oktaActionHandlers: ProviderActionHandlers<"okta", ProviderRuntimeHandler<OktaContext>> = {
+  async list_users(input, context) {
+    const response = await requestOkta({
+      ...context,
+      path: "/api/v1/users",
+      method: "GET",
+      phase: "execute",
+      query: {
+        limit: optionalInteger(input.limit) ?? 200,
+        after: optionalString(input.after),
+        search: optionalString(input.search),
+        filter: optionalString(input.filter),
+        q: optionalString(input.q),
+        sortBy: optionalString(input.sortBy),
+        sortOrder: optionalString(input.sortOrder) ?? "asc",
+        fields: optionalString(input.fields),
+      },
+    });
+    const raw = responseObjectArray(response.data, "users");
+    return {
+      users: raw.map(normalizeOktaUser),
+      nextAfter: readNextAfter(response.headers),
+      raw,
+    };
+  },
 
-const defaultListLimit = 100;
-const lifecyclePaths: Record<OktaLifecycleOperation, string> = {
-  activate: "activate",
-  reactivate: "reactivate",
-  deactivate: "deactivate",
-  suspend: "suspend",
-  unsuspend: "unsuspend",
-  unlock: "unlock",
-  expire_password: "expire_password",
+  async get_user(input, context) {
+    const userId = requiredString(input.userId, "userId", inputError);
+    const raw = await requestOktaObject(context, `/api/v1/users/${encodeURIComponent(userId)}`, "GET", "user");
+    return { user: normalizeOktaUser(raw), raw };
+  },
+
+  async create_user(input, context) {
+    const response = await requestOkta({
+      ...context,
+      path: "/api/v1/users",
+      method: "POST",
+      phase: "execute",
+      query: {
+        activate: optionalBoolean(input.activate) ?? true,
+        provider: optionalBoolean(input.provider) ?? false,
+        nextLogin: optionalString(input.nextLogin),
+      },
+      body: compactObject({
+        profile: requiredRecord(input.profile, "profile", inputError),
+        credentials: optionalRecord(input.credentials),
+        groupIds:
+          input.groupIds == null
+            ? undefined
+            : stringArray(input.groupIds, "groupIds", inputError).map((item, index) =>
+                requiredString(item, `groupIds[${index}]`, inputError),
+              ),
+      }),
+    });
+    const raw = responseObject(response.data, "user");
+    return { user: normalizeOktaUser(raw), raw };
+  },
+
+  async update_user(input, context) {
+    const userId = requiredString(input.userId, "userId", inputError);
+    const body = compactObject({
+      profile: optionalRecord(input.profile),
+      credentials: optionalRecord(input.credentials),
+    });
+    if (Object.keys(body).length === 0) {
+      throw new ProviderRequestError(400, "profile or credentials is required");
+    }
+    const response = await requestOkta({
+      ...context,
+      path: `/api/v1/users/${encodeURIComponent(userId)}`,
+      method: "POST",
+      phase: "execute",
+      query: { strict: optionalBoolean(input.strict) },
+      body,
+    });
+    const raw = responseObject(response.data, "user");
+    return { user: normalizeOktaUser(raw), raw };
+  },
+
+  async delete_user(input, context) {
+    const userId = requiredString(input.userId, "userId", inputError);
+    const current = await requestOktaObject(context, `/api/v1/users/${encodeURIComponent(userId)}`, "GET", "user");
+    const wasDeactivated = optionalString(current.status) === "DEPROVISIONED";
+    await requestOkta({
+      ...context,
+      path: `/api/v1/users/${encodeURIComponent(userId)}`,
+      method: "DELETE",
+      phase: "execute",
+      query: { sendEmail: optionalBoolean(input.sendEmail) },
+    });
+    return {
+      userId,
+      result: wasDeactivated ? "deleted" : "deactivated",
+      deleted: wasDeactivated,
+    };
+  },
+
+  async lifecycle_user(input, context) {
+    const userId = requiredString(input.userId, "userId", inputError);
+    const operation = lifecycleOperation(input.operation);
+    const useTemporaryPassword = operation === "expire_password" && input.tempPassword === true;
+    const pathOperation = useTemporaryPassword ? "expire_password_with_temp_password" : operation;
+    const response = await requestOkta({
+      ...context,
+      path: `/api/v1/users/${encodeURIComponent(userId)}/lifecycle/${pathOperation}`,
+      method: "POST",
+      phase: "execute",
+      query: lifecycleQuery(operation, useTemporaryPassword, input),
+    });
+    const result = response.data == null ? null : responseObject(response.data, "lifecycle response");
+    return { userId, operation, result, raw: result };
+  },
+
+  async list_groups(input, context) {
+    const response = await requestOkta({
+      ...context,
+      path: "/api/v1/groups",
+      method: "GET",
+      phase: "execute",
+      query: {
+        limit: optionalInteger(input.limit),
+        after: optionalString(input.after),
+        search: optionalString(input.search),
+        filter: optionalString(input.filter),
+        q: optionalString(input.q),
+        expand: optionalString(input.expand),
+        sortBy: optionalString(input.sortBy),
+        sortOrder: optionalString(input.sortOrder) ?? "asc",
+      },
+    });
+    const raw = responseObjectArray(response.data, "groups");
+    return {
+      groups: raw.map(normalizeOktaGroup),
+      nextAfter: readNextAfter(response.headers),
+      raw,
+    };
+  },
+
+  async get_group(input, context) {
+    const groupId = requiredString(input.groupId, "groupId", inputError);
+    const raw = await requestOktaObject(context, `/api/v1/groups/${encodeURIComponent(groupId)}`, "GET", "group");
+    return { group: normalizeOktaGroup(raw), raw };
+  },
+
+  async create_group(input, context) {
+    const response = await requestOkta({
+      ...context,
+      path: "/api/v1/groups",
+      method: "POST",
+      phase: "execute",
+      body: { profile: inputGroupProfile(input.profile) },
+    });
+    const raw = responseObject(response.data, "group");
+    return { group: normalizeOktaGroup(raw), raw };
+  },
+
+  async update_group(input, context) {
+    const groupId = requiredString(input.groupId, "groupId", inputError);
+    const response = await requestOkta({
+      ...context,
+      path: `/api/v1/groups/${encodeURIComponent(groupId)}`,
+      method: "PUT",
+      phase: "execute",
+      body: { profile: inputGroupProfile(input.profile) },
+    });
+    const raw = responseObject(response.data, "group");
+    return { group: normalizeOktaGroup(raw), raw };
+  },
+
+  async delete_group(input, context) {
+    const groupId = requiredString(input.groupId, "groupId", inputError);
+    await requestOkta({
+      ...context,
+      path: `/api/v1/groups/${encodeURIComponent(groupId)}`,
+      method: "DELETE",
+      phase: "execute",
+    });
+    return { groupId, deleted: true };
+  },
+
+  async list_group_users(input, context) {
+    const groupId = requiredString(input.groupId, "groupId", inputError);
+    const response = await requestOkta({
+      ...context,
+      path: `/api/v1/groups/${encodeURIComponent(groupId)}/users`,
+      method: "GET",
+      phase: "execute",
+      query: {
+        limit: optionalInteger(input.limit) ?? 1000,
+        after: optionalString(input.after),
+      },
+    });
+    const raw = responseObjectArray(response.data, "users");
+    return {
+      users: raw.map(normalizeOktaUser),
+      nextAfter: readNextAfter(response.headers),
+      raw,
+    };
+  },
+
+  async add_user_to_group(input, context) {
+    const groupId = requiredString(input.groupId, "groupId", inputError);
+    const userId = requiredString(input.userId, "userId", inputError);
+    await requestOkta({
+      ...context,
+      path: `/api/v1/groups/${encodeURIComponent(groupId)}/users/${encodeURIComponent(userId)}`,
+      method: "PUT",
+      phase: "execute",
+    });
+    return { groupId, userId, added: true };
+  },
+
+  async remove_user_from_group(input, context) {
+    const groupId = requiredString(input.groupId, "groupId", inputError);
+    const userId = requiredString(input.userId, "userId", inputError);
+    await requestOkta({
+      ...context,
+      path: `/api/v1/groups/${encodeURIComponent(groupId)}/users/${encodeURIComponent(userId)}`,
+      method: "DELETE",
+      phase: "execute",
+    });
+    return { groupId, userId, removed: true };
+  },
 };
-
-export const oktaActionHandlers: Record<OktaActionName, OktaActionHandler> = {
-  list_users(input, context) {
-    return listUsers(input, context);
-  },
-  get_user(input, context) {
-    return getUser(input, context);
-  },
-  create_user(input, context) {
-    return createUser(input, context);
-  },
-  update_user(input, context) {
-    return updateUser(input, context);
-  },
-  delete_user(input, context) {
-    return deleteUser(input, context);
-  },
-  lifecycle_user(input, context) {
-    return lifecycleUser(input, context);
-  },
-  list_groups(input, context) {
-    return listGroups(input, context);
-  },
-  get_group(input, context) {
-    return getGroup(input, context);
-  },
-  create_group(input, context) {
-    return createGroup(input, context);
-  },
-  update_group(input, context) {
-    return updateGroup(input, context);
-  },
-  delete_group(input, context) {
-    return deleteGroup(input, context);
-  },
-  list_group_users(input, context) {
-    return listGroupUsers(input, context);
-  },
-  add_user_to_group(input, context) {
-    return addUserToGroup(input, context);
-  },
-  remove_user_from_group(input, context) {
-    return removeUserFromGroup(input, context);
-  },
-};
-
-export function createOktaContext(
-  input: Record<string, string>,
-  fetcher: typeof fetch,
-  signal?: AbortSignal,
-): OktaActionContext {
-  return {
-    orgUrl: normalizeOktaOrgUrl(input.orgUrl),
-    apiToken: requireCredentialString(input.apiToken, "apiToken"),
-    fetcher,
-    signal,
-  };
-}
 
 export async function validateOktaCredential(
-  input: Record<string, string>,
-  fetcher: typeof fetch,
+  input: OktaCredentialValidationInput,
+  fetcher: ProviderFetch,
   signal?: AbortSignal,
 ): Promise<CredentialValidationResult> {
-  const context = createOktaContext(input, fetcher, signal);
-  await requestOkta({
-    context,
+  const orgUrl = normalizeOktaOrgUrl(input.orgUrl);
+  const response = await requestOkta({
+    orgUrl,
+    authorization: input.authorization,
+    path: "/api/v1/users/me",
     method: "GET",
-    path: "/api/v1/users",
     phase: "validate",
-    query: { limit: 1 },
+    fetcher,
+    signal,
   });
+  const user = normalizeOktaUser(responseObject(response.data, "user"));
+  const login = pickOptionalString(user.profile, "email", "login");
+  const host = new URL(orgUrl).host;
 
   return {
     profile: {
-      accountId: context.orgUrl,
-      displayName: new URL(context.orgUrl).host,
+      accountId: `okta:${host}:${user.id}`,
+      displayName: login ?? host,
     },
-    grantedScopes: [],
-    metadata: {
-      orgUrl: context.orgUrl,
-    },
+    grantedScopes: input.grantedScopes ?? [],
+    metadata: compactObject({
+      orgUrl,
+      validationEndpoint: "/api/v1/users/me",
+      credentialHelpUrl: input.credentialHelpUrl,
+      userId: user.id,
+      userLogin: login,
+    }),
   };
 }
 
 export function normalizeOktaOrgUrl(value: unknown): string {
-  const raw = requireCredentialString(value, "orgUrl");
-  const withProtocol = raw.includes("://") ? raw : `https://${raw}`;
-  const url = assertPublicHttpUrl(withProtocol, {
-    fieldName: "orgUrl",
-    createError: (message) => new ProviderRequestError(400, message),
-  });
+  const raw = requiredString(value, "orgUrl", inputError);
+  const candidate = raw.includes("://") ? raw : `https://${raw}`;
+  const url = assertPublicHttpUrl(candidate, { fieldName: "orgUrl", createError: inputError });
   if (url.protocol !== "https:") {
     throw new ProviderRequestError(400, "orgUrl must use https");
   }
@@ -181,348 +364,124 @@ export function normalizeOktaOrgUrl(value: unknown): string {
   return url.origin;
 }
 
-async function listUsers(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const response = await requestOkta({
-    context,
-    method: "GET",
-    path: "/api/v1/users",
-    phase: "execute",
-    query: readListQuery(input),
-  });
-  const users = readResponseObjectArray(response.data, "users").map(normalizeOktaUser);
-  return {
-    users,
-    nextAfter: readNextAfter(response.headers),
-    raw: response.data,
-  };
-}
-
-async function getUser(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const userId = requireInputString(input.userId, "userId");
-  const response = await requestOkta({
-    context,
-    method: "GET",
-    path: `/api/v1/users/${encodeURIComponent(userId)}`,
-    phase: "execute",
-  });
-  const raw = readResponseObject(response.data, "user");
-  return {
-    user: normalizeOktaUser(raw),
-    raw,
-  };
-}
-
-async function createUser(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const response = await requestOkta({
-    context,
-    method: "POST",
-    path: "/api/v1/users",
-    phase: "execute",
-    query: {
-      activate: optionalBoolean(input.activate),
-    },
-    body: compactBody({
-      profile: readInputRecord(input.profile, "profile"),
-      credentials: readOptionalInputRecord(input.credentials, "credentials"),
-      groupIds: readOptionalStringArray(input.groupIds, "groupIds"),
-    }),
-  });
-  const raw = readResponseObject(response.data, "user");
-  return {
-    user: normalizeOktaUser(raw),
-    raw,
-  };
-}
-
-async function updateUser(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const userId = requireInputString(input.userId, "userId");
-  const body = compactBody({
-    profile: readOptionalInputRecord(input.profile, "profile"),
-    credentials: readOptionalInputRecord(input.credentials, "credentials"),
-  });
-  if (Object.keys(body).length === 0) {
-    throw new ProviderRequestError(400, "profile or credentials is required");
-  }
-
-  const response = await requestOkta({
-    context,
-    method: "POST",
-    path: `/api/v1/users/${encodeURIComponent(userId)}`,
-    phase: "execute",
-    body,
-  });
-  const raw = readResponseObject(response.data, "user");
-  return {
-    user: normalizeOktaUser(raw),
-    raw,
-  };
-}
-
-async function deleteUser(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const userId = requireInputString(input.userId, "userId");
-  await requestOkta({
-    context,
-    method: "DELETE",
-    path: `/api/v1/users/${encodeURIComponent(userId)}`,
-    phase: "execute",
-    query: {
-      sendEmail: optionalBoolean(input.sendEmail),
-    },
-  });
-  return {
-    userId,
-    deleted: true,
-  };
-}
-
-async function lifecycleUser(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const userId = requireInputString(input.userId, "userId");
-  const operation = readLifecycleOperation(input.operation);
-  const response = await requestOkta({
-    context,
-    method: "POST",
-    path: `/api/v1/users/${encodeURIComponent(userId)}/lifecycle/${lifecyclePaths[operation]}`,
-    phase: "execute",
-    query: lifecycleQuery(operation, input),
-  });
-  const result = response.data == null ? null : readResponseObject(response.data, "lifecycle result");
-  return {
-    userId,
-    operation,
-    result,
-    raw: result,
-  };
-}
-
-async function listGroups(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const response = await requestOkta({
-    context,
-    method: "GET",
-    path: "/api/v1/groups",
-    phase: "execute",
-    query: readListQuery(input),
-  });
-  const groups = readResponseObjectArray(response.data, "groups").map(normalizeOktaGroup);
-  return {
-    groups,
-    nextAfter: readNextAfter(response.headers),
-    raw: response.data,
-  };
-}
-
-async function getGroup(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const groupId = requireInputString(input.groupId, "groupId");
-  const response = await requestOkta({
-    context,
-    method: "GET",
-    path: `/api/v1/groups/${encodeURIComponent(groupId)}`,
-    phase: "execute",
-  });
-  const raw = readResponseObject(response.data, "group");
-  return {
-    group: normalizeOktaGroup(raw),
-    raw,
-  };
-}
-
-async function createGroup(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const response = await requestOkta({
-    context,
-    method: "POST",
-    path: "/api/v1/groups",
-    phase: "execute",
-    body: {
-      profile: readGroupProfile(input.profile),
-    },
-  });
-  const raw = readResponseObject(response.data, "group");
-  return {
-    group: normalizeOktaGroup(raw),
-    raw,
-  };
-}
-
-async function updateGroup(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const groupId = requireInputString(input.groupId, "groupId");
-  const response = await requestOkta({
-    context,
-    method: "PUT",
-    path: `/api/v1/groups/${encodeURIComponent(groupId)}`,
-    phase: "execute",
-    body: {
-      profile: readGroupProfile(input.profile),
-    },
-  });
-  const raw = readResponseObject(response.data, "group");
-  return {
-    group: normalizeOktaGroup(raw),
-    raw,
-  };
-}
-
-async function deleteGroup(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const groupId = requireInputString(input.groupId, "groupId");
-  await requestOkta({
-    context,
-    method: "DELETE",
-    path: `/api/v1/groups/${encodeURIComponent(groupId)}`,
-    phase: "execute",
-  });
-  return {
-    groupId,
-    deleted: true,
-  };
-}
-
-async function listGroupUsers(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const groupId = requireInputString(input.groupId, "groupId");
-  const response = await requestOkta({
-    context,
-    method: "GET",
-    path: `/api/v1/groups/${encodeURIComponent(groupId)}/users`,
-    phase: "execute",
-    query: {
-      limit: readLimit(input.limit),
-      after: optionalString(input.after),
-    },
-  });
-  const users = readResponseObjectArray(response.data, "users").map(normalizeOktaUser);
-  return {
-    users,
-    nextAfter: readNextAfter(response.headers),
-    raw: response.data,
-  };
-}
-
-async function addUserToGroup(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const groupId = requireInputString(input.groupId, "groupId");
-  const userId = requireInputString(input.userId, "userId");
-  await requestOkta({
-    context,
-    method: "PUT",
-    path: `/api/v1/groups/${encodeURIComponent(groupId)}/users/${encodeURIComponent(userId)}`,
-    phase: "execute",
-  });
-  return {
-    groupId,
-    userId,
-    added: true,
-  };
-}
-
-async function removeUserFromGroup(input: Record<string, unknown>, context: OktaActionContext): Promise<unknown> {
-  const groupId = requireInputString(input.groupId, "groupId");
-  const userId = requireInputString(input.userId, "userId");
-  await requestOkta({
-    context,
-    method: "DELETE",
-    path: `/api/v1/groups/${encodeURIComponent(groupId)}/users/${encodeURIComponent(userId)}`,
-    phase: "execute",
-  });
-  return {
-    groupId,
-    userId,
-    removed: true,
-  };
+async function requestOktaObject(
+  context: OktaContext,
+  path: string,
+  method: OktaMethod,
+  fieldName: string,
+): Promise<Record<string, unknown>> {
+  const response = await requestOkta({ ...context, path, method, phase: "execute" });
+  return responseObject(response.data, fieldName);
 }
 
 async function requestOkta(input: OktaRequestInput): Promise<OktaResponse> {
-  const url = new URL(input.path, `${input.context.orgUrl}/`);
+  const timeout = createProviderTimeout(input.signal, oktaRequestTimeoutMs);
+  try {
+    const response = await input.fetcher(buildOktaUrl(input), {
+      method: input.method,
+      headers: buildOktaHeaders(input.authorization, input.body !== undefined),
+      body: input.body === undefined ? undefined : JSON.stringify(input.body),
+      signal: timeout.signal,
+    });
+    const data = await readOktaPayload(response);
+    if (!response.ok) {
+      throw mapOktaError(response.status, data, input.phase);
+    }
+    return { data, headers: response.headers };
+  } catch (error) {
+    if (error instanceof ProviderRequestError) {
+      throw error;
+    }
+    if (timeout.didTimeout()) {
+      throw new ProviderRequestError(504, "Okta request timed out");
+    }
+    throw new ProviderRequestError(
+      502,
+      error instanceof Error ? `Okta request failed: ${error.message}` : "Okta request failed",
+      error,
+    );
+  } finally {
+    timeout.cleanup();
+  }
+}
+
+function buildOktaUrl(input: OktaRequestInput): URL {
+  const url = new URL(input.path, `${input.orgUrl}/`);
   for (const [key, value] of Object.entries(queryParams(input.query ?? {}))) {
     url.searchParams.set(key, value);
   }
+  return url;
+}
 
-  let response: Response;
-  try {
-    response = await input.context.fetcher(url, {
-      method: input.method,
-      headers: {
-        accept: "application/json",
-        authorization: `SSWS ${input.context.apiToken}`,
-        "content-type": "application/json",
-        "user-agent": providerUserAgent,
-      },
-      body: input.body === undefined ? undefined : JSON.stringify(input.body),
-      signal: input.context.signal,
-    });
-  } catch (error) {
-    throw new ProviderRequestError(
-      502,
-      error instanceof Error && error.message ? `Okta request failed: ${error.message}` : "Okta request failed",
-    );
+function buildOktaHeaders(authorization: string, hasBody: boolean): Record<string, string> {
+  const headers: Record<string, string> = {
+    accept: "application/json",
+    authorization,
+    "user-agent": providerUserAgent,
+  };
+  if (hasBody) {
+    headers["content-type"] = "application/json";
   }
+  return headers;
+}
 
+async function readOktaPayload(response: Response): Promise<unknown> {
   const text = await response.text().catch(() => "");
-  if (!response.ok) {
-    throw createOktaError(response.status, text, input.phase);
+  if (!text.trim()) {
+    return null;
   }
-  if (response.status === 204 || text.trim() === "") {
-    return {
-      data: null,
-      headers: response.headers,
-      status: response.status,
-    };
-  }
-
   try {
-    return {
-      data: JSON.parse(text) as unknown,
-      headers: response.headers,
-      status: response.status,
-    };
+    return JSON.parse(text) as unknown;
   } catch {
     throw new ProviderRequestError(502, "Okta returned invalid JSON");
   }
 }
 
-function readListQuery(input: Record<string, unknown>): Record<string, QueryValue> {
-  return {
-    limit: readLimit(input.limit),
-    after: optionalString(input.after),
-    search: optionalString(input.search),
-    filter: optionalString(input.filter),
-    q: optionalString(input.q),
-  };
-}
-
-function readLimit(value: unknown): number {
-  const limit = optionalInteger(value) ?? defaultListLimit;
-  if (limit < 1 || limit > 200) {
-    throw new ProviderRequestError(400, "limit must be between 1 and 200");
+function mapOktaError(status: number, payload: unknown, phase: OktaPhase): ProviderRequestError {
+  const message = oktaErrorMessage(payload) ?? `Okta request failed with HTTP ${status}`;
+  if (phase === "validate" && (status === 400 || status === 401 || status === 403)) {
+    return new ProviderRequestError(400, message, payload);
   }
-  return limit;
-}
-
-function lifecycleQuery(operation: OktaLifecycleOperation, input: Record<string, unknown>): Record<string, QueryValue> {
-  switch (operation) {
-    case "activate":
-    case "reactivate":
-    case "deactivate":
-      return {
-        sendEmail: optionalBoolean(input.sendEmail),
-      };
-    case "expire_password":
-      return {
-        tempPassword: optionalBoolean(input.tempPassword),
-      };
-    case "suspend":
-    case "unsuspend":
-    case "unlock":
-      return {};
+  if (status === 400 || status === 401 || status === 403 || status === 429 || status >= 500) {
+    return new ProviderRequestError(status, message, payload);
   }
+  return new ProviderRequestError(502, message, { status, payload });
 }
 
-function readLifecycleOperation(value: unknown): OktaLifecycleOperation {
-  const operation = requireInputString(value, "operation");
-  if (operation in lifecyclePaths) {
-    return operation as OktaLifecycleOperation;
+function oktaErrorMessage(payload: unknown): string | undefined {
+  const record = optionalRecord(payload);
+  return optionalString(record?.errorSummary) ?? optionalString(record?.message);
+}
+
+function lifecycleQuery(
+  operation: OktaLifecycleOperation,
+  useTemporaryPassword: boolean,
+  input: Record<string, unknown>,
+): Record<string, boolean | undefined> {
+  if (useTemporaryPassword) {
+    return { revokeSessions: optionalBoolean(input.revokeSessions) };
+  }
+  if (operation === "activate" || operation === "reactivate" || operation === "deactivate") {
+    return { sendEmail: optionalBoolean(input.sendEmail) };
+  }
+  return {};
+}
+
+function lifecycleOperation(value: unknown): OktaLifecycleOperation {
+  const operation = requiredString(value, "operation", inputError);
+  if (isOktaLifecycleOperation(operation)) {
+    return operation;
   }
   throw new ProviderRequestError(400, "operation is not supported");
 }
 
+function isOktaLifecycleOperation(value: string): value is OktaLifecycleOperation {
+  return oktaLifecycleOperations.has(value);
+}
+
 function normalizeOktaUser(raw: Record<string, unknown>): NormalizedOktaUser {
   return {
-    id: requireResponseString(raw.id, "user.id"),
+    id: responseString(raw.id, "user.id"),
     status: optionalString(raw.status) ?? null,
     created: optionalString(raw.created) ?? null,
     activated: optionalString(raw.activated) ?? null,
@@ -537,64 +496,17 @@ function normalizeOktaUser(raw: Record<string, unknown>): NormalizedOktaUser {
 
 function normalizeOktaGroup(raw: Record<string, unknown>): NormalizedOktaGroup {
   return {
-    id: requireResponseString(raw.id, "group.id"),
+    id: responseString(raw.id, "group.id"),
     type: optionalString(raw.type) ?? null,
     created: optionalString(raw.created) ?? null,
     lastUpdated: optionalString(raw.lastUpdated) ?? null,
     lastMembershipUpdated: optionalString(raw.lastMembershipUpdated) ?? null,
-    objectClass: readStringValues(raw.objectClass),
+    objectClass: Array.isArray(raw.objectClass)
+      ? raw.objectClass.filter((value): value is string => typeof value === "string")
+      : [],
     profile: optionalRecord(raw.profile) ?? {},
     raw,
   };
-}
-
-function readGroupProfile(value: unknown): Record<string, unknown> {
-  const profile = readInputRecord(value, "profile");
-  const name = requireInputString(profile.name, "profile.name");
-  return compactBody({
-    name,
-    description: optionalString(profile.description),
-  });
-}
-
-function compactBody(input: Record<string, unknown>): Record<string, unknown> {
-  return compactJson(input) as Record<string, unknown>;
-}
-
-function readOptionalStringArray(value: unknown, fieldName: string): string[] | undefined {
-  if (value == null) {
-    return undefined;
-  }
-  if (!Array.isArray(value)) {
-    throw new ProviderRequestError(400, `${fieldName} must be a string array`);
-  }
-  return value.map((item, index) => requireInputString(item, `${fieldName}[${index}]`));
-}
-
-function readStringValues(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.map((item) => optionalString(item)).filter((item): item is string => Boolean(item));
-}
-
-function readInputRecord(value: unknown, fieldName: string): Record<string, unknown> {
-  return requiredRecord(value, fieldName, (message) => new ProviderRequestError(400, message));
-}
-
-function readOptionalInputRecord(value: unknown, fieldName: string): Record<string, unknown> | undefined {
-  return value == null ? undefined : readInputRecord(value, fieldName);
-}
-
-function readResponseObject(value: unknown, fieldName: string): Record<string, unknown> {
-  return requiredRecord(value, fieldName, () => new ProviderRequestError(502, `Okta returned invalid ${fieldName}`));
-}
-
-function readResponseObjectArray(value: unknown, fieldName: string): Array<Record<string, unknown>> {
-  if (!Array.isArray(value)) {
-    throw new ProviderRequestError(502, `Okta returned invalid ${fieldName}`);
-  }
-  return value.map((item, index) => readResponseObject(item, `${fieldName}[${index}]`));
 }
 
 function readNextAfter(headers: Headers): string | null {
@@ -603,15 +515,14 @@ function readNextAfter(headers: Headers): string | null {
     return null;
   }
   for (const part of link.split(",")) {
-    if (!/;\s*rel="?next"?/u.test(part)) {
-      continue;
-    }
-    const match = /<([^>]+)>/u.exec(part);
-    if (!match) {
+    const segments = part.split(";").map((value) => value.trim());
+    const relation = segments.slice(1).find((value) => value === "rel=next" || value === 'rel="next"');
+    const target = segments[0];
+    if (!relation || !target?.startsWith("<") || !target.endsWith(">")) {
       continue;
     }
     try {
-      return new URL(match[1]!).searchParams.get("after");
+      return new URL(target.slice(1, -1)).searchParams.get("after");
     } catch {
       return null;
     }
@@ -619,40 +530,37 @@ function readNextAfter(headers: Headers): string | null {
   return null;
 }
 
-function createOktaError(status: number, responseText: string, phase: OktaPhase): ProviderRequestError {
-  const message = readOktaErrorMessage(responseText) ?? `Okta request failed with HTTP ${status}`;
-  if (phase === "validate" && (status === 400 || status === 401 || status === 403)) {
-    return new ProviderRequestError(400, message);
-  }
-  if (status === 429) {
-    return new ProviderRequestError(429, message);
-  }
-  return new ProviderRequestError(status || 500, message);
+function inputGroupProfile(value: unknown): Record<string, unknown> {
+  const profile = requiredRecord(value, "profile", inputError);
+  return {
+    ...profile,
+    name: requiredString(profile.name, "profile.name", inputError),
+  };
 }
 
-function readOktaErrorMessage(responseText: string): string | undefined {
-  const text = responseText.trim();
-  if (!text) {
-    return undefined;
+function responseString(value: unknown, fieldName: string): string {
+  if (typeof value === "string" && value) {
+    return value;
   }
+  throw new ProviderRequestError(502, `Okta field ${fieldName} is missing`);
+}
+
+function responseObject(value: unknown, fieldName: string): Record<string, unknown> {
   try {
-    const payload = optionalRecord(JSON.parse(text) as unknown);
-    return optionalString(payload?.errorSummary) ?? optionalString(payload?.message) ?? text;
+    return requiredRecord(value, fieldName);
   } catch {
-    return text;
+    throw new ProviderRequestError(502, `Okta returned invalid ${fieldName}`);
   }
 }
 
-function requireCredentialString(value: unknown, fieldName: string): string {
-  return requiredString(value, fieldName, (message) => new ProviderRequestError(400, message));
+function responseObjectArray(value: unknown, fieldName: string): Array<Record<string, unknown>> {
+  try {
+    return objectArray(value, fieldName);
+  } catch {
+    throw new ProviderRequestError(502, `Okta returned invalid ${fieldName}`);
+  }
 }
 
-function requireInputString(value: unknown, fieldName: string): string {
-  return requiredString(value, fieldName, (message) => new ProviderRequestError(400, message));
+function inputError(message: string): ProviderRequestError {
+  return new ProviderRequestError(400, message);
 }
-
-function requireResponseString(value: unknown, fieldName: string): string {
-  return requiredString(value, fieldName, () => new ProviderRequestError(502, `Okta field ${fieldName} is missing`));
-}
-
-export type { OktaActionName };

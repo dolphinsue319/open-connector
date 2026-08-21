@@ -220,5 +220,3 @@ export const anrokActions: ActionDefinition[] = [
     outputSchema: s.array("The Product ID mapping objects returned by Anrok.", productMappingSchema),
   }),
 ];
-
-export type AnrokActionName = (typeof anrokActions)[number]["name"];

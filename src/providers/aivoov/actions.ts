@@ -68,5 +68,3 @@ export const aivoovActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AivoovActionName = (typeof aivoovActions)[number]["name"];

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -135,9 +135,4 @@ const getMonitoringMetricsAction = defineProviderAction(service, {
   }),
 });
 
-export type ScrapflyActionName = "scrape" | "get_monitoring_metrics";
-
-export const scrapflyActions: ProviderActionDefinition<ScrapflyActionName>[] = [
-  scrapeAction,
-  getMonitoringMetricsAction,
-];
+export const scrapflyActions: ActionDefinition[] = [scrapeAction, getMonitoringMetricsAction];

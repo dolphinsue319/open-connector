@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { OAuthProviderContext, ProviderFetch, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { VimeoActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -10,7 +10,7 @@ import {
   optionalString,
   requiredString,
 } from "../../core/cast.ts";
-import { assertPublicHttpUrl, queryParams } from "../../core/request.ts";
+import { assertPublicHttpUrl, queryParams, readBoundedResponseBytes } from "../../core/request.ts";
 import {
   createProviderTimeout,
   isAbortLikeError,
@@ -34,7 +34,7 @@ interface VimeoRequestInput {
   signal?: AbortSignal;
 }
 
-export const vimeoActionHandlers: Record<VimeoActionName, VimeoActionHandler> = {
+export const vimeoActionHandlers: ProviderActionHandlers<"vimeo", VimeoActionHandler> = {
   get_current_user(_input, context) {
     return vimeoGetCurrentUser(context);
   },
@@ -258,7 +258,12 @@ async function vimeoDownloadVideoFile(input: Record<string, unknown>, context: V
 
   const mimeType = response.headers.get("content-type") ?? optionalString(selected.type) ?? "application/octet-stream";
   const name = resolveDownloadFileName(input, selected, mimeType);
-  const upload = await context.transitFiles.create(new File([await response.arrayBuffer()], name, { type: mimeType }));
+  const bytes = await readBoundedResponseBytes(response, {
+    maxBytes: context.transitFiles.maxBytes,
+    fieldName: "Vimeo video download",
+    createError: (message) => new ProviderRequestError(413, message),
+  });
+  const upload = await context.transitFiles.create(new File([Uint8Array.from(bytes)], name, { type: mimeType }));
 
   return {
     videoId: input.videoId,

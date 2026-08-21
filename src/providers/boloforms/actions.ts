@@ -234,5 +234,3 @@ export const boloformsActions: ProviderActionDefinition[] = [
     outputSchema: getFormResponsesOutputSchema,
   }),
 ];
-
-export type BoloformsActionName = (typeof boloformsActions)[number]["name"];

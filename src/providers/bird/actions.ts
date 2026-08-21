@@ -5,7 +5,6 @@ import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "bird";
 
-const nonEmptyStringSchema = (description: string) => s.string(description, { minLength: 1, pattern: "\\S" });
 const workspaceIdSchema = s.uuid("The Bird workspace ID.");
 const channelIdSchema = s.uuid("The Bird channel ID.");
 const messageIdSchema = s.uuid("The Bird channel message ID.");
@@ -30,8 +29,8 @@ const contactAttributesSchema = s.record(
   s.unknown("A Bird contact attribute value."),
 );
 const contactIdentifierSchema = s.object("A Bird contact identifier.", {
-  key: nonEmptyStringSchema("The Bird contact identifier key, such as emailaddress or phonenumber."),
-  value: nonEmptyStringSchema("The Bird contact identifier value."),
+  key: s.nonWhitespaceString("The Bird contact identifier key, such as emailaddress or phonenumber."),
+  value: s.nonWhitespaceString("The Bird contact identifier value."),
 });
 const contactListIdsSchema = s.array("Bird contact list IDs.", s.uuid("A Bird contact list ID."), {
   minItems: 1,
@@ -50,7 +49,7 @@ const createMessageSchema = s.object(
     body: messageBodySchema,
     template: templateSchema,
     sender: senderSchema,
-    reference: nonEmptyStringSchema("A caller-defined message reference."),
+    reference: s.nonWhitespaceString("A caller-defined message reference."),
     meta: metadataSchema,
     replyTo: rawObjectSchema,
     notification: rawObjectSchema,
@@ -58,7 +57,7 @@ const createMessageSchema = s.object(
     enableLinkTracking: s.boolean("Whether Bird should append UTM parameters to links."),
     ignoreQuietHours: s.boolean("Whether to ignore quiet hours settings."),
     ignoreGlobalHoldout: s.boolean("Whether to skip global holdout checks."),
-    tags: s.array("Tags to associate with the message.", nonEmptyStringSchema("A Bird message tag."), {
+    tags: s.array("Tags to associate with the message.", s.nonWhitespaceString("A Bird message tag."), {
       minItems: 1,
       maxItems: 10,
     }),
@@ -89,20 +88,6 @@ const createMessageSchema = s.object(
   },
 );
 
-export type BirdActionName =
-  | "list_channels"
-  | "get_channel"
-  | "get_message"
-  | "list_message_interactions"
-  | "send_message"
-  | "send_batch_messages"
-  | "list_contacts"
-  | "get_contact"
-  | "search_contact_by_identifier"
-  | "create_contact"
-  | "update_contact"
-  | "delete_contact";
-
 export const birdActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_channels",
@@ -116,9 +101,9 @@ export const birdActions: ActionDefinition[] = [
           minimum: 1,
           maximum: 1000,
         }),
-        pageToken: nonEmptyStringSchema("The pagination token returned by a previous request."),
+        pageToken: s.nonWhitespaceString("The pagination token returned by a previous request."),
         reverse: s.boolean("Whether to reverse the order in which channels are returned."),
-        platform: nonEmptyStringSchema("Filter channels by platform name."),
+        platform: s.nonWhitespaceString("Filter channels by platform name."),
         conferencial: s.boolean("Filter channels by Bird's conferencial flag."),
         onlyMyChannels: s.boolean("Only return channels the authenticated principal can access."),
         useCaseType: useCaseTypeSchema,
@@ -128,7 +113,7 @@ export const birdActions: ActionDefinition[] = [
         }),
         resourceOwnerIdentifiers: s.array(
           "Filter channels by resource owner identifiers.",
-          nonEmptyStringSchema("A Bird resource owner identifier."),
+          s.nonWhitespaceString("A Bird resource owner identifier."),
           { minItems: 1 },
         ),
         suite: suiteSchema,
@@ -271,7 +256,7 @@ export const birdActions: ActionDefinition[] = [
       {
         workspaceId: workspaceIdSchema,
         contactId: contactIdSchema,
-        attribute: nonEmptyStringSchema("A contact attribute name to include in the response."),
+        attribute: s.nonWhitespaceString("A contact attribute name to include in the response."),
       },
       { optional: ["attribute"] },
     ),
@@ -307,7 +292,7 @@ export const birdActions: ActionDefinition[] = [
       contact: s.object(
         "The Bird contact fields to create.",
         {
-          displayName: nonEmptyStringSchema("The display name for the Bird contact."),
+          displayName: s.nonWhitespaceString("The display name for the Bird contact."),
           identifiers: s.array("Identifiers to attach to the contact.", contactIdentifierSchema, {
             minItems: 1,
           }),

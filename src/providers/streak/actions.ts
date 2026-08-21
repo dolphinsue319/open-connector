@@ -60,5 +60,3 @@ export const streakActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type StreakActionName = (typeof streakActions)[number]["name"];

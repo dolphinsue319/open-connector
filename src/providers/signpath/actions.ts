@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -110,7 +110,7 @@ const fastSignHashInputBaseSchema = s.object(
 
 const fastSignHashInputSchema = fastSignHashInputBaseSchema;
 
-export const signpathActions: ProviderActionDefinition<SignpathActionName>[] = [
+export const signpathActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_signing_policies",
     description:
@@ -168,6 +168,4 @@ export const signpathActions: ProviderActionDefinition<SignpathActionName>[] = [
       { optional: ["rsaHashAlgorithm", "metadata"] },
     ),
   }),
-] satisfies ProviderActionDefinition<SignpathActionName>[];
-
-export type SignpathActionName = "list_signing_policies" | "get_signing_request" | "fast_sign_hash";
+];

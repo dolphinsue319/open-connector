@@ -1,11 +1,14 @@
+import type { ActionPolicyDecision } from "../../core/action-policy.ts";
 import type { CredentialProfile } from "../../core/types.ts";
+
+export const DEFAULT_RUN_LIMIT = 5_000;
 
 export type RunLogCaller = "http" | "mcp" | "web";
 
 /**
  * One recent action run shown by the local runtime.
  */
-export type RunLog = {
+export interface RunLog {
   id: string;
   service: string;
   actionId: string;
@@ -14,21 +17,32 @@ export type RunLog = {
   completedAt: string;
   durationMs: number;
   ok: boolean;
+  connectionId?: string;
   connectionProfile?: CredentialProfile;
+  runtimeTokenId?: string;
+  policy?: ActionPolicyDecision;
   inputSummary?: unknown;
+  outputSummary?: unknown;
   errorCode?: string;
   errorMessage?: string;
-};
+}
 
 export interface RunLogListInput {
   limit?: number;
   cursor?: string;
   service?: string;
+  actionId?: string;
+  caller?: RunLogCaller;
+  ok?: boolean;
 }
 
 export interface RunLogPage {
   items: RunLog[];
   nextCursor?: string;
+}
+
+export interface RunLogWriteResult {
+  retentionApplied: boolean;
 }
 
 export interface RunLogCursor {
@@ -60,6 +74,7 @@ export function decodeRunLogCursor(cursor: string | undefined): RunLogCursor | u
  * Storage contract for recent action run logs.
  */
 export interface IRunLogStore {
-  add(run: RunLog): Promise<void>;
+  add(run: RunLog): Promise<RunLogWriteResult>;
+  get(id: string): Promise<RunLog | undefined>;
   list(input?: RunLogListInput): Promise<RunLogPage>;
 }

@@ -1,11 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "zenserp";
-
-export type ZenserpActionName = "search" | "google_news_search" | "google_maps_search" | "google_image_search";
 
 const commonSearchInputProperties = {
   q: s.nonEmptyString("Search query sent to Zenserp."),
@@ -25,7 +23,7 @@ const optionalObjectSchema = (description: string) => s.nullable(s.looseObject(d
 const optionalObjectArraySchema = (itemDescription: string, description: string) =>
   s.nullable(s.array(description, s.looseObject(itemDescription)));
 
-export const zenserpActions: ProviderActionDefinition<ZenserpActionName>[] = [
+export const zenserpActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "search",
     description: "Run a Google Search request through Zenserp and return the first-pass common result surfaces.",

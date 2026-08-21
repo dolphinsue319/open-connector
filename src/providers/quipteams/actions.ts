@@ -313,5 +313,3 @@ export const quipteamsActions: ActionDefinition[] = [
     outputSchema: detailOutputSchema("A Quipteams employee detail response.", "employee", employeeSchema),
   }),
 ];
-
-export type QuipteamsActionName = (typeof quipteamsActions)[number]["name"];

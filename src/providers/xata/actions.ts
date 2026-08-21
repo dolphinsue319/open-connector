@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -122,16 +122,7 @@ const branchInputSchema = s.object(
   { required: ["organizationID", "projectID", "branchID"] },
 );
 
-export type XataActionName =
-  | "list_organizations"
-  | "get_organization"
-  | "list_projects"
-  | "get_project"
-  | "list_branches"
-  | "get_branch"
-  | "list_available_regions";
-
-export const xataActions: ProviderActionDefinition<XataActionName>[] = [
+export const xataActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_organizations",
     description: "List Xata organizations available to the authenticated API key.",

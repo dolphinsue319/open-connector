@@ -119,5 +119,3 @@ export const bookingmoodActions: ProviderActionDefinition[] = [
     outputSchema: queryAvailabilityOutputSchema,
   }),
 ];
-
-export type BookingmoodActionName = (typeof bookingmoodActions)[number]["name"];

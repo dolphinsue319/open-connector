@@ -13,8 +13,6 @@ import {
 
 const service = "outlook";
 
-export type OutlookActionName = (typeof outlookActions)[number]["name"];
-
 interface OutlookActionSource {
   name: string;
   description: string;

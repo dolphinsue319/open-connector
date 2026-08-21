@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { BookingmoodActionName } from "./actions.ts";
 
 import { optionalRecord, optionalString, requiredRecord, requiredString } from "../../core/cast.ts";
 import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
@@ -11,7 +11,7 @@ const bookingmoodApiBaseUrl = "https://api.bookingmood.com/v1";
 type BookingmoodMode = "validate" | "execute";
 type BookingmoodActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const bookingmoodActionHandlers: Record<BookingmoodActionName, BookingmoodActionHandler> = {
+export const bookingmoodActionHandlers: ProviderActionHandlers<"bookingmood", BookingmoodActionHandler> = {
   list_products(input, context) {
     return listBookingmoodProducts(input, context);
   },

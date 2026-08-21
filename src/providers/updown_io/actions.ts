@@ -174,5 +174,3 @@ export const updownIoActions: ActionDefinition[] = [
     outputSchema: s.stringArray("All monitoring node IPv6 addresses returned by updown.io."),
   }),
 ];
-
-export type UpdownIoActionName = (typeof updownIoActions)[number]["name"];

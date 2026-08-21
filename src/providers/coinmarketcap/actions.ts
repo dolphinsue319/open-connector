@@ -358,6 +358,4 @@ export const coinmarketcapActions: ActionDefinition[] = [
       data: conversionDataSchema,
     }),
   }),
-] satisfies ActionDefinition[];
-
-export type CoinmarketcapActionName = (typeof coinmarketcapActions)[number]["name"];
+];

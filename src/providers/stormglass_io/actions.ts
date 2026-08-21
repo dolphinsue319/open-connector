@@ -182,5 +182,3 @@ export const stormglassIoActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type StormglassIoActionName = (typeof stormglassIoActions)[number]["name"];

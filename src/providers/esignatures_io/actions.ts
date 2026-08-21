@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -156,7 +155,7 @@ const customBrandingInputSchema = s.object(
   { optional: ["companyName", "logoUrl"] },
 );
 
-export const esignaturesIoActions: Array<ProviderActionDefinition<EsignaturesIoActionName>> = [
+export const esignaturesIoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_template",
     description: "Create an eSignatures.com template from a title, Markdown document content, and optional labels.",
@@ -281,13 +280,3 @@ export const esignaturesIoActions: Array<ProviderActionDefinition<EsignaturesIoA
     }),
   }),
 ];
-
-export type EsignaturesIoActionName =
-  | "create_template"
-  | "list_templates"
-  | "get_template"
-  | "get_template_content"
-  | "create_contract"
-  | "get_contract"
-  | "get_contract_content"
-  | "withdraw_contract";

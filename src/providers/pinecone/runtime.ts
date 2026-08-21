@@ -1,6 +1,6 @@
 import type { CredentialValidationResult, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { PineconeActionName } from "./actions.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import { compactJson } from "../../core/request.ts";
@@ -12,7 +12,7 @@ export const pineconeApiVersion = "2026-04";
 type PineconeActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 type PineconeHttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
-export const pineconeActionHandlers: Record<PineconeActionName, PineconeActionHandler> = {
+export const pineconeActionHandlers: ProviderActionHandlers<"pinecone", PineconeActionHandler> = {
   async list_indexes(_input, context) {
     const payload = await requestControlJson(context, "/indexes", "GET");
     const record = requireObjectPayload(payload, "Pinecone indexes response");

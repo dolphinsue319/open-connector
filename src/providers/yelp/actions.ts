@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -153,9 +152,7 @@ const searchBusinessesInputSchema: JsonSchema = {
   oneOf: [{ required: ["location"] }, { required: ["latitude", "longitude"] }],
 };
 
-export type YelpActionName = "search_businesses" | "search_businesses_by_phone" | "get_business_details";
-
-export const yelpActions: ProviderActionDefinition<YelpActionName>[] = [
+export const yelpActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "search_businesses",
     description: "Search Yelp businesses by keyword and geographic anchor.",

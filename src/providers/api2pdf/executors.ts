@@ -1,5 +1,5 @@
 import type { CredentialValidators, ExecutionContext, ProviderExecutors } from "../../core/types.ts";
-import type { Api2pdfActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalBoolean, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
@@ -24,7 +24,7 @@ interface Api2pdfActionContext {
 
 type Api2pdfActionHandler = (input: Record<string, unknown>, context: Api2pdfActionContext) => Promise<unknown>;
 
-export const api2pdfActionHandlers: Record<Api2pdfActionName, Api2pdfActionHandler> = {
+export const api2pdfActionHandlers: ProviderActionHandlers<"api2pdf", Api2pdfActionHandler> = {
   markdown_to_pdf(input, context) {
     return executeMarkdownToPdf(input, context);
   },

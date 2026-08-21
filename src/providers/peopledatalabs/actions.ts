@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -203,9 +203,7 @@ const companySearchOutputSchema = s.object(
   { optional: ["scroll_token"] },
 );
 
-export type PeopledatalabsActionName = "enrich_person" | "search_people" | "enrich_company" | "search_companies";
-
-export const peopledatalabsActions: Array<ProviderActionDefinition<PeopledatalabsActionName>> = [
+export const peopledatalabsActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "enrich_person",
     description: "Match a single person in People Data Labs and return the top matched person record.",

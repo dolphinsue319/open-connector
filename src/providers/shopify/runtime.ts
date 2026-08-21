@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { ApiKeyProviderContext, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { ShopifyActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
+import type { ProviderRuntimeHandler } from "../provider-runtime.ts";
 
 import { compactObject, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
 import { assertPublicHttpUrl } from "../../core/request.ts";
@@ -9,13 +9,9 @@ import { ProviderRequestError, providerUserAgent } from "../provider-runtime.ts"
 export const shopifyRestApiVersion = "2026-04";
 
 const credentialHelpUrl = "https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens";
-const shopifyContentScope = "content";
 const shopPath = "/shop.json";
-const contentValidationPath = "/blogs/count.json";
 
 type ShopifyRequestPhase = "validate" | "execute";
-type ShopifyActionHandler = ProviderRuntimeHandler<ShopifyActionContext>;
-
 interface ShopifyPagination {
   nextPageInfo: string | null;
   previousPageInfo: string | null;
@@ -26,11 +22,14 @@ interface ShopifyRestResult {
   pagination: ShopifyPagination;
 }
 
-export interface ShopifyActionContext extends ApiKeyProviderContext {
+export interface ShopifyActionContext {
+  accessToken: string;
   shopDomain: string;
+  fetcher: typeof fetch;
+  signal?: AbortSignal;
 }
 
-export const shopifyActionHandlers: Record<ShopifyActionName, ShopifyActionHandler> = {
+export const shopifyActionHandlers: ProviderActionHandlers<"shopify", ProviderRuntimeHandler<ShopifyActionContext>> = {
   async get_shop(_input, context) {
     return {
       shop: await getShopifyResource(context, shopPath, "shop"),
@@ -84,9 +83,7 @@ export const shopifyActionHandlers: Record<ShopifyActionName, ShopifyActionHandl
       path: "/pages/count.json",
       queryKeys: [
         "title",
-        "handle",
         "published_status",
-        "since_id",
         "created_at_min",
         "created_at_max",
         "updated_at_min",
@@ -141,18 +138,10 @@ export const shopifyActionHandlers: Record<ShopifyActionName, ShopifyActionHandl
     });
   },
   async list_article_tags(input, context) {
-    const query: Record<string, string> = {};
-    const limit = readQueryValue(input.limit);
-    if (limit !== undefined) {
-      query.limit = limit;
-    }
-    if (input.popular === true) {
-      query.popular = "1";
-    }
     const { payload } = await requestShopifyRest({
       context,
       path: "/articles/tags.json",
-      query,
+      query: buildArticleTagQuery(input),
       phase: "execute",
     });
     const record = requireRecord(payload, "Shopify article tags response");
@@ -160,16 +149,40 @@ export const shopifyActionHandlers: Record<ShopifyActionName, ShopifyActionHandl
       tags: requireStringArray(record.tags, "tags"),
     };
   },
+  async list_blog_article_tags(input, context) {
+    const { payload } = await requestShopifyRest({
+      context,
+      path: `/blogs/${readId(input, "blog_id")}/articles/tags.json`,
+      query: buildArticleTagQuery(input),
+      phase: "execute",
+    });
+    const record = requireRecord(payload, "Shopify blog article tags response");
+    return {
+      tags: requireStringArray(record.tags, "tags"),
+    };
+  },
+  async list_article_authors(_input, context) {
+    const { payload } = await requestShopifyRest({
+      context,
+      path: "/articles/authors.json",
+      phase: "execute",
+    });
+    const record = requireRecord(payload, "Shopify article authors response");
+    return {
+      authors: requireStringArray(record.authors, "authors"),
+    };
+  },
 };
 
 export async function validateShopifyCredential(
-  input: { apiKey: string; values: Record<string, string> },
+  accessToken: string,
+  shopDomain: string,
+  grantedScopes: string[],
   fetcher: typeof fetch,
   signal?: AbortSignal,
 ): Promise<CredentialValidationResult> {
-  const shopDomain = normalizeShopDomain(optionalString(input.values.shopDomain));
   const context: ShopifyActionContext = {
-    apiKey: input.apiKey,
+    accessToken,
     shopDomain,
     fetcher,
     signal,
@@ -180,25 +193,19 @@ export async function validateShopifyCredential(
     phase: "validate",
   });
   const shop = requireRecord(requireRecord(shopResult.payload, "Shopify shop response").shop, "shop");
-  await requestShopifyRest({
-    context,
-    path: contentValidationPath,
-    phase: "validate",
-  });
 
   return {
     profile: {
       accountId: `shopify:${shopDomain}`,
       displayName: optionalString(shop.name) ?? shopDomain,
     },
-    grantedScopes: [shopifyContentScope],
+    grantedScopes,
     metadata: compactObject({
       shopDomain,
       apiBaseUrl: buildShopifyRestApiBaseUrl(shopDomain),
       restApiVersion: shopifyRestApiVersion,
       credentialHelpUrl,
       validationEndpoint: shopPath,
-      contentScopeValidationEndpoint: contentValidationPath,
       shopId: optionalNumber(shop.id),
       myshopifyDomain: optionalString(shop.myshopify_domain),
     }),
@@ -273,7 +280,7 @@ async function requestShopifyRest(input: {
       headers: {
         accept: "application/json",
         "user-agent": providerUserAgent,
-        "x-shopify-access-token": input.context.apiKey,
+        "x-shopify-access-token": input.context.accessToken,
       },
       signal: input.context.signal,
     });
@@ -449,6 +456,18 @@ function readQueryValue(value: unknown): string | undefined {
     return String(value);
   }
   return undefined;
+}
+
+function buildArticleTagQuery(input: Record<string, unknown>): Record<string, string> {
+  const query: Record<string, string> = {};
+  const limit = readQueryValue(input.limit);
+  if (limit !== undefined) {
+    query.limit = limit;
+  }
+  if (input.popular === true) {
+    query.popular = "1";
+  }
+  return query;
 }
 
 function assertPageInfoFilterBoundary(input: Record<string, unknown>): void {

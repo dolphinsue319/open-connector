@@ -1,18 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "wakatime";
-
-export type WakatimeActionName =
-  | "get_current_user"
-  | "get_all_time_since_today"
-  | "list_projects"
-  | "get_stats"
-  | "get_summaries"
-  | "get_status_bar_today";
 
 const summariesRanges = [
   "Today",
@@ -96,7 +87,7 @@ const getSummariesInputSchema: JsonSchema = {
   anyOf: [{ required: ["range"] }, { required: ["start", "end"] }],
 };
 
-export const wakatimeActions: ProviderActionDefinition<WakatimeActionName>[] = [
+export const wakatimeActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the currently authenticated WakaTime user.",

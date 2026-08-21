@@ -1,5 +1,5 @@
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { OAuthProviderContext } from "../provider-runtime.ts";
-import type { ApaleoActionName } from "./actions.ts";
 
 import { compactObject, optionalBoolean, optionalNumber, optionalString } from "../../core/cast.ts";
 import { ProviderRequestError } from "../provider-runtime.ts";
@@ -24,7 +24,7 @@ type ApaleoRequestOptions = {
   signal?: AbortSignal;
 };
 
-export const apaleoActionHandlers: Record<ApaleoActionName, ApaleoActionHandler> = {
+export const apaleoActionHandlers: ProviderActionHandlers<"apaleo", ApaleoActionHandler> = {
   list_properties(input, context) {
     return listProperties(input, context);
   },

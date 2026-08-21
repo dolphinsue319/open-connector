@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -215,27 +215,7 @@ const deleteOpportunityAction = defineProviderAction(service, {
   outputSchema: deleteOutputSchema,
 });
 
-export type SageSalesManagementActionName =
-  | "get_accounts_schema"
-  | "list_accounts"
-  | "get_account"
-  | "create_account"
-  | "update_account"
-  | "delete_account"
-  | "get_contacts_schema"
-  | "list_contacts"
-  | "get_contact"
-  | "create_contact"
-  | "update_contact"
-  | "delete_contact"
-  | "get_opportunities_schema"
-  | "list_opportunities"
-  | "get_opportunity"
-  | "create_opportunity"
-  | "update_opportunity"
-  | "delete_opportunity";
-
-export const sageSalesManagementActions: ProviderActionDefinition<SageSalesManagementActionName>[] = [
+export const sageSalesManagementActions: ActionDefinition[] = [
   getAccountsSchemaAction,
   listAccountsAction,
   getAccountAction,

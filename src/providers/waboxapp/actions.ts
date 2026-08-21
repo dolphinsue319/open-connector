@@ -1,11 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "waboxapp";
-
-export type WaboxappActionName = "get_account_status" | "send_chat" | "send_image" | "send_link" | "send_media";
 
 const sendMessageOutputSchema = s.actionOutput({
   success: s.boolean("Whether Waboxapp accepted the message submission."),
@@ -31,7 +29,7 @@ const sendTargetFields = {
   ),
 };
 
-export const waboxappActions: ProviderActionDefinition<WaboxappActionName>[] = [
+export const waboxappActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account_status",
     description: "Fetch the current Waboxapp account status for the connected WhatsApp number.",

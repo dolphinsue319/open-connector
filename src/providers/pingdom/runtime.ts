@@ -1,6 +1,6 @@
 import type { CredentialValidationResult, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { PingdomActionName } from "./actions.ts";
 
 import { optionalRecord, optionalString, requiredRecord, requiredString } from "../../core/cast.ts";
 import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
@@ -9,7 +9,7 @@ const pingdomApiBaseUrl = "https://api.pingdom.com/api/3.1";
 
 type PingdomActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const pingdomActionHandlers: Record<PingdomActionName, PingdomActionHandler> = {
+export const pingdomActionHandlers: ProviderActionHandlers<"pingdom", PingdomActionHandler> = {
   async list_checks(input, context) {
     const body = requiredRecord(await requestPingdomJson(context, "/checks", input), "Pingdom checks response");
     return {

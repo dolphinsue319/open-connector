@@ -1,6 +1,6 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { SkyfireActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -10,7 +10,12 @@ import {
   requiredRecord,
   requiredString,
 } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "skyfire";
 const skyfireApiBaseUrl = "https://api.skyfire.xyz";
@@ -19,7 +24,7 @@ const skyfireValidationPath = "/api/v1/tokens/00000000-0000-0000-0000-0000000000
 type SkyfireRequestPhase = "validate" | "execute";
 type SkyfireActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const skyfireActionHandlers: Record<SkyfireActionName, SkyfireActionHandler> = {
+export const skyfireActionHandlers: ProviderActionHandlers<"skyfire", SkyfireActionHandler> = {
   get_all_services(_input, context) {
     return listServices("/api/v1/directory/services", context);
   },
@@ -245,3 +250,9 @@ function optionalStringArray(value: unknown): string[] | undefined {
     return parsed ? [parsed] : [];
   });
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.skyfire.xyz",
+  auth: { type: "api_key_header", name: "skyfire-api-key" },
+});

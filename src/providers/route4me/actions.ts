@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -23,9 +23,7 @@ const optimizationSummarySchema = s.object("A normalized Route4Me optimization s
   raw: s.looseObject("The raw optimization object returned by Route4Me."),
 });
 
-export type Route4meActionName = "create_optimization" | "list_optimizations" | "delete_optimizations";
-
-export const route4meActions: ProviderActionDefinition<Route4meActionName>[] = [
+export const route4meActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_optimization",
     description: "Create a Route4Me optimization problem from parameters and destination addresses.",

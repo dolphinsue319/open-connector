@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -17,19 +17,7 @@ const account = s.object("The authenticated Tomba account response.", {
   raw: s.looseObject("The raw Tomba account payload."),
 });
 
-export type TombaActionName =
-  | "get_account"
-  | "domain_search"
-  | "email_finder"
-  | "email_verifier"
-  | "email_sources"
-  | "email_count"
-  | "technology"
-  | "linkedin"
-  | "enrich"
-  | "search_companies";
-
-export const tombaActions: Array<ProviderActionDefinition<TombaActionName>> = [
+export const tombaActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description: "Retrieve information about the authenticated Tomba account.",

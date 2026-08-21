@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -321,25 +320,7 @@ const updateOpportunityInputSchema = withAnyOf(
   [["contactId"], ["userId"], ["statusId"], ["confidence"], ["note"], ["value"], ["valuePeriod"], ["dateWon"]],
 );
 
-export type CloseActionName =
-  | "list_leads"
-  | "get_lead"
-  | "create_lead"
-  | "update_lead"
-  | "list_contacts"
-  | "get_contact"
-  | "create_contact"
-  | "update_contact"
-  | "list_tasks"
-  | "get_task"
-  | "create_task"
-  | "update_task"
-  | "list_opportunities"
-  | "get_opportunity"
-  | "create_opportunity"
-  | "update_opportunity";
-
-export const closeActions: ProviderActionDefinition<CloseActionName>[] = [
+export const closeActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_leads",
     description: "List Close leads with optional pagination and field selection.",

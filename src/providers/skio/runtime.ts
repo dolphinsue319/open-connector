@@ -1,11 +1,16 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { ApiKeyProviderContext, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { SkioActionName } from "./actions.ts";
+import type {
+  ApiKeyProviderContext,
+  ProviderActionHandlers,
+  ProviderActionSources,
+  ProviderRuntimeHandler,
+} from "../provider-runtime.ts";
 
 import { optionalRecord, optionalString } from "../../core/cast.ts";
 import {
   createProviderTimeout,
   isAbortLikeError,
+  mapProviderActionSources,
   providerUserAgent,
   ProviderRequestError,
 } from "../provider-runtime.ts";
@@ -22,7 +27,7 @@ type SkioEndpoint = {
   label: string;
 };
 
-const actionEndpointByName: Record<SkioActionName, SkioEndpoint> = {
+const actionEndpointByName: ProviderActionSources<"skio", SkioEndpoint> = {
   list_orders: {
     path: "/orders",
     queryFields: [
@@ -89,10 +94,11 @@ const actionEndpointByName: Record<SkioActionName, SkioEndpoint> = {
   },
 };
 
-export const skioActionHandlers = Object.fromEntries(
-  Object.entries(actionEndpointByName).map(([actionName, endpoint]) => [
-    actionName,
-    async (input: Record<string, unknown>, context: ApiKeyProviderContext) => {
+export const skioActionHandlers: ProviderActionHandlers<"skio", SkioActionHandler> = mapProviderActionSources(
+  "skio",
+  actionEndpointByName,
+  (_actionName, endpoint): SkioActionHandler =>
+    async (input, context) => {
       const payload = await requestSkioJson({
         apiKey: context.apiKey,
         path: endpoint.path,
@@ -102,8 +108,7 @@ export const skioActionHandlers = Object.fromEntries(
       });
       return normalizePaginatedResponse(payload, endpoint.label);
     },
-  ]),
-) as Record<SkioActionName, SkioActionHandler>;
+);
 
 export async function validateSkioCredential(
   apiKey: string,

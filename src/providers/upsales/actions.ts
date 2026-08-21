@@ -248,5 +248,3 @@ export const upsalesActions: ProviderActionDefinition[] = [
     outputSchema: deleteOutputSchema,
   }),
 ];
-
-export type UpsalesActionName = (typeof upsalesActions)[number]["name"];

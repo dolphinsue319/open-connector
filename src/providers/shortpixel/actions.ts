@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -115,19 +115,11 @@ const purgeDomainCacheAction = defineProviderAction(service, {
   outputSchema: statusActionOutputSchema,
 });
 
-export const shortpixelActions: ProviderActionDefinition<ShortpixelActionName>[] = [
+export const shortpixelActions: ActionDefinition[] = [
   getDomainCdnUsageAction,
   addDomainAction,
   setDomainAction,
   revokeDomainAction,
   purgeDomainStorageAction,
   purgeDomainCacheAction,
-] satisfies ProviderActionDefinition<ShortpixelActionName>[];
-
-export type ShortpixelActionName =
-  | "get_domain_cdn_usage"
-  | "add_domain"
-  | "set_domain"
-  | "revoke_domain"
-  | "purge_domain_storage"
-  | "purge_domain_cache";
+];

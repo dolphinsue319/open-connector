@@ -283,5 +283,3 @@ export const basinActions: ActionDefinition[] = [
     outputSchema: s.anyOf("Basin form webhook deletion response.", [resourceSchema, successOutputSchema]),
   }),
 ];
-
-export type BasinActionName = (typeof basinActions)[number]["name"];

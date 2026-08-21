@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -100,7 +100,7 @@ const deleteMapOutputSchema = s.object("A Felt map deletion confirmation.", {
   deleted: s.boolean("Whether Felt accepted the map deletion."),
 });
 
-export const feltActions: Array<ProviderActionDefinition<FeltActionName>> = [
+export const feltActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the Felt user profile for the authenticated API token.",
@@ -257,17 +257,3 @@ export const feltActions: Array<ProviderActionDefinition<FeltActionName>> = [
     outputSchema: deleteMapOutputSchema,
   }),
 ];
-
-export type FeltActionName =
-  | "get_current_user"
-  | "list_projects"
-  | "create_project"
-  | "get_project"
-  | "update_project"
-  | "delete_project"
-  | "create_map"
-  | "get_map"
-  | "update_map"
-  | "duplicate_map"
-  | "move_map"
-  | "delete_map";

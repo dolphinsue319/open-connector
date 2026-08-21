@@ -141,15 +141,7 @@ const listDealsInputSchema = s.object(
   },
 );
 
-export type OnePageCrmActionName =
-  | "list_contacts"
-  | "get_contact"
-  | "create_contact"
-  | "list_deals"
-  | "get_deal"
-  | "create_deal";
-
-export const onePageCrmActions: Array<ActionDefinition & { name: OnePageCrmActionName }> = [
+export const onePageCrmActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_contacts",
     description: "List OnePageCRM contacts with pagination, search, ownership, tag, and sorting filters.",

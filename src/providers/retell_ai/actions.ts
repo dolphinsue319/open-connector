@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -76,17 +76,7 @@ const paginatedCallSchema = s.object("A Retell AI paginated call response.", {
   raw: rawObjectSchema,
 });
 
-export type RetellAiActionName =
-  | "list_voices"
-  | "get_voice"
-  | "list_voice_agents"
-  | "get_voice_agent"
-  | "list_phone_numbers"
-  | "get_phone_number"
-  | "list_calls"
-  | "get_call";
-
-export const retellAiActions: ProviderActionDefinition<RetellAiActionName>[] = [
+export const retellAiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_voices",
     description: "List all Retell AI voices available to the authenticated workspace.",

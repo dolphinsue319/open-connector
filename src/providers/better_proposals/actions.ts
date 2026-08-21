@@ -251,5 +251,3 @@ export const betterProposalsActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type BetterProposalsActionName = (typeof betterProposalsActions)[number]["name"];

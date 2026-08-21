@@ -262,5 +262,3 @@ export const beeminderActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type BeeminderActionName = (typeof beeminderActions)[number]["name"];

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -50,9 +50,7 @@ const stringOrStringArray = (description: string, itemDescription: string, optio
     s.array(itemDescription, s.nonEmptyString(itemDescription), { minItems: 1, maxItems: options.maxItems }),
   ]);
 
-export type PerplexityActionName = "list_models" | "search" | "create_chat_completion" | "create_embeddings";
-
-export const perplexityActions: Array<ProviderActionDefinition<PerplexityActionName>> = [
+export const perplexityActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_models",
     description: "List the models currently available from Perplexity.",

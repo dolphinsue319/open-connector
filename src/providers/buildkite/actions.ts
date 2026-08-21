@@ -1,23 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "buildkite";
-
-export type BuildkiteActionName =
-  | "get_current_access_token"
-  | "get_current_user"
-  | "list_organizations"
-  | "get_organization"
-  | "list_pipelines"
-  | "get_pipeline"
-  | "list_builds_for_organization"
-  | "list_builds_for_pipeline"
-  | "get_build"
-  | "create_build"
-  | "cancel_build"
-  | "rebuild_build";
 
 const readUserPermission = ["read_user"];
 const readOrganizationsPermission = ["read_organizations"];
@@ -205,7 +191,7 @@ const buildListInputFields = {
   include_retried_jobs: includeRetriedJobsField,
 };
 
-export const buildkiteActions: ProviderActionDefinition<BuildkiteActionName>[] = [
+export const buildkiteActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_access_token",
     description: "Inspect the current Buildkite API access token, including scopes and owner summary.",

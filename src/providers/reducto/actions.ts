@@ -143,5 +143,3 @@ export const reductoActions: ProviderActionDefinition[] = [
     outputSchema: splitOutputSchema,
   }),
 ];
-
-export type ReductoActionName = (typeof reductoActions)[number]["name"];

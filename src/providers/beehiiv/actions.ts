@@ -415,5 +415,3 @@ export const beehiivActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type BeehiivActionName = (typeof beehiivActions)[number]["name"];

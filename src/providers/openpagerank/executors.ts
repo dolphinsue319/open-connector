@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { OpenPageRankActionName } from "./actions.ts";
 
 import { compactObject, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
 import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
@@ -13,7 +13,7 @@ const openPageRankValidationDomain = "google.com";
 type OpenPageRankRequestPhase = "validate" | "execute";
 type OpenPageRankActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const openPageRankActionHandlers: Record<OpenPageRankActionName, OpenPageRankActionHandler> = {
+export const openPageRankActionHandlers: ProviderActionHandlers<"openpagerank", OpenPageRankActionHandler> = {
   async get_page_rank(input, context) {
     const payload = await openPageRankGetJson(readDomains(input.domains), context, "execute");
     return normalizeOpenPageRankPayload(payload);

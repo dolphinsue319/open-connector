@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { AshbyActionName } from "./actions.ts";
 
 import { Buffer } from "node:buffer";
 import { compactObject, objectArray, optionalRecord, optionalString, requiredRecord } from "../../core/cast.ts";
@@ -18,7 +18,7 @@ const ashbyApiBaseUrl = "https://api.ashbyhq.com";
 type AshbyPhase = "validate" | "execute";
 type AshbyActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const ashbyActionHandlers: Record<AshbyActionName, AshbyActionHandler> = {
+export const ashbyActionHandlers: ProviderActionHandlers<"ashby", AshbyActionHandler> = {
   async api_key_info(_input, context) {
     const payload = await requestAshbyJson({
       endpoint: "apiKey.info",

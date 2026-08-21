@@ -1,16 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
-const service = "dropbox_sign" as const;
-
-export type DropboxSignActionName =
-  | "get_account"
-  | "list_signature_requests"
-  | "get_signature_request"
-  | "list_templates"
-  | "get_template";
+const service = "dropbox_sign";
 
 const rawObjectSchema = s.looseObject("The raw Dropbox Sign API object.");
 
@@ -73,7 +66,7 @@ const templateSchema = s.object("A normalized Dropbox Sign template.", {
   raw: rawObjectSchema,
 });
 
-export const dropboxSignActions: readonly ProviderActionDefinition<DropboxSignActionName>[] = [
+export const dropboxSignActions: readonly ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description:

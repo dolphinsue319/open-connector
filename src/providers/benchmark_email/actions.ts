@@ -194,5 +194,3 @@ export const benchmarkEmailActions: ActionDefinition[] = [
     outputSchema: contactListSummaryOutputSchema,
   }),
 ];
-
-export type BenchmarkEmailActionName = (typeof benchmarkEmailActions)[number]["name"];

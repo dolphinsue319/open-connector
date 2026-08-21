@@ -99,5 +99,3 @@ export const benzingaActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type BenzingaActionName = (typeof benzingaActions)[number]["name"];

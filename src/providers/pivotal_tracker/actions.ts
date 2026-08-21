@@ -248,5 +248,3 @@ export const pivotalTrackerActions: ProviderActionDefinition[] = [
   listStoryCommentsAction,
   createStoryCommentAction,
 ];
-
-export type PivotalTrackerActionName = (typeof pivotalTrackerActions)[number]["name"];

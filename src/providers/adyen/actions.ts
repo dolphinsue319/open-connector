@@ -176,5 +176,3 @@ export const adyenActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type AdyenActionName = (typeof adyenActions)[number]["name"];

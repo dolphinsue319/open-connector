@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -136,13 +136,7 @@ const usageOutputSchema = s.object("The credits usage payload returned by Scrapi
   remained_credits: s.integer("The remaining credits available for the active plan."),
 });
 
-export type ScrapingantActionName =
-  | "scrape_with_extended_json_output"
-  | "extract_content_as_markdown"
-  | "extract_data_with_ai"
-  | "get_api_credits_usage";
-
-export const scrapingantActions: ProviderActionDefinition<ScrapingantActionName>[] = [
+export const scrapingantActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "scrape_with_extended_json_output",
     description:

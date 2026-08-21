@@ -253,5 +253,3 @@ export const uniswapApiActions: ProviderActionDefinition[] = [
     outputSchema: createSwapOutputSchema,
   }),
 ];
-
-export type UniswapApiActionName = (typeof uniswapApiActions)[number]["name"];

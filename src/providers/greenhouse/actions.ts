@@ -1,18 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "greenhouse";
-
-export type GreenhouseActionName =
-  | "list_jobs"
-  | "get_job"
-  | "list_candidates"
-  | "get_candidate"
-  | "list_applications"
-  | "get_application"
-  | "add_candidate_note";
 
 const trimmedString = (description: string) => s.nonEmptyString(description);
 const idSchema = (description: string) =>
@@ -144,7 +135,7 @@ const noteSchema = s.looseObject("A Greenhouse candidate activity feed note.", {
   created_at: s.string("Timestamp when the note was created."),
 });
 
-export const greenhouseActions: ProviderActionDefinition<GreenhouseActionName>[] = [
+export const greenhouseActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_jobs",
     description: "List Greenhouse jobs with optional status, department, and timestamp filters.",

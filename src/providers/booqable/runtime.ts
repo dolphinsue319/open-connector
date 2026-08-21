@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { BooqableActionName } from "./actions.ts";
 
 import { optionalRecord, optionalString } from "../../core/cast.ts";
 import {
@@ -30,7 +30,7 @@ interface BooqableRequestInput {
 
 const booqableRequestTimeoutMs = 30_000;
 
-export const booqableActionHandlers: Record<BooqableActionName, ProviderRuntimeHandler<BooqableContext>> = {
+export const booqableActionHandlers: ProviderActionHandlers<"booqable", ProviderRuntimeHandler<BooqableContext>> = {
   async get_current_company(input, context) {
     return normalizeSingleResponse(
       await requestBooqableJson({

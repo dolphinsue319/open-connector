@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -35,9 +35,7 @@ const transitFileSchema = s.object("A copy of a provider-generated file stored i
   mimeType: s.nonEmptyString("The transit file MIME type."),
 });
 
-export type PdfApiIoActionName = "list_templates" | "get_template" | "render_pdf";
-
-export const pdfApiIoActions: Array<ProviderActionDefinition<PdfApiIoActionName>> = [
+export const pdfApiIoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_templates",
     description: "List the PDF-API.io templates accessible to the provided API token.",

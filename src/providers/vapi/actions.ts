@@ -279,8 +279,6 @@ export const vapiActionNames = [
   "test_code_tool_execution",
 ] as const;
 
-export type VapiActionName = (typeof vapiActionNames)[number];
-
 function inputSchema(description: string, properties: Record<string, JsonSchema>, required: string[] = []): JsonSchema {
   return s.object(description, properties, { required, additionalProperties: true });
 }
@@ -304,7 +302,7 @@ function paginatedOutput(key: string, schema: JsonSchema, description: string): 
   );
 }
 
-function action(name: VapiActionName, description: string, input: JsonSchema, output: JsonSchema): ActionDefinition {
+function action(name: string, description: string, input: JsonSchema, output: JsonSchema): ActionDefinition {
   return defineProviderAction(service, {
     name,
     description,

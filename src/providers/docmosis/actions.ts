@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -70,15 +70,7 @@ const renderHeadersSchema = s.object("The selected Docmosis response headers.", 
   server: s.nullableString("The Docmosis server identifier header when present."),
 });
 
-export type DocmosisActionName =
-  | "get_environment_summary"
-  | "check_environment_ready"
-  | "list_templates"
-  | "get_template_details"
-  | "get_template_structure"
-  | "render_document";
-
-export const docmosisActions: Array<ProviderActionDefinition<DocmosisActionName>> = [
+export const docmosisActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_environment_summary",
     description:

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -56,14 +56,7 @@ const autocompleteInputSchema = s.object(
 const verificationSchema = s.looseObject("A Lob address verification object.");
 const suggestionSchema = s.looseObject("A Lob US address autocomplete suggestion.");
 
-export type LobActionName =
-  | "verify_us_address"
-  | "bulk_verify_us_addresses"
-  | "autocomplete_us_addresses"
-  | "verify_international_address"
-  | "bulk_verify_international_addresses";
-
-export const lobActions: ProviderActionDefinition<LobActionName>[] = [
+export const lobActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "verify_us_address",
     description: "Verify and standardize one US address with Lob Address Verification.",

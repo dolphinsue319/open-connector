@@ -129,8 +129,6 @@ export const blueskyActions: ProviderActionDefinition[] = [
   }),
 ];
 
-export type BlueskyActionName = (typeof blueskyActions)[number]["name"];
-
 export const blueskyActionByName: ReadonlyMap<string, ProviderActionDefinition> = new Map(
   blueskyActions.map((action) => [action.name, action] as const),
 );

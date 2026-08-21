@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -30,24 +30,7 @@ const incrementalPlanInputSchema = s.object(
   { optional: ["last_knowledge_of_server"] },
 );
 
-export type YnabActionName =
-  | "get_user"
-  | "list_plans"
-  | "get_plan"
-  | "get_plan_settings"
-  | "list_accounts"
-  | "get_account"
-  | "list_categories"
-  | "get_category"
-  | "get_month_category"
-  | "list_months"
-  | "get_month"
-  | "list_payees"
-  | "get_payee"
-  | "list_transactions"
-  | "get_transaction";
-
-export const ynabActions: ProviderActionDefinition<YnabActionName>[] = [
+export const ynabActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_user",
     description: "Retrieve the authenticated YNAB user.",

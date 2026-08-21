@@ -416,5 +416,3 @@ export const refinerActions: ProviderActionDefinition[] = [
     outputSchema: mutationResultSchema,
   }),
 ];
-
-export type RefinerActionName = (typeof refinerActions)[number]["name"];

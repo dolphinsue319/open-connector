@@ -156,8 +156,6 @@ export const carboneActions: ActionDefinition[] = [
   deleteTemplateAction,
 ];
 
-export type CarboneActionName = (typeof carboneActions)[number]["name"];
-
 export const carboneActionByName: Map<string, ActionDefinition> = new Map(
   carboneActions.map((action) => [action.name, action] as const),
 );

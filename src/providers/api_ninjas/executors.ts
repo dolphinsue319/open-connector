@@ -1,5 +1,5 @@
 import type { CredentialValidators, ExecutionContext, ProviderExecutors } from "../../core/types.ts";
-import type { ApiNinjasActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { optionalNumber, optionalRecord, optionalString, objectArray } from "../../core/cast.ts";
 import {
@@ -23,7 +23,7 @@ interface ApiNinjasActionContext {
 
 type ApiNinjasActionHandler = (input: Record<string, unknown>, context: ApiNinjasActionContext) => Promise<unknown>;
 
-export const apiNinjasActionHandlers: Record<ApiNinjasActionName, ApiNinjasActionHandler> = {
+export const apiNinjasActionHandlers: ProviderActionHandlers<"api_ninjas", ApiNinjasActionHandler> = {
   async geocode(input, context) {
     const payload = await requestApiNinjasJson(
       "/v1/geocoding",

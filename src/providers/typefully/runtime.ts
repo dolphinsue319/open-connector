@@ -1,5 +1,5 @@
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { TypefullyActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord, optionalString, requiredRecord, requiredString } from "../../core/cast.ts";
 import { queryParams } from "../../core/request.ts";
@@ -23,7 +23,7 @@ interface TypefullyRequestOptions {
   signal?: AbortSignal;
 }
 
-export const typefullyActionHandlers: Record<TypefullyActionName, TypefullyActionHandler> = {
+export const typefullyActionHandlers: ProviderActionHandlers<"typefully", TypefullyActionHandler> = {
   get_current_user(_input, context) {
     return requestTypefullyJson({
       apiKey: context.apiKey,

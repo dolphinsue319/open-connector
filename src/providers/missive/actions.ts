@@ -244,6 +244,4 @@ export const missiveActions: ActionDefinition[] = [
       conversation: conversationSchema,
     }),
   }),
-] satisfies ActionDefinition[];
-
-export type MissiveActionName = (typeof missiveActions)[number]["name"];
+];

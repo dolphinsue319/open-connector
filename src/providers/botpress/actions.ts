@@ -114,5 +114,3 @@ export const botpressActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type BotpressActionName = (typeof botpressActions)[number]["name"];

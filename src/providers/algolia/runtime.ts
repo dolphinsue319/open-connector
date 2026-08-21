@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderFetch } from "../provider-runtime.ts";
-import type { AlgoliaActionName } from "./actions.ts";
 
 import { createHash } from "node:crypto";
 import { compactObject, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
@@ -17,7 +17,7 @@ interface AlgoliaActionContext {
 
 type AlgoliaActionHandler = (input: Record<string, unknown>, context: AlgoliaActionContext) => Promise<unknown>;
 
-export const algoliaActionHandlers: Record<AlgoliaActionName, AlgoliaActionHandler> = {
+export const algoliaActionHandlers: ProviderActionHandlers<"algolia", AlgoliaActionHandler> = {
   list_indices(input, context) {
     return listAlgoliaIndices(input, context);
   },

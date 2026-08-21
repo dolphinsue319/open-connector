@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { BestbuyActionName } from "./actions.ts";
 
 import { optionalInteger, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
 import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
@@ -12,7 +12,7 @@ const bestbuyValidationCategoryId = "abcat0010000";
 type BestbuyActionContext = Pick<ApiKeyProviderContext, "apiKey" | "fetcher" | "signal">;
 type BestbuyActionHandler = ProviderRuntimeHandler<ApiKeyProviderContext>;
 
-export const bestbuyActionHandlers: Record<BestbuyActionName, BestbuyActionHandler> = {
+export const bestbuyActionHandlers: ProviderActionHandlers<"bestbuy", BestbuyActionHandler> = {
   get_categories(input, context) {
     return getCategories(input, context);
   },

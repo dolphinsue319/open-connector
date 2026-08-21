@@ -142,6 +142,4 @@ export const certifierActions: ActionDefinition[] = [
       credential: credentialSchema,
     }),
   }),
-] satisfies ActionDefinition[];
-
-export type CertifierActionName = (typeof certifierActions)[number]["name"];
+];

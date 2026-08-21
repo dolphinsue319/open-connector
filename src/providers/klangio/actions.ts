@@ -181,7 +181,7 @@ const downloadFileOutputSchema = s.object("The output payload for a downloaded K
 });
 
 function defineKlangioAction(input: {
-  name: KlangioActionName;
+  name: string;
   description: string;
   inputSchema: JsonSchema;
   outputSchema: JsonSchema;
@@ -191,17 +191,6 @@ function defineKlangioAction(input: {
     ...input,
   });
 }
-
-export type KlangioActionName =
-  | "create_transcription_job"
-  | "create_chord_recognition_job"
-  | "create_chord_recognition_extended_job"
-  | "create_beat_tracking_job"
-  | "create_strum_recognition_job"
-  | "create_source_separation_job"
-  | "get_job_status"
-  | "download_job_result"
-  | "download_source_separation_audio";
 
 export const klangioActions: ActionDefinition[] = [
   defineKlangioAction({

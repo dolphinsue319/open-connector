@@ -281,5 +281,3 @@ export const redfoxActions: ProviderActionDefinition[] = [
     outputSchema: redfoxOutputSchema,
   }),
 ];
-
-export type RedfoxActionName = (typeof redfoxActions)[number]["name"];

@@ -130,6 +130,6 @@ export const tinypngActions: ProviderActionDefinition[] = [
       },
     ),
   }),
-] satisfies ProviderActionDefinition[];
+];
 
 export type TinypngActionName = "shrink_image" | "output_image";

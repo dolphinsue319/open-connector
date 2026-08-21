@@ -134,6 +134,4 @@ export const breezeActions: ProviderActionDefinition[] = [
       "Breeze tag folders returned by the request.",
     ),
   }),
-] satisfies ProviderActionDefinition[];
-
-export type BreezeActionName = (typeof breezeActions)[number]["name"];
+];

@@ -173,4 +173,3 @@ export const celigoActions: ProviderActionDefinition[] = [
 export const celigoActionByName: Map<string, ProviderActionDefinition> = new Map(
   celigoActions.map((action) => [action.name, action] as const),
 );
-export type CeligoActionName = (typeof celigoActions)[number]["name"];

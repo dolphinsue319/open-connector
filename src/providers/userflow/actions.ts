@@ -158,5 +158,3 @@ export const userflowActions: ActionDefinition[] = [
     outputSchema: s.object("The Userflow event tracking result.", { event: userflowObjectSchema }),
   }),
 ];
-
-export type UserflowActionName = (typeof userflowActions)[number]["name"];

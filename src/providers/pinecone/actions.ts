@@ -271,6 +271,4 @@ export const pineconeActions: ProviderActionDefinition[] = [
       raw: jsonObjectSchema,
     }),
   }),
-] satisfies ProviderActionDefinition[];
-
-export type PineconeActionName = (typeof pineconeActions)[number]["name"];
+];

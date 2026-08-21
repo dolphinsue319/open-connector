@@ -110,6 +110,4 @@ export const chargebeeActions: ActionDefinition[] = [
     inputSchema: s.object({ itemPriceId: id }, { required: ["itemPriceId"], description: "Item price lookup input." }),
     outputSchema: singleOutput("itemPrice"),
   }),
-] satisfies ActionDefinition[];
-
-export type ChargebeeActionName = (typeof chargebeeActions)[number]["name"];
+];

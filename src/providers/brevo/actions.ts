@@ -298,6 +298,4 @@ export const brevoActions: ProviderActionDefinition[] = [
     inputSchema: listSelectorSchema,
     outputSchema: memberMutationOutputSchema,
   }),
-] satisfies ProviderActionDefinition[];
-
-export type BrevoActionName = (typeof brevoActions)[number]["name"];
+];

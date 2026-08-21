@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { GladiaActionName } from "./actions.ts";
 
 import { basename, extname } from "node:path";
 import {
@@ -12,8 +12,8 @@ import {
   optionalString,
   requiredString,
 } from "../../core/cast.ts";
-import { assertPublicHttpUrl } from "../../core/request.ts";
-import { ProviderRequestError, providerUserAgent, readTransitFileInput } from "../provider-runtime.ts";
+import { assertPublicHttpUrl, readBoundedResponseBytes } from "../../core/request.ts";
+import { providerFetch, ProviderRequestError, providerUserAgent, readTransitFileInput } from "../provider-runtime.ts";
 
 export const gladiaApiBaseUrl = "https://api.gladia.io";
 const gladiaPreRecordedPath = "/v2/pre-recorded";
@@ -24,7 +24,7 @@ const defaultUploadMimeType = "application/octet-stream";
 type GladiaRequestPhase = "validate" | "execute";
 type GladiaActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const gladiaActionHandlers: Record<GladiaActionName, GladiaActionHandler> = {
+export const gladiaActionHandlers: ProviderActionHandlers<"gladia", GladiaActionHandler> = {
   upload_file(input, context) {
     return uploadFile(input, context);
   },
@@ -178,8 +178,12 @@ async function downloadTranscriptionAudio(
     optionalString(input.fileName) ??
     readContentDispositionFileName(response.headers.get("content-disposition")) ??
     `gladia-${id}${extensionFromMimeType(mimeType)}`;
-  const body = await response.arrayBuffer();
-  const upload = await context.transitFiles.create(new File([body], name, { type: mimeType }));
+  const body = await readBoundedResponseBytes(response, {
+    maxBytes: context.transitFiles.maxBytes,
+    fieldName: "Gladia transcription audio",
+    createError: (message) => new ProviderRequestError(413, message),
+  });
+  const upload = await context.transitFiles.create(new File([Uint8Array.from(body)], name, { type: mimeType }));
 
   return {
     id,
@@ -325,7 +329,7 @@ async function resolveUploadSource(
 
   const sourceUrl = optionalString(input.sourceUrl);
   if (sourceUrl) {
-    const downloaded = await downloadSourceBytes(sourceUrl, context.fetcher, context.signal, "sourceUrl");
+    const downloaded = await downloadSourceBytes(sourceUrl, context.signal, "sourceUrl");
     const sourcePathName = basename(new URL(sourceUrl).pathname);
     const name = (fileNameOverride ?? downloaded.name ?? sourcePathName) || "gladia-upload.bin";
     const mimeType = mimeTypeOverride ?? downloaded.mimeType ?? mimeTypeFromFileName(name) ?? defaultUploadMimeType;
@@ -339,7 +343,6 @@ async function resolveUploadSource(
 
 async function downloadSourceBytes(
   sourceUrl: string,
-  fetcher: typeof fetch,
   signal: AbortSignal | undefined,
   fieldName: string,
 ): Promise<{ bytes: Uint8Array; mimeType?: string; name?: string }> {
@@ -347,9 +350,11 @@ async function downloadSourceBytes(
     fieldName,
     createError: (message) => new ProviderRequestError(400, message),
   });
-  const response = await fetcher(url, {
+  const response = await providerFetch(url, {
     method: "GET",
-    redirect: "error",
+    // Workers has no "error" redirect mode; "manual" never follows either, and
+    // the !response.ok check below rejects any 3xx.
+    redirect: "manual",
     signal,
   });
   if (!response.ok) {
@@ -358,12 +363,11 @@ async function downloadSourceBytes(
       `failed to download ${fieldName}: ${response.status} ${response.statusText}`.trim(),
     );
   }
-  const contentLength = parseContentLength(response.headers.get("content-length"));
-  if (contentLength != null) {
-    assertUploadSourceSize(contentLength);
-  }
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  assertUploadSourceSize(bytes.byteLength);
+  const bytes = await readBoundedResponseBytes(response, {
+    maxBytes: maxGladiaUploadSourceBytes,
+    fieldName,
+    createError: (message) => new ProviderRequestError(400, message),
+  });
 
   return {
     bytes,

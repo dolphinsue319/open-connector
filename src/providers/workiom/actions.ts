@@ -149,5 +149,3 @@ export const workiomActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type WorkiomActionName = (typeof workiomActions)[number]["name"];

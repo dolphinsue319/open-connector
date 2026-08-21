@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -113,18 +112,7 @@ const licenseInputSchema = s.object("Request parameters for a Payhip license key
   licenseKey: licenseKeySchema,
 });
 
-export type PayhipActionName =
-  | "create_coupon"
-  | "get_coupon"
-  | "list_coupons"
-  | "update_coupon"
-  | "delete_coupon"
-  | "verify_license"
-  | "enable_license"
-  | "disable_license"
-  | "decrease_license_uses";
-
-export const payhipActions: Array<ProviderActionDefinition<PayhipActionName>> = [
+export const payhipActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_coupon",
     description: "Create a Payhip coupon for a fixed amount or percentage discount.",

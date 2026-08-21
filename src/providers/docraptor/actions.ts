@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -50,9 +50,7 @@ const hostedDocumentOutputSchema = s.object(
   },
 );
 
-export type DocraptorActionName = "create_hosted_document";
-
-export const docraptorActions: Array<ProviderActionDefinition<DocraptorActionName>> = [
+export const docraptorActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_hosted_document",
     description:

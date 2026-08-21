@@ -1,18 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "buildium";
-
-export type BuildiumActionName =
-  | "list_properties"
-  | "get_property"
-  | "list_units"
-  | "get_unit"
-  | "list_owners"
-  | "get_owner"
-  | "list_property_notes";
 
 const positiveInteger = (description: string) => s.positiveInteger(description);
 
@@ -43,7 +34,7 @@ const listOutputSchema = (description: string, itemDescription: string) =>
     },
   );
 
-export const buildiumActions: ProviderActionDefinition<BuildiumActionName>[] = [
+export const buildiumActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_properties",
     description: "List Buildium rental properties.",

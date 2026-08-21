@@ -5,7 +5,7 @@ import type {
   ProviderExecutors,
   ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { LeexiActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { Buffer } from "node:buffer";
 import {
@@ -19,13 +19,14 @@ import {
   optionalStringOrNull,
 } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   createProviderTimeout,
   defineProviderExecutors,
   isAbortLikeError,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireApiKeyCredential,
@@ -37,6 +38,7 @@ const leexiApiBaseUrl = "https://public-api.leexi.ai/v1";
 const leexiRequestBaseUrl = "https://public-api.leexi.ai/v1/";
 const leexiValidationPath = "/users";
 const leexiDefaultTimeoutMs = 30_000;
+const leexiFetch = createProviderFetch({ skipDnsValidation: true });
 
 type LeexiRequestPhase = "validate" | "execute";
 type LeexiActionHandler = (input: Record<string, unknown>, context: LeexiActionContext) => Promise<unknown>;
@@ -48,7 +50,7 @@ interface LeexiActionContext {
   signal?: AbortSignal;
 }
 
-export const leexiActionHandlers: Record<LeexiActionName, LeexiActionHandler> = {
+export const leexiActionHandlers: ProviderActionHandlers<"leexi", LeexiActionHandler> = {
   list_users(input, context) {
     return executeListUsers(input, context);
   },
@@ -72,6 +74,7 @@ export const leexiActionHandlers: Record<LeexiActionName, LeexiActionHandler> = 
 export const executors: ProviderExecutors = defineProviderExecutors<LeexiActionContext>({
   service,
   handlers: leexiActionHandlers,
+  skipDnsValidation: true,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<LeexiActionContext> {
     const credential = await requireApiKeyCredential(context, service);
     return {
@@ -104,7 +107,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await leexiFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `Leexi request failed with HTTP ${response.status}`);

@@ -1,7 +1,7 @@
 import type { QueryValue } from "../../core/request.ts";
 import type { CredentialValidationResult, CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { ChatbotkitActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import { compactJson, queryParams } from "../../core/request.ts";
@@ -12,7 +12,7 @@ const apiBaseUrl = "https://api.chatbotkit.com/api/v1";
 
 type Handler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const chatbotkitActionHandlers: Record<ChatbotkitActionName, Handler> = {
+export const chatbotkitActionHandlers: ProviderActionHandlers<"chatbotkit", Handler> = {
   fetch_usage(_input, context) {
     return requestChatbotkit(context, "/usage/fetch");
   },

@@ -288,8 +288,6 @@ export const apiBibleActions: ActionDefinition[] = [
   }),
 ];
 
-export type ApiBibleActionName = (typeof apiBibleActions)[number]["name"];
-
 function displayInput(description: string, requiredFields: Record<string, JsonSchema>): JsonSchema {
   return s.object(
     description,

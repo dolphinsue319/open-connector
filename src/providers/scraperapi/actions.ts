@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -67,9 +67,7 @@ const scrapeResponseSchema = s.actionOutput(
 
 const accountUsageSchema = s.looseObject("Usage and account details returned by ScraperAPI.");
 
-export type ScraperapiActionName = "scrape_url" | "submit_url" | "get_account_usage";
-
-export const scraperapiActions: readonly ProviderActionDefinition<ScraperapiActionName>[] = [
+export const scraperapiActions: readonly ActionDefinition[] = [
   defineProviderAction(service, {
     name: "scrape_url",
     description:

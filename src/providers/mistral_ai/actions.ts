@@ -824,6 +824,4 @@ export const mistralAiActions: ActionDefinition[] = actionSources.map((action) =
     inputSchema: action.inputSchema,
     outputSchema: action.outputSchema ?? rawResponseSchema,
   }),
-) satisfies ActionDefinition[];
-
-export type MistralAiActionName = (typeof mistralAiActions)[number]["name"];
+);

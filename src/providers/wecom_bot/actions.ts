@@ -2,6 +2,7 @@ import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
+import { wecomSmartBotActions } from "./smart-actions.ts";
 
 const service = "wecom_bot";
 
@@ -27,7 +28,7 @@ const sendResultSchema = s.actionOutput(
   "The normalized WeCom bot send result.",
 );
 
-export const wecomBotActions: ActionDefinition[] = [
+const wecomBotWebhookActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "send_text_message",
     description: "Send a text message through the WeCom bot webhook.",
@@ -107,9 +108,4 @@ export const wecomBotActions: ActionDefinition[] = [
   }),
 ];
 
-export type WecomBotActionName =
-  | "send_text_message"
-  | "send_markdown_message"
-  | "send_markdown_v2_message"
-  | "send_image_message"
-  | "send_news_message";
+export const wecomBotActions: ActionDefinition[] = [...wecomBotWebhookActions, ...wecomSmartBotActions];

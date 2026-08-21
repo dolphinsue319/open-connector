@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -30,9 +30,7 @@ const paginationSchema = s.object("Pagination information returned with the temp
   totalPages: s.integer("The total number of pages."),
 });
 
-export type PdflessActionName = "get_workspace" | "list_document_templates";
-
-export const pdflessActions: Array<ProviderActionDefinition<PdflessActionName>> = [
+export const pdflessActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_workspace",
     description: "Get the current Pdfless workspace details resolved by the provided API key.",

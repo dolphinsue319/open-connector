@@ -1,9 +1,14 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { SliteActionName } from "./actions.ts";
 
 import { compactObject, optionalBoolean, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "slite";
 const sliteApiBaseUrl = "https://api.slite.com";
@@ -20,7 +25,7 @@ interface SliteRequestOptions {
   body?: Record<string, unknown>;
 }
 
-export const sliteActionHandlers: Record<SliteActionName, SliteActionHandler> = {
+export const sliteActionHandlers: ProviderActionHandlers<"slite", SliteActionHandler> = {
   list_notes: listNotes,
   get_note: getNote,
   create_note: createNote,
@@ -427,3 +432,9 @@ function requiredBoolean(value: unknown, fieldName: string): boolean {
   if (typeof value !== "boolean") throw new ProviderRequestError(502, `slite response missing ${fieldName}`);
   return value;
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.slite.com",
+  auth: { type: "api_key_header", name: "x-slite-api-key" },
+});

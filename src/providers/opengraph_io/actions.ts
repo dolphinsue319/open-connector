@@ -201,5 +201,3 @@ export const opengraphIoActions: ActionDefinition[] = [
     outputSchema: screenshotOutputSchema,
   }),
 ];
-
-export type OpenGraphIoActionName = (typeof opengraphIoActions)[number]["name"];

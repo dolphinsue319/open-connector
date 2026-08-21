@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -106,7 +106,7 @@ const limitInput = s.integer(`The maximum number of items to return. ${limitNote
   maximum: 100,
 });
 
-export const linuxDoActions: ProviderActionDefinition<LinuxDoActionName>[] = [
+export const linuxDoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_latest_topics",
     description: `List the latest public topics from Linux DO. RSS endpoint: GET https://linux.do/latest.rss. ${rateLimitNote}`,
@@ -269,18 +269,3 @@ export const linuxDoActions: ProviderActionDefinition<LinuxDoActionName>[] = [
     outputSchema: badgeListOutputSchema,
   }),
 ];
-
-export type LinuxDoActionName =
-  | "list_latest_topics"
-  | "list_top_topics"
-  | "list_hot_topics"
-  | "list_category_topics"
-  | "list_tag_topics"
-  | "list_user_topics"
-  | "list_category_tag_topics"
-  | "list_latest_posts"
-  | "list_topic_posts"
-  | "list_user_posts"
-  | "list_group_posts"
-  | "list_group_mentions"
-  | "list_badge_grants";

@@ -248,5 +248,3 @@ export const bugbugActions: ProviderActionDefinition[] = [
     outputSchema: testRunStatusSchema,
   }),
 ];
-
-export type BugbugActionName = (typeof bugbugActions)[number]["name"];

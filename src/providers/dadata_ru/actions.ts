@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -50,7 +50,7 @@ const addressSuggestionInputSchema = s.object(
 
 export type DadataRuActionName = "suggest_address" | "suggest_party" | "suggest_bank" | "suggest_fio" | "suggest_email";
 
-export const dadataRuActions: Array<ProviderActionDefinition<DadataRuActionName>> = [
+export const dadataRuActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "suggest_address",
     description: "Suggest Russian postal addresses from partial text using DaData's Suggestions API.",

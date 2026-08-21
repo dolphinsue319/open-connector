@@ -619,5 +619,3 @@ export const hubspotActions: ProviderActionDefinition[] = [
     outputSchema: userDetailsOutputSchema,
   }),
 ];
-
-export type HubspotActionName = string;

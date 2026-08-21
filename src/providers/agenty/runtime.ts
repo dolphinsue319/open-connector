@@ -1,9 +1,10 @@
 import type { CredentialValidationResult, TransitFileWriter } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderFetch } from "../provider-runtime.ts";
-import type { AgentyActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord, optionalString, requiredRecord } from "../../core/cast.ts";
-import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import { readBoundedResponseBytes } from "../../core/request.ts";
+import { providerFetch, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
 
 export const agentyApiBaseUrl = "https://api.agenty.com/v2";
 export const agentyBrowserBaseUrl = "https://browser.agenty.com/api";
@@ -19,7 +20,7 @@ export type AgentyRuntimeContext = {
 
 type AgentyActionHandler = (input: Record<string, unknown>, context: AgentyRuntimeContext) => Promise<unknown>;
 
-export const agentyActionHandlers: Record<AgentyActionName, AgentyActionHandler> = {
+export const agentyActionHandlers: ProviderActionHandlers<"agenty", AgentyActionHandler> = {
   get_page_content(input, context) {
     return getPageContent(input, context);
   },
@@ -117,7 +118,7 @@ export const agentyActionHandlers: Record<AgentyActionName, AgentyActionHandler>
 
 export async function validateAgentyApiKey(
   apiKey: string,
-  fetcher: ProviderFetch = fetch,
+  fetcher: ProviderFetch = providerFetch,
   signal?: AbortSignal,
 ): Promise<CredentialValidationResult> {
   const trimmedApiKey = apiKey.trim();
@@ -581,7 +582,12 @@ async function uploadAgentyTransitFile(context: AgentyRuntimeContext, response: 
   }
 
   const mimeType = response.headers.get("content-type") ?? "application/octet-stream";
-  const upload = await context.transitFiles.create(new File([await response.arrayBuffer()], name, { type: mimeType }));
+  const bytes = await readBoundedResponseBytes(response, {
+    maxBytes: context.transitFiles.maxBytes,
+    fieldName: "Agenty file output",
+    createError: (message) => new ProviderRequestError(413, message),
+  });
+  const upload = await context.transitFiles.create(new File([Uint8Array.from(bytes)], name, { type: mimeType }));
   return {
     name,
     mimetype: mimeType,

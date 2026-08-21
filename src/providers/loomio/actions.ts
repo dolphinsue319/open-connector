@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -72,9 +72,7 @@ const pollDetailSchema = s.object(
   },
 );
 
-export type LoomioActionName = "list_polls" | "get_poll";
-
-export const loomioActions: ProviderActionDefinition<LoomioActionName>[] = [
+export const loomioActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_polls",
     description: "List Loomio polls in one group with optional status filtering and offset pagination.",

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -138,9 +138,7 @@ const accountInfoSchema = s.looseRequiredObject("The account information and usa
   remaining_monthly_request: s.integer("The remaining monthly request count for the account."),
 });
 
-export type ScrapeDoActionName = "fetch_html" | "fetch_json" | "take_screenshot" | "get_account_info";
-
-export const scrapeDoActions: ProviderActionDefinition<ScrapeDoActionName>[] = [
+export const scrapeDoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "fetch_html",
     description: "Fetch one public URL through Scrape.do and return the synchronous response body.",

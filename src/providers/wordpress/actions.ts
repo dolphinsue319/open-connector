@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -254,27 +253,7 @@ const commentSchema = s.looseRequiredObject("A WordPress comment object.", {
   status: s.string("The WordPress comment status."),
 });
 
-export type WordpressActionName =
-  | "get_current_user"
-  | "list_posts"
-  | "get_post"
-  | "create_post"
-  | "update_post"
-  | "delete_post"
-  | "list_pages"
-  | "get_page"
-  | "create_page"
-  | "update_page"
-  | "delete_page"
-  | "list_categories"
-  | "create_category"
-  | "list_tags"
-  | "create_tag"
-  | "list_comments"
-  | "update_comment"
-  | "delete_comment";
-
-export const wordpressActions: Array<ProviderActionDefinition<WordpressActionName>> = [
+export const wordpressActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the authenticated WordPress user.",

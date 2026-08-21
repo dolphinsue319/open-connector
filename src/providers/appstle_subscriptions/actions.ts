@@ -97,5 +97,3 @@ export const appstleSubscriptionsActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type AppstleSubscriptionsActionName = (typeof appstleSubscriptionsActions)[number]["name"];

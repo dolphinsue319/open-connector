@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -334,20 +334,7 @@ const listIssuedCredentialsAction = defineProviderAction(service, {
   }),
 });
 
-export type ParadymActionName =
-  | "create_openid4vc_credential_offer"
-  | "list_projects"
-  | "get_openid4vc_issuance_session"
-  | "list_openid4vc_issuance_sessions"
-  | "create_openid4vc_verification_request"
-  | "get_openid4vc_verification_session"
-  | "list_openid4vc_verification_sessions"
-  | "list_sd_jwt_vc_credential_templates"
-  | "list_mdoc_credential_templates"
-  | "list_presentation_templates"
-  | "list_issued_credentials";
-
-export const paradymActions: Array<ProviderActionDefinition<ParadymActionName>> = [
+export const paradymActions: ActionDefinition[] = [
   listProjectsAction,
   createOpenid4vcCredentialOfferAction,
   getOpenid4vcIssuanceSessionAction,

@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -26,20 +25,7 @@ const predictionInputSchema = s.object("Input for selecting a Replicate predicti
 });
 const jsonObjectSchema: JsonSchema = s.looseObject("A JSON-serializable model input object.");
 
-export type ReplicateActionName =
-  | "get_account"
-  | "list_models"
-  | "get_model"
-  | "list_model_versions"
-  | "get_model_version"
-  | "list_collections"
-  | "get_collection"
-  | "create_prediction"
-  | "get_prediction"
-  | "list_predictions"
-  | "cancel_prediction";
-
-export const replicateActions: ProviderActionDefinition<ReplicateActionName>[] = [
+export const replicateActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description: "Retrieve the authenticated Replicate account for the connected API token.",

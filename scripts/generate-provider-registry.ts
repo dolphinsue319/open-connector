@@ -1,56 +1,95 @@
+import type { ProviderSource } from "./provider-source.ts";
+
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { format } from "oxfmt";
 import { loadProviderSources } from "./provider-source.ts";
 
 const providersDir = join(process.cwd(), "src/providers");
-const providerSources = await loadProviderSources();
-const services = providerSources.map((source) => source.service);
-const executableActionIds = new Map<string, string[]>(
-  providerSources.map((source) => [
-    source.service,
-    source.definition.actions.map((action) => action.id).sort((a, b) => a.localeCompare(b)),
-  ]),
-);
+
+/**
+ * Generate provider registries from definitions already loaded by the caller.
+ */
+export async function generateProviderRegistries(providerSources: ProviderSource[]): Promise<void> {
+  await Promise.all([
+    writeRegistry("registry.generated.ts", providerSources),
+    writeRegistry(
+      "registry.cloudflare.generated.ts",
+      providerSources.filter((source) => !source.nodeOnly),
+    ),
+    writeActionContracts(providerSources),
+  ]);
+}
+
+if (import.meta.main) {
+  await generateProviderRegistries(await loadProviderSources());
+}
 
 function propertyName(service: string): string {
   return /^[A-Za-z_$][\w$]*$/.test(service) ? service : JSON.stringify(service);
 }
 
-const registryLines = [
-  'import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../core/types.ts";',
-  "",
-  "/** Lazy-loaded provider executor module shape. */",
-  "export type ExecutorModule = {",
-  "  credentialValidators?: CredentialValidators;",
-  "  executors: ProviderExecutors;",
-  "  proxy?: ProviderProxyExecutor;",
-  "};",
-  "",
-  "/** Generated lazy imports for provider executors. Do not hand-edit. */",
-  "export const executorModules: Record<string, () => Promise<ExecutorModule>> = {",
-  ...services.map(
-    (service) => `  ${propertyName(service)}: (): Promise<ExecutorModule> => import("./${service}/executors.ts"),`,
-  ),
-  "};",
-  "",
-  "/** Generated local executable action ids by provider. Do not hand-edit. */",
-  "export const executableActionIds: Record<string, string[]> = {",
-  ...services.flatMap((service) => [
-    `  ${propertyName(service)}: [`,
-    ...(executableActionIds.get(service) ?? []).map((actionId) => `    ${JSON.stringify(actionId)},`),
-    "  ],",
-  ]),
-  "};",
-];
+async function writeRegistry(filename: string, sources: ProviderSource[]): Promise<void> {
+  const services = sources.map((source) => source.service);
+  const lines = [
+    'import type { ExecutorModule } from "./provider-loader.ts";',
+    "",
+    "/** Generated lazy imports for provider executors. Do not hand-edit. */",
+    "export const executorModules: Record<string, () => Promise<ExecutorModule>> = {",
+    ...services.map(
+      (service) => `  ${propertyName(service)}: (): Promise<ExecutorModule> => import("./${service}/executors.ts"),`,
+    ),
+    "};",
+  ];
 
-const registryPath = join(providersDir, "registry.generated.ts");
-const registryContent = `${registryLines.join("\n")}\n`;
-const existingContent = await readTextFile(registryPath);
-if (existingContent !== registryContent) {
-  await writeFile(registryPath, registryContent);
-  console.log(`Generated provider registry for ${services.length} providers.`);
-} else {
-  console.log(`Provider registry is up to date for ${services.length} providers.`);
+  const path = join(providersDir, filename);
+  const content = `${lines.join("\n")}\n`;
+  const existingContent = await readTextFile(path);
+  if (existingContent !== content) {
+    await writeFile(path, content);
+    console.log(`Generated ${filename} (${services.length} providers).`);
+  } else {
+    console.log(`${filename} is up to date (${services.length} providers).`);
+  }
+}
+
+async function writeActionContracts(sources: ProviderSource[]): Promise<void> {
+  const lines = [
+    "/** Generated action-name contracts for provider handlers. Do not hand-edit. */",
+    "export interface ProviderActionNames {",
+  ];
+
+  for (const source of sources) {
+    const names = [...new Set(source.definition.actions.map((action) => action.name))];
+    if (names.length === 0) {
+      lines.push(`  ${propertyName(source.service)}: never;`);
+    } else if (names.length === 1) {
+      lines.push(`  ${propertyName(source.service)}: ${JSON.stringify(names[0])};`);
+    } else {
+      lines.push(`  ${propertyName(source.service)}:`);
+      lines.push(...names.map((name) => `    | ${JSON.stringify(name)}`));
+      lines[lines.length - 1] += ";";
+    }
+  }
+
+  lines.push("}");
+  const filename = "action-contracts.generated.ts";
+  const path = join(providersDir, filename);
+  const result = await format(path, `${lines.join("\n")}\n`, {
+    printWidth: 120,
+    trailingComma: "all",
+  });
+  if (result.errors.length > 0) {
+    throw new Error(`Failed to format generated action contracts: ${result.errors[0]!.message}`);
+  }
+  const content = result.code;
+  const existingContent = await readTextFile(path);
+  if (existingContent !== content) {
+    await writeFile(path, content);
+    console.log(`Generated ${filename} (${sources.length} providers).`);
+  } else {
+    console.log(`${filename} is up to date (${sources.length} providers).`);
+  }
 }
 
 async function readTextFile(path: string): Promise<string | undefined> {

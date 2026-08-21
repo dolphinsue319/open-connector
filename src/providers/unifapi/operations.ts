@@ -18,11 +18,10 @@ import { tiktokOperations } from "./operations/tiktok.ts";
 import { xOperations } from "./operations/x.ts";
 import { youtubeOperations } from "./operations/youtube.ts";
 
-export type UnifapiActionName = string;
 export type UnifapiActionMethod = "GET" | "POST";
 
 export interface UnifapiOperation {
-  name: UnifapiActionName;
+  name: string;
   operationId: string;
   description: string;
   method: UnifapiActionMethod;

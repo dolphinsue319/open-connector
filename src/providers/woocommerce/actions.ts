@@ -542,8 +542,6 @@ export const woocommerceActions: ProviderActionDefinition[] = [
   action("update_coupon", "Update a WooCommerce coupon by coupon ID.", couponInput(true), couponSchema),
 ];
 
-export type WooCommerceActionName = (typeof woocommerceActions)[number]["name"];
-
 function action(
   name: string,
   description: string,

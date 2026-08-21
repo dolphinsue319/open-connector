@@ -277,5 +277,3 @@ export const atlasSoActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type AtlasSoActionName = (typeof atlasSoActions)[number]["name"];

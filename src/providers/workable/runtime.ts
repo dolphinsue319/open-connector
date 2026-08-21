@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { WorkableActionName } from "./actions.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
@@ -30,7 +30,7 @@ interface WorkableRequestInput {
   notFoundAsInvalidInput?: boolean;
 }
 
-export const workableActionHandlers: Record<WorkableActionName, ProviderRuntimeHandler<WorkableContext>> = {
+export const workableActionHandlers: ProviderActionHandlers<"workable", ProviderRuntimeHandler<WorkableContext>> = {
   async list_jobs(input, context): Promise<unknown> {
     const payload = await requestWorkableJson({
       ...context,

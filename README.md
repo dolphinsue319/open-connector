@@ -2,7 +2,7 @@
 
 <img src="assets/openconnector-readme-banner.png" alt="OpenConnector - Connect Once. Use Everywhere." width="100%" />
 
-[English](README.md) | [简体中文](docs/README.zh-CN.md) | [日本語](docs/README.ja.md) | [Русский](docs/README.ru.md) | [Français](docs/README.fr.md)
+[English](README.md) | [简体中文](docs/README.zh-CN.md) | [繁體中文](docs/README.zh-TW.md) | [日本語](docs/README.ja.md) | [한국어](docs/README.ko.md) | [Русский](docs/README.ru.md) | [Français](docs/README.fr.md)
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE.txt)
 ![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-339933)
@@ -15,9 +15,27 @@
 
 </div>
 
-OpenConnector is an open-source connector gateway for AI agents and an alternative to Composio.
+OpenConnector is an open-source connector gateway for AI agents and an alternative to Pipedream/Composio.
 Connect user app accounts once, then expose a shared catalog of 1,000+ providers and 10,000+
 prebuilt Actions to agents and applications.
+
+<table>
+  <tr>
+    <td width="33.33%" align="center"><img src="assets/deployment-options/oomol.svg" alt="OOMOL" width="140"></td>
+    <td width="33.33%" align="center"><img src="assets/deployment-options/cloudflare.svg" alt="Cloudflare" width="140"></td>
+    <td width="33.33%" align="center"><img src="assets/deployment-options/self-hosted.svg" alt="Self-hosted" width="140"></td>
+  </tr>
+  <tr>
+    <td width="33.33%" valign="top">Managed OAuth and hosted runtime, ready to use. No deployment or OAuth app setup.</td>
+    <td width="33.33%" valign="top">Run on Workers, D1, R2, and Static Assets in your Cloudflare account. You manage deployment and OAuth apps.</td>
+    <td width="33.33%" valign="top">Run locally or on your own infrastructure with Docker or Node.js. You manage storage and OAuth apps.</td>
+  </tr>
+  <tr>
+    <td width="33.33%" align="center">🚀 <a href="https://oomol.com/docs/connector-saas/"><strong>OOMOL Hosted</strong></a></td>
+    <td width="33.33%" align="center"><a href="docs/cloudflare.md"><strong>Deploy to Cloudflare</strong></a></td>
+    <td width="33.33%" align="center"><a href="https://oomol.com/docs/openconnector-self-hosting/"><strong>Self-host</strong></a></td>
+  </tr>
+</table>
 
 Use the [Connector SDK](https://github.com/oomol-lab/connector-sdk) from app code,
 [oo CLI](https://github.com/oomol-lab/oo-cli) as the local-agent relay, MCP from agent hosts,
@@ -38,8 +56,9 @@ HTTP/OpenAPI from custom clients, and the Web Console for administration and deb
   source.
 - Runtime controls for connection identity, scopes, runtime tokens, action allow/block policies,
   temporary file transit, and redacted run logs.
-- Deployment options for local Docker or Node.js, Fly.io with persistent SQLite storage,
-  Cloudflare Workers with D1/R2/Static Assets, and OOMOL's hosted runtime.
+- Deployment options for local Docker or Node.js with SQLite or PostgreSQL state and local or
+  S3-compatible transit storage, Fly.io, Cloudflare Workers with D1/R2/Static Assets, and OOMOL's
+  hosted runtime.
 
 ## Where It Fits
 
@@ -108,12 +127,12 @@ safe account labels, and execution results needed for the run.
 
 ## Usage Paths
 
-| Path                         | Best for                                            | Includes                                                                                                                                                                  |
-| ---------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Open-source self-host        | Developers and teams that want full control         | Local Docker or Node runtime, SQLite storage, MCP, HTTP, OpenAPI, and Web Console                                                                                         |
-| Fly.io self-host             | Teams that want a hosted Docker runtime             | Node Docker runtime, SQLite storage on a Fly volume, TLS, health checks, MCP, HTTP, OpenAPI, and Web Console                                                              |
-| Cloudflare-compatible deploy | Teams that want a lightweight hosted runtime        | Workers runtime, D1 state, R2 transit files, and Static Assets for the console                                                                                            |
-| [OOMOL](https://oomol.com/)  | Teams blocked by OAuth approval or launch deadlines | Hosted auth and runtime infrastructure with the same provider and Action contracts; compatible with the open-source interface for later private or self-hosted deployment |
+| Path                            | Best for                                                | Includes                                                                                                                                                                                           |
+| ------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Open-source self-host           | Developers and teams that want full control             | Local Docker or Node runtime, SQLite or PostgreSQL state, local or S3-compatible transit files, MCP, HTTP, OpenAPI, and Web Console                                                                |
+| Fly.io self-host                | Teams that want a hosted Docker runtime                 | Node Docker runtime, SQLite on a Fly volume or external PostgreSQL, TLS, health checks, MCP, HTTP, OpenAPI, and Web Console                                                                        |
+| Cloudflare-compatible deploy    | Teams that want a lightweight hosted runtime            | Workers runtime, D1 state, R2 transit files, and Static Assets for the console                                                                                                                     |
+| [OOMOL](https://oomol.com/apps) | Teams that want users to authorize accounts immediately | OOMOL-provided OAuth apps, monthly included Connect credits, and hosted runtime infrastructure; the same provider and Action contracts keep a path open to later private or self-hosted deployment |
 
 ## Cloudflare Quick Start Video
 
@@ -127,6 +146,11 @@ the same flow as [docs/cloudflare.md](docs/cloudflare.md): create Cloudflare res
 run `npm run deploy:cloudflare`.
 
 ## Quick Start
+
+> [!NOTE]
+> This starts a self-hosted runtime. OAuth providers require OAuth client credentials from apps you
+> register with those providers. To let users authorize supported providers without setting up your
+> own OAuth apps, use [OOMOL-hosted connectors](https://oomol.com/apps).
 
 Start the runtime from the published image with Docker Compose:
 
@@ -193,6 +217,16 @@ files, and Static Assets for the Web Console.
 See [docs/cloudflare.md](docs/cloudflare.md) for resource creation, migrations, secrets, local Worker
 preview, and remote deployment.
 
+## PostgreSQL Runtime Storage
+
+The Node runtime uses SQLite by default and can use PostgreSQL 15 or newer when
+`OOMOL_CONNECT_DATABASE_URL` is configured. PostgreSQL migrations are explicit: run
+`npm run runtime:migrate` before starting a version with pending migrations. Server startup only
+checks schema readiness and never applies PostgreSQL DDL. See
+[docs/configuration.md](docs/configuration.md#runtime-database) for configuration, permissions, TLS,
+and multi-instance requirements. The Docker image exposes the same runner as its `migrate`
+subcommand; see [docs/docker-ghcr.md](docs/docker-ghcr.md#postgresql-migrations).
+
 ## Fly.io Deployment
 
 OpenConnector can also run on Fly.io with the Node Docker runtime and persistent SQLite storage on a
@@ -204,27 +238,24 @@ domains, and scaling.
 ## Docker Image (GHCR)
 
 Run OpenConnector from a prebuilt image on GitHub Packages (GHCR): `ghcr.io/oomol-lab/open-connector`. Use
-`latest` for the newest release, a pinned version like `v1.0.0` for production, or `tip` for the
-latest `main` build.
+`latest` for the newest release, a pinned released version for production, or `tip` for the latest
+`main` build.
 
 See [docs/docker-ghcr.md](docs/docker-ghcr.md) for tags, pulling, and running.
 
-## Want to Use It Directly?
+## Build a Desktop Agent with Wanta
 
-The paths above are for teams integrating connectors into their own products, runtimes, or
-infrastructure. If you want to try the SaaS connection experience first, or use it directly in
-day-to-day work, you do not need to deploy OpenConnector or integrate the SDK, CLI, MCP, or HTTP API
-first.
+OpenConnector and [Wanta](https://github.com/oomol-lab/wanta) are two open-source projects for AI
+Agents in the OOMOL ecosystem. OpenConnector connects Agents to external services such as Gmail,
+Slack, and Notion. Wanta provides a complete desktop Agent application powered by OpenCode and uses
+OpenConnector to work with connected SaaS services.
 
-[Wanta](https://wanta.ai/) is the desktop product entry point using the same shared 1,000+
-SaaS/provider coverage. Connect accounts once, then use natural language to search, organize,
-create, and sync across connected tools.
+- **Run locally:** Use your own OpenAI-compatible model without creating a Wanta account.
+- **Build your own:** Fork Wanta and customize its prompts, tools, interface, models, and branding.
+- **Use hosted services:** The optional [hosted experience](https://wanta.ai/) provides managed
+  models, OAuth connections, and team workspaces.
 
-| If You Want to                           | Wanta Provides                                                                                                                  |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Try 1,000+ SaaS connections directly     | Use the same SaaS/provider coverage without deploying a runtime or integrating SDK/CLI first.                                   |
-| Use Agents in daily work                 | Work across email, chat, docs, data, projects, support, developer tools, and marketing tools in natural language.               |
-| Share connected capabilities with a team | Configure connections and access scopes once; teammates use them without setup while keys, tokens, and credentials stay hidden. |
+Issues and pull requests are welcome.
 
 ## Documentation
 
@@ -287,3 +318,29 @@ Prefer linking to official public assets instead of copying brand files into thi
 
 Please keep issues and pull requests focused, respectful, and actionable. Participation in this
 project is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+
+## Support OpenConnector
+
+If OpenConnector is useful to you, giving it a ⭐ helps more developers discover the project.
+
+<div align="center">
+
+<img src="assets/star-open-connector.gif" alt="How to star OpenConnector on GitHub" width="760" />
+
+</div>
+
+## Contributors
+
+Thanks to everyone who has helped build OpenConnector. Want to join them? See
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+[![OpenConnector contributors](https://contrib.rocks/image?repo=oomol-lab/open-connector)](https://github.com/oomol-lab/open-connector/graphs/contributors)
+
+## Star History
+
+<!-- star-history:start -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/star-history/star-history-dark.svg">
+  <img alt="Star history" src="assets/star-history/star-history-light.svg">
+</picture>
+<!-- star-history:end -->

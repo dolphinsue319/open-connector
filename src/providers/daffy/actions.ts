@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -23,19 +22,7 @@ function output(properties: Record<string, JsonSchema>, description: string): Js
   return s.actionOutput(properties, description);
 }
 
-export type DaffyActionName =
-  | "get_current_user"
-  | "get_user"
-  | "get_balance"
-  | "list_user_causes"
-  | "search_nonprofits"
-  | "get_nonprofit"
-  | "list_contributions"
-  | "list_donations"
-  | "list_user_donations"
-  | "get_user_donation";
-
-export const daffyActions: Array<ProviderActionDefinition<DaffyActionName>> = [
+export const daffyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the Daffy user associated with the API key.",

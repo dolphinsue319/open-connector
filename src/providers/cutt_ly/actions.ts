@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -29,9 +29,7 @@ const botClicksSchema = s.object(
   { required: ["name", "clicks"], description: "Single Cuttly bot breakdown entry." },
 );
 
-export type CuttLyActionName = "shorten_url" | "get_link_analytics";
-
-export const cuttLyActions: Array<ProviderActionDefinition<CuttLyActionName>> = [
+export const cuttLyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "shorten_url",
     description: "Create a short URL with the Cuttly Regular API.",

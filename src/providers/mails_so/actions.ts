@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -57,9 +57,7 @@ const batchMetadataSchema = {
   size: s.nonNegativeInteger("The number of emails in the batch job."),
 };
 
-export type MailsSoActionName = "validate_email" | "create_validation_batch" | "get_validation_batch";
-
-export const mailsSoActions: ProviderActionDefinition<MailsSoActionName>[] = [
+export const mailsSoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "validate_email",
     description: "Validate one email address with the Mails single validation endpoint.",

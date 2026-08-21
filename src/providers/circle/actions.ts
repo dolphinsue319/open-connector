@@ -210,5 +210,3 @@ export const circleActions: ProviderActionDefinition[] = [
     | "list_space_members"
   >
 >;
-
-export type CircleActionName = (typeof circleActions)[number]["name"];

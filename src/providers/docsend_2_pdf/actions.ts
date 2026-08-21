@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -20,7 +20,7 @@ const pdfOutputSchema = s.object(
 
 export type Docsend2PdfActionName = "convert";
 
-export const docsend2PdfActions: Array<ProviderActionDefinition<Docsend2PdfActionName>> = [
+export const docsend2PdfActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "convert",
     description: "Convert a DocSend document URL to PDF and return JSON-safe download metadata.",

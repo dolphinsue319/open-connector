@@ -1,6 +1,11 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { ApiKeyProviderContext, ProviderFetch } from "../provider-runtime.ts";
-import type { VapiActionName } from "./actions.ts";
+import type {
+  ApiKeyProviderContext,
+  ProviderActionHandlers,
+  ProviderActionName,
+  ProviderActionSources,
+  ProviderFetch,
+} from "../provider-runtime.ts";
 
 import {
   base64Bytes,
@@ -11,8 +16,7 @@ import {
   optionalRecord,
 } from "../../core/cast.ts";
 import { assertPublicHttpUrl } from "../../core/request.ts";
-import { ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
-import { vapiActionNames } from "./actions.ts";
+import { mapProviderActionSources, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
 
 const vapiApiBaseUrl = "https://api.vapi.ai";
 
@@ -113,7 +117,7 @@ const vapiEvalListAliasMap = {
   ...vapiTimestampAliasMap,
 };
 
-const vapiActionSpecs: Record<VapiActionName, VapiActionSpec> = {
+const vapiActionSpecs: ProviderActionSources<"vapi", VapiActionSpec> = {
   list_assistants: { method: "GET", path: "/assistant", response: { type: "array", key: "assistants" } },
   create_assistant: { method: "POST", path: "/assistant", response: { type: "single", key: "assistant" } },
   get_assistant: {
@@ -226,13 +230,13 @@ const vapiActionSpecs: Record<VapiActionName, VapiActionSpec> = {
   test_code_tool_execution: { method: "POST", path: "/tool/test", response: { type: "tool_test" } },
 };
 
-export const vapiActionHandlers: Record<VapiActionName, VapiActionHandler> = Object.fromEntries(
-  vapiActionNames.map((actionName) => [
-    actionName,
-    (input: Record<string, unknown>, context: ApiKeyProviderContext) =>
+export const vapiActionHandlers: ProviderActionHandlers<"vapi", VapiActionHandler> = mapProviderActionSources(
+  "vapi",
+  vapiActionSpecs,
+  (actionName): VapiActionHandler =>
+    (input, context) =>
       executeVapiActionByName(actionName, input, context),
-  ]),
-) as Record<VapiActionName, VapiActionHandler>;
+);
 
 export async function validateVapiCredential(
   apiKey: string,
@@ -266,7 +270,7 @@ export async function validateVapiCredential(
 }
 
 async function executeVapiActionByName(
-  actionName: VapiActionName,
+  actionName: ProviderActionName<"vapi">,
   input: Record<string, unknown>,
   context: ApiKeyProviderContext,
 ): Promise<unknown> {
@@ -301,7 +305,7 @@ async function executeVapiActionByName(
   return normalizeVapiResponse(payload, spec.response);
 }
 
-function normalizeVapiActionInput(actionName: VapiActionName, input: Record<string, unknown>): Record<string, unknown> {
+function normalizeVapiActionInput(actionName: string, input: Record<string, unknown>): Record<string, unknown> {
   switch (actionName) {
     case "update_assistant":
       return applyAliases(input, vapiAssistantAliasMap);

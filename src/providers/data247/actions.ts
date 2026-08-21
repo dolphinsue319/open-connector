@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -49,9 +48,7 @@ function data247ListOutput(resultSchema: JsonSchema, description: string, result
   );
 }
 
-export type Data247ActionName = "check_balance" | "get_carrier_type" | "verify_phone" | "check_dnc" | "append_gender";
-
-export const data247Actions: Array<ProviderActionDefinition<Data247ActionName>> = [
+export const data247Actions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "check_balance",
     description: "Check the current Data247 account balance.",

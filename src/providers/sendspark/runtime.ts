@@ -4,8 +4,8 @@ import type {
   ProviderExecutors,
   ResolvedCredential,
 } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderExecutorDefinition, ProviderFetch, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { SendsparkActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -38,7 +38,7 @@ interface SendsparkContext {
 
 type SendsparkActionHandler = ProviderRuntimeHandler<SendsparkContext>;
 
-export const sendsparkActionHandlers: Record<SendsparkActionName, SendsparkActionHandler> = {
+export const sendsparkActionHandlers: ProviderActionHandlers<"sendspark", SendsparkActionHandler> = {
   list_dynamic_campaigns(input, context) {
     return listDynamicCampaigns(input, context);
   },
@@ -58,6 +58,7 @@ export const sendsparkActionHandlers: Record<SendsparkActionName, SendsparkActio
 
 export const sendsparkExecutorDefinition: ProviderExecutorDefinition<SendsparkContext> = {
   service: "sendspark",
+  skipDnsValidation: true,
   handlers: sendsparkActionHandlers,
   async createContext(context: ExecutionContext, fetcher: ProviderFetch): Promise<SendsparkContext> {
     return createSendsparkContext(await requireApiKeyCredential(context, service), fetcher, context.signal);

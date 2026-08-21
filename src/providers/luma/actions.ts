@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -147,15 +147,7 @@ const listGuestsOutputSchema = s.object("Paginated Luma event guests response.",
   nextCursor: s.nullableString("Cursor to pass into the next request, when one is available."),
 });
 
-export type LumaActionName =
-  | "get_self"
-  | "get_calendar"
-  | "list_calendar_events"
-  | "get_event"
-  | "list_event_guests"
-  | "get_event_guest";
-
-export const lumaActions: ProviderActionDefinition<LumaActionName>[] = [
+export const lumaActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_self",
     description: "Get the Luma user profile for the current API key.",

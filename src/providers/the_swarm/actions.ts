@@ -135,5 +135,3 @@ export const theSwarmActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type TheSwarmActionName = (typeof theSwarmActions)[number]["name"];

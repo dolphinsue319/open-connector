@@ -177,5 +177,3 @@ export const campaignCleanerActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type CampaignCleanerActionName = (typeof campaignCleanerActions)[number]["name"];

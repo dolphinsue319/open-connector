@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -55,14 +55,11 @@ const dopplerActionNames = [
   ["review_change_request_unit", "Review a Doppler change request unit."],
 ] as const;
 
-export type DopplerActionName = (typeof dopplerActionNames)[number][0];
-
-export const dopplerActions: ProviderActionDefinition<DopplerActionName>[] = dopplerActionNames.map(
-  ([name, description]) =>
-    defineProviderAction(service, {
-      name,
-      description,
-      inputSchema,
-      outputSchema,
-    }),
-) satisfies ProviderActionDefinition<DopplerActionName>[];
+export const dopplerActions: ActionDefinition[] = dopplerActionNames.map(([name, description]) =>
+  defineProviderAction(service, {
+    name,
+    description,
+    inputSchema,
+    outputSchema,
+  }),
+);

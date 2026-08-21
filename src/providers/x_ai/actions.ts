@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -152,9 +151,7 @@ const chatCompletionOutputSchema = s.looseRequiredObject(
   { optional: ["usage", "system_fingerprint"] },
 );
 
-export type XAiActionName = "list_models" | "get_model" | "create_chat_completion";
-
-export const xAiActions: ProviderActionDefinition<XAiActionName>[] = [
+export const xAiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_models",
     description: "List the xAI models available to the current API key.",

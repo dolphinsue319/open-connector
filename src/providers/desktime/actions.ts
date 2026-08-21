@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -35,9 +35,7 @@ const project = s.object(
   { required: ["id", "name", "createdAt", "tasks", "raw"], description: "A normalized DeskTime project." },
 );
 
-export type DeskTimeActionName = "get_company" | "list_employees" | "get_employee" | "list_projects" | "create_project";
-
-export const desktimeActions: Array<ProviderActionDefinition<DeskTimeActionName>> = [
+export const desktimeActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_company",
     description: "Retrieve DeskTime company account settings and timezone information.",

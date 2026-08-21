@@ -271,5 +271,3 @@ export const autoboundActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AutoboundActionName = (typeof autoboundActions)[number]["name"];

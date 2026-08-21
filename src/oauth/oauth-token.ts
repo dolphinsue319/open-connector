@@ -1,10 +1,15 @@
 import type { OAuth2AuthDefinition, ResolvedCredential } from "../core/types.ts";
 
-import { optionalString, requiredString } from "../core/cast.ts";
+import { optionalRecord, optionalString, requiredString } from "../core/cast.ts";
 import { readBoundedResponseBytes } from "../core/request.ts";
+import { providerFetch } from "../providers/provider-runtime.ts";
 
 const oauthTokenRequestTimeoutMs = 30_000;
 const oauthTokenResponseMaxBytes = 1024 * 1024;
+/** Longest `expires_in` we accept; anything larger overflows the ECMAScript `Date` range. */
+const maxExpiresInSeconds = 100 * 365 * 24 * 60 * 60;
+
+class OAuthTokenResponseSizeError extends Error {}
 
 export interface OAuthTokenRequestOptions {
   clientId: string;
@@ -18,6 +23,7 @@ export interface OAuthTokenRequestOptions {
 
 interface AuthorizationCodeTokenRequest extends OAuthTokenRequestOptions {
   code: string;
+  state?: string;
   redirectUri: string;
   extraFields?: Record<string, string>;
   createError: OAuthTokenErrorFactory;
@@ -85,36 +91,47 @@ async function requestToken(input: TokenRequest): Promise<Extract<ResolvedCreden
 
   let response: Response;
   try {
-    response = await fetch(input.tokenUrl, {
+    response = await providerFetch(input.tokenUrl, {
       method: "POST",
       headers,
       body,
       signal: AbortSignal.timeout(oauthTokenRequestTimeoutMs),
+      // Workers has no "error" redirect mode; "manual" surfaces any 3xx as a
+      // non-ok response, which the check below rejects. Same intent as "error"
+      // (never follow a redirect from the token endpoint), edge-compatible.
+      redirect: "manual",
     });
   } catch (error) {
-    throw input.createError(
-      error instanceof Error && error.name === "TimeoutError"
-        ? "OAuth token request timed out."
-        : "OAuth token request failed.",
-    );
+    if (error instanceof Error && error.name === "TimeoutError") {
+      throw input.createError("OAuth token request timed out.");
+    }
+    // A rejected fetch has no HTTP response to inspect, but the request may
+    // still have reached the provider before the connection failed.
+    throw input.createError(`OAuth token request failed without an HTTP response: ${describeCause(error)}`);
   }
-  const rawPayload = await readTokenPayload(response, input.createError);
+  const bytes = await readTokenResponseBytes(response, input.createError);
+  const rawPayload = decodeTokenPayload(bytes);
   const payload = unwrapTokenPayload(rawPayload, input.responseEnvelope);
   if (!response.ok || !isEnvelopeSuccess(rawPayload, input.responseEnvelope)) {
+    const providerMessage = readTokenErrorMessage(rawPayload, payload, input.responseEnvelope);
+    const bodyDescription = bytes.byteLength === 0 ? "empty body" : "unrecognized response body";
     throw input.createError(
-      readTokenErrorMessage(rawPayload, payload, input.responseEnvelope) ?? "OAuth token request failed.",
+      providerMessage ??
+        // Token endpoints and intermediaries can echo request credentials. Keep
+        // arbitrary response bytes out of the public error while distinguishing
+        // an empty body from a non-conforming one.
+        `OAuth token request failed (HTTP ${response.status}, ${bodyDescription}).`,
     );
   }
 
   const accessToken = requiredString(payload.access_token ?? payload.token, "access_token", input.createError);
   const tokenType = optionalString(payload.token_type) ?? "Bearer";
-  const expiresIn = typeof payload.expires_in === "number" ? payload.expires_in : undefined;
   return {
     authType: "oauth2",
     accessToken,
     tokenType,
     refreshToken: optionalString(payload.refresh_token),
-    expiresAt: expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : undefined,
+    expiresAt: expiresAtFromLifetime(payload.expires_in),
     profile: {
       accountId: "oauth2",
       displayName: "OAuth Credential",
@@ -124,15 +141,24 @@ async function requestToken(input: TokenRequest): Promise<Extract<ResolvedCreden
   };
 }
 
-async function readTokenPayload(
-  response: Response,
-  createError: OAuthTokenErrorFactory,
-): Promise<Record<string, unknown>> {
-  const bytes = await readBoundedResponseBytes(response, {
-    maxBytes: oauthTokenResponseMaxBytes,
-    fieldName: "OAuth token response",
-    createError,
-  });
+/** Read a bounded token response and map body-stream failures to a safe OAuth error. */
+async function readTokenResponseBytes(response: Response, createError: OAuthTokenErrorFactory): Promise<Uint8Array> {
+  try {
+    return await readBoundedResponseBytes(response, {
+      maxBytes: oauthTokenResponseMaxBytes,
+      fieldName: "OAuth token response",
+      createError: (message) => new OAuthTokenResponseSizeError(message),
+    });
+  } catch (error) {
+    if (error instanceof OAuthTokenResponseSizeError) {
+      throw createError(error.message);
+    }
+    throw createError(`OAuth token request failed (HTTP ${response.status}, response body could not be read).`);
+  }
+}
+
+/** Decode a JSON object body, or `{}` for an empty, non-JSON, or non-object one. */
+function decodeTokenPayload(bytes: Uint8Array): Record<string, unknown> {
   if (bytes.byteLength === 0) {
     return {};
   }
@@ -147,6 +173,23 @@ async function readTokenPayload(
   }
 }
 
+/**
+ * Describe a transport-level failure: the error name, its message, and the
+ * platform `cause.code` (`ENOTFOUND`, `ECONNREFUSED`, `CERT_HAS_EXPIRED`, ...),
+ * which is usually the part that identifies the failure.
+ */
+function describeCause(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+  const code = optionalString(optionalRecord(error.cause)?.code);
+  const suffix = code ? ` (cause: ${code})` : "";
+  // A plain `Error` name adds nothing; a subclass name (TypeError, TimeoutError,
+  // AbortError) is often the only thing distinguishing the failure.
+  const prefix = error.name === "Error" || error.name === "" ? "" : `${error.name}: `;
+  return `${prefix}${error.message}${suffix}`;
+}
+
 function createTokenMetadata(payload: Record<string, unknown>): Record<string, unknown> {
   const metadata: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(payload)) {
@@ -157,6 +200,33 @@ function createTokenMetadata(payload: Record<string, unknown>): Record<string, u
   metadata.rawTokenType = payload.token_type;
   metadata.scope = payload.scope;
   return metadata;
+}
+
+/**
+ * Build the absolute expiry for an OAuth `expires_in` lifetime, or undefined when
+ * the provider did not report a usable one.
+ */
+export function expiresAtFromLifetime(value: unknown): string | undefined {
+  const seconds = readExpiresInSeconds(value);
+  return seconds === undefined ? undefined : new Date(Date.now() + seconds * 1000).toISOString();
+}
+
+/**
+ * Parse OAuth `expires_in` lifetimes. Providers commonly return a JSON number,
+ * but some return the same value as a string, which used to be dropped so the
+ * credential never carried an `expiresAt` and was never proactively refreshed.
+ *
+ * Non-positive and absurd lifetimes are reported as missing instead. A provider
+ * that answers `0` almost always means "no expiry known", not "this token is
+ * already dead": honouring it literally would make every request refresh (or,
+ * without a refresh token, fail) right after a successful connect. Values past
+ * `maxExpiresInSeconds` would overflow `new Date(...).toISOString()` into a
+ * `RangeError` that escapes the OAuth error wrapper.
+ */
+function readExpiresInSeconds(value: unknown): number | undefined {
+  const parsed =
+    typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= maxExpiresInSeconds ? parsed : undefined;
 }
 
 function isSensitiveTokenResponseField(key: string): boolean {
@@ -184,6 +254,10 @@ function createAuthorizationCodeFields(input: AuthorizationCodeTokenRequest): Re
     "redirect_uri",
     input.redirectUri,
   );
+  const stateField = fieldMap?.authorizationCode?.state;
+  if (input.state !== undefined && stateField !== undefined) {
+    setMappedField(fields, stateField, "state", input.state);
+  }
   return {
     ...fields,
     ...(input.extraFields ?? {}),

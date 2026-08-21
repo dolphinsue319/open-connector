@@ -329,5 +329,3 @@ export const rechargeActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type RechargeActionName = (typeof rechargeActions)[number]["name"];

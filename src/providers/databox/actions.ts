@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -29,16 +29,7 @@ const datasetRecord = s.record(
   s.unknown("One JSON record value."),
 );
 
-export type DataboxActionName =
-  | "list_accounts"
-  | "create_data_source"
-  | "delete_data_source"
-  | "create_dataset"
-  | "delete_dataset"
-  | "push_dataset_data"
-  | "get_dataset_ingestion_status";
-
-export const databoxActions: Array<ProviderActionDefinition<DataboxActionName>> = [
+export const databoxActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_accounts",
     description: "List Databox accounts accessible to the API key.",

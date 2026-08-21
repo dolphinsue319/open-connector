@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -39,7 +39,7 @@ const campaignSchema = s.object(
   { optional: ["campaignName", "mainDomain", "user", "createdTime"] },
 );
 
-export const similarwebDigitalRankApiActions: Array<ProviderActionDefinition<SimilarwebDigitalRankApiActionName>> = [
+export const similarwebDigitalRankApiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_subscription_status",
     description: "Get the remaining Similarweb usage allowance for the connected API key.",
@@ -105,8 +105,3 @@ export const similarwebDigitalRankApiActions: Array<ProviderActionDefinition<Sim
     ),
   }),
 ];
-
-export type SimilarwebDigitalRankApiActionName =
-  | "get_subscription_status"
-  | "get_rank_tracker_describe"
-  | "get_similar_rank_top_sites";

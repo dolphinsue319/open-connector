@@ -10,7 +10,7 @@ const service = "feishu_app_bot";
 export const provider: ProviderDefinition = {
   service,
   displayName: "Feishu App Bot",
-  categories: ["Communication"],
+  categories: ["Communication", "Productivity", "Storage"],
   authTypes: ["custom_credential"],
   auth: [
     {

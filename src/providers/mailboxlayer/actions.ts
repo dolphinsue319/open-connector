@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -55,9 +55,7 @@ const checkEmailOutputSchema = s.object(
   },
 );
 
-export type MailboxlayerActionName = "check_email";
-
-export const mailboxlayerActions: ProviderActionDefinition<MailboxlayerActionName>[] = [
+export const mailboxlayerActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "check_email",
     description: "Validate a single email address and return Mailboxlayer quality signals.",

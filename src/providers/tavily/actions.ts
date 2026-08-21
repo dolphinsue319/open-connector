@@ -319,5 +319,3 @@ export const tavilyActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type TavilyActionName = (typeof tavilyActions)[number]["name"];

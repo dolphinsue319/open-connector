@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { MetabaseActionName } from "./actions.ts";
 
 import { optionalRecord, optionalString } from "../../core/cast.ts";
 import { assertPublicHttpUrl } from "../../core/request.ts";
@@ -19,7 +19,7 @@ interface MetabaseContext {
 type MetabasePhase = "validate" | "execute";
 type MetabaseActionHandler = ProviderRuntimeHandler<MetabaseContext>;
 
-export const metabaseActionHandlers: Record<MetabaseActionName, MetabaseActionHandler> = {
+export const metabaseActionHandlers: ProviderActionHandlers<"metabase", MetabaseActionHandler> = {
   async get_current_user(_input, context) {
     const payload = await requestMetabaseJson({ path: validationPath, context, phase: "execute" });
     return { user: requireObject(payload, "Metabase user"), raw: toRawObject(payload) };

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -64,9 +64,7 @@ const projectDetailSchema = s.looseRequiredObject(
   },
 );
 
-export type ParsehubActionName = "list_projects" | "get_project";
-
-export const parsehubActions: Array<ProviderActionDefinition<ParsehubActionName>> = [
+export const parsehubActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_projects",
     description: "List ParseHub projects accessible to the API key with optional offset pagination.",

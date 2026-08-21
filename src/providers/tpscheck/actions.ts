@@ -88,5 +88,3 @@ export const tpscheckActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type TpscheckActionName = (typeof tpscheckActions)[number]["name"];

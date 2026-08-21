@@ -54,5 +54,3 @@ export const aliyunStsActions: ActionDefinition[] = [
     outputSchema: stsCredentialOutputSchema,
   }),
 ];
-
-export type AliyunStsActionName = (typeof aliyunStsActions)[number]["name"];

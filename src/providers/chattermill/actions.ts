@@ -189,6 +189,4 @@ export const chattermillActions: ActionDefinition[] = [
     inputSchema: projectIdInput,
     outputSchema: singleOutput("tag"),
   }),
-] satisfies ActionDefinition[];
-
-export type ChattermillActionName = (typeof chattermillActions)[number]["name"];
+];

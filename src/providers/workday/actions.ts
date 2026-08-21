@@ -201,8 +201,6 @@ export const workdayActions: ProviderActionDefinition[] = [
   }),
 ];
 
-export type WorkdayActionName = (typeof workdayActions)[number]["name"];
-
 function collectionOutput(
   description: string,
   key: string,

@@ -90,5 +90,3 @@ export const appdragActions: ActionDefinition[] = [
     outputSchema: executeFunctionOutputSchema,
   }),
 ];
-
-export type AppdragActionName = (typeof appdragActions)[number]["name"];

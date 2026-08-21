@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { CardlyActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -18,7 +18,7 @@ const cardlyBalancePath = "/account/balance";
 type CardlyRequestPhase = "validate" | "execute";
 type CardlyActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const cardlyActionHandlers: Record<CardlyActionName, CardlyActionHandler> = {
+export const cardlyActionHandlers: ProviderActionHandlers<"cardly", CardlyActionHandler> = {
   echo(input, context) {
     return executeEcho(input, context);
   },

@@ -1,7 +1,7 @@
 import type { ExecutionContext, ProviderExecutors } from "../../core/types.ts";
-import type { ArxivActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
-import { defineProviderExecutors, ProviderRequestError } from "../provider-runtime.ts";
+import { defineProviderExecutors, providerFetch, ProviderRequestError } from "../provider-runtime.ts";
 
 const service = "arxiv";
 const arxivApiBaseUrl = "https://export.arxiv.org/api";
@@ -55,7 +55,7 @@ interface ArxivActionContext {
 
 type ArxivActionHandler = (input: Record<string, unknown>, context: ArxivActionContext) => Promise<unknown>;
 
-export const arxivActionHandlers: Record<ArxivActionName, ArxivActionHandler> = {
+export const arxivActionHandlers: ProviderActionHandlers<"arxiv", ArxivActionHandler> = {
   search_papers(input, context) {
     return searchPapers(input, context);
   },
@@ -272,7 +272,7 @@ async function requestArxiv(options: QueryOptions, fetcher: typeof fetch): Promi
 }
 
 function throttleDefaultFetch(fetcher: typeof fetch): Promise<void> {
-  if (fetcher !== fetch) {
+  if (fetcher !== providerFetch) {
     return Promise.resolve();
   }
 

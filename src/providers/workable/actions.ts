@@ -142,5 +142,3 @@ export const workableActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type WorkableActionName = (typeof workableActions)[number]["name"];

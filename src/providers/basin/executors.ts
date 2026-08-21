@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { BasinActionName } from "./actions.ts";
 
 import { compactObject, optionalBoolean, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
@@ -19,7 +19,7 @@ type BasinQueryValue = string | number | boolean | undefined;
 type BasinMode = "validate" | "execute";
 type BasinActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const basinActionHandlers: Record<BasinActionName, BasinActionHandler> = {
+export const basinActionHandlers: ProviderActionHandlers<"basin", BasinActionHandler> = {
   list_projects(input, context) {
     return requestBasinJson({
       context,

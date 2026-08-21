@@ -1,6 +1,12 @@
 import type { ActionDefinition, JsonSchema, ProviderDefinition } from "../../core/types.ts";
 
 import { jsonSchema } from "../../core/json-schema.ts";
+import {
+  actionInputMaxDepth,
+  idempotencyKeyMaxBytes,
+  idempotencyRetentionHours,
+} from "../actions/action-idempotency.ts";
+import { policyRequestMaxBytes, policyRuleListMaxItems, policyRuleMaxBytes } from "./policy-input.ts";
 
 /**
  * Minimal OpenAPI document shape returned by the local runtime.
@@ -50,11 +56,39 @@ const errorResponseSchema = jsonSchema.object(
   },
 );
 
+const actionResultMetaSchema = jsonSchema.object(
+  {
+    executionId: jsonSchema.string({ description: "Action execution identifier." }),
+    actionId: jsonSchema.string({ description: "Executed action identifier." }),
+    auditPersisted: jsonSchema.boolean({ description: "Whether the run audit record was stored." }),
+  },
+  {
+    required: ["executionId", "actionId", "auditPersisted"],
+    description: "Action execution metadata.",
+  },
+);
+
+const actionFailureMetaSchema = jsonSchema.object(
+  {
+    executionId: jsonSchema.string({ description: "Execution identifier when action execution began." }),
+    actionId: jsonSchema.string({ description: "Requested action identifier." }),
+    auditPersisted: jsonSchema.boolean({ description: "Whether the run audit record was stored." }),
+  },
+  {
+    required: ["actionId"],
+    description: "Action failure metadata. Execution fields are omitted when execution did not begin.",
+  },
+);
+
 const oauthClientConfigRequestSchema = jsonSchema.object(
   {
     clientId: jsonSchema.string({ description: "OAuth app client id." }),
     clientSecret: jsonSchema.string({
       description: "OAuth app client secret. Optional only for public-client providers.",
+    }),
+    requestedScopes: jsonSchema.array(jsonSchema.string(), {
+      minItems: 1,
+      description: "Non-empty provider-declared scope subset to request. Omit to use every provider default.",
     }),
     extra: {
       type: "object",
@@ -72,6 +106,61 @@ const oauthClientConfigRequestSchema = jsonSchema.object(
     description: "User-provided OAuth app client configuration.",
   },
 );
+
+const actionIdempotencyDescription =
+  `Requests with the same Idempotency-Key, action, input, effective connection, and stored runtime token identity replay the original HTTP status and body of completed successes and failures during the ${idempotencyRetentionHours}-hour replay window. ` +
+  "Requests that are still in progress, or whose outcome is uncertain, are not automatically dispatched again. " +
+  "Duplicate suppression does not guarantee exactly-once execution by the provider.";
+
+const actionIdParameter = {
+  name: "actionId",
+  in: "path",
+  required: true,
+  schema: jsonSchema.string({ description: "Action id, usually <service>.<name>." }),
+};
+
+const namedConnectionDescription =
+  "Named connection. Same fact as MCP connectionName; HTTP alias, connectionName, and x-oo-connector-alias are equivalent. Defaults to default.";
+
+const namedConnectionParameters = [
+  {
+    name: "x-oo-connector-alias",
+    in: "header",
+    required: false,
+    schema: jsonSchema.string(),
+    description: namedConnectionDescription,
+  },
+  {
+    name: "connectionName",
+    in: "query",
+    required: false,
+    schema: jsonSchema.string(),
+    description: namedConnectionDescription,
+  },
+  {
+    name: "alias",
+    in: "query",
+    required: false,
+    schema: jsonSchema.string(),
+    description: namedConnectionDescription,
+  },
+];
+
+const namedConnectionProperties = {
+  connectionName: jsonSchema.string({ description: namedConnectionDescription }),
+  alias: jsonSchema.string({ description: namedConnectionDescription }),
+};
+
+const idempotencyKeyParameter = {
+  name: "Idempotency-Key",
+  in: "header",
+  required: false,
+  schema: { type: "string", minLength: 1 },
+  description: `Optional runtime-wide key for deduplicating retries of the same action request. Leading and trailing whitespace is trimmed; the remaining value must be non-empty and must not exceed ${idempotencyKeyMaxBytes} UTF-8 bytes. Reuse a key only for retries with the same action, input, effective connection, and stored runtime token. When this header is present, the action input must not exceed an object/array nesting depth of ${actionInputMaxDepth} levels.`,
+};
+
+const idempotencyConflictDescription =
+  "For idempotency, idempotency_request_in_progress means the original request is still running or its outcome is uncertain, while idempotency_key_conflict means the key was reused for a different action, input, effective connection, or stored runtime token. Other runtime conflicts may return their own error code with the same status.";
 
 /**
  * Build OpenAPI docs from the generated catalog.
@@ -93,7 +182,20 @@ export function createOpenApiDocument(
   }
 
   const paths: Record<string, unknown> = {
-    "/health": getOperation("System", "Runtime health check.", { ok: jsonSchema.boolean() }),
+    "/health": getOperation(
+      "System",
+      "Unauthenticated process health check.",
+      jsonSchema.object({ ok: jsonSchema.boolean() }, { required: ["ok"], description: "Process health payload." }),
+    ),
+    "/v1/health": runtimeGetOperation("System", "Runtime health check.", {
+      data: jsonSchema.object(
+        {
+          ok: jsonSchema.boolean(),
+          runtime: jsonSchema.string({ description: "Runtime identifier." }),
+        },
+        { required: ["ok", "runtime"], description: "Runtime health payload." },
+      ),
+    }),
     "/api/auth/session": getOperation("System", "Read local admin auth session state.", {
       $ref: "#/components/schemas/LocalAuthSession",
     }),
@@ -126,15 +228,71 @@ export function createOpenApiDocument(
       type: "array",
       items: { $ref: "#/components/schemas/ActionSearchResult" },
     }),
-    "/v1/actions/search": getOperation("Catalog", "Fuzzy keyword search over the action catalog.", {
-      type: "object",
-      properties: {
-        success: { type: "boolean" },
-        message: { type: "string" },
-        data: { type: "array", items: { $ref: "#/components/schemas/ActionSearchRuntimeResult" } },
-        meta: { type: "object", additionalProperties: true },
+    "/v1/providers": runtimeGetOperation("Catalog", "List public provider catalog entries.", {
+      description: "Closest HTTP analog of MCP list_apps. Categories are objects; MCP list_apps returns strings.",
+      parameters: [
+        queryParameter("q", "Optional case-insensitive filter over service, display name, category, or auth type."),
+        queryParameter("service", "Optional provider service id. Repeat to include multiple providers.", {
+          type: "array",
+          items: jsonSchema.string(),
+        }),
+      ],
+      data: jsonSchema.array({ $ref: "#/components/schemas/RuntimeProviderMetadata" }),
+    }),
+    "/v1/actions": runtimeGetOperation("Catalog", "List action services, or actions for one service.", {
+      description: "Without service, data is [{service}]. With service, data is RuntimeActionMetadata.",
+      parameters: [queryParameter("service", "Provider service id. Omit to list services instead of actions.")],
+      data: jsonSchema.anyOf("Runtime action index payload.", [
+        jsonSchema.array({ $ref: "#/components/schemas/RuntimeActionService" }),
+        jsonSchema.array({ $ref: "#/components/schemas/RuntimeActionMetadata" }),
+      ]),
+    }),
+    "/v1/actions/search": runtimeGetOperation("Catalog", "Fuzzy keyword search over the action catalog.", {
+      parameters: [
+        queryParameter("q", "Search text. Provide either q or query."),
+        queryParameter("query", "Alias for q. Provide either q or query."),
+        queryParameter("service", "Optional provider service id."),
+        queryParameter("limit", "Maximum actions to return. Defaults to 10. Maximum 50.", {
+          type: "integer",
+          minimum: 1,
+          maximum: 50,
+          default: 10,
+        }),
+      ],
+      data: jsonSchema.array({ $ref: "#/components/schemas/ActionSearchResult" }),
+      errorStatuses: [400],
+    }),
+    "/v1/apps": runtimeGetOperation("Connections", "List connected accounts.", {
+      description:
+        "RuntimeConnectedApp rows, not the provider catalog. Use GET /v1/providers or MCP list_apps for providers.",
+      data: jsonSchema.array({ $ref: "#/components/schemas/RuntimeConnectedApp" }),
+    }),
+    "/v1/apps/authenticated": runtimeGetOperation(
+      "Connections",
+      "Return authenticated provider service IDs from the supplied candidates.",
+      {
+        parameters: [
+          queryParameter("service", "Candidate service id to check. Repeat to check multiple services.", {
+            type: "array",
+            items: jsonSchema.string(),
+          }),
+        ],
+        data: jsonSchema.array(jsonSchema.string(), {
+          description: "Authenticated service IDs from the supplied candidates.",
+        }),
       },
-      required: ["success", "message", "data", "meta"],
+    ),
+    "/v1/apps/services/{service}": runtimeGetOperation("Connections", "List connected accounts for one provider.", {
+      parameters: [
+        {
+          name: "service",
+          in: "path",
+          required: true,
+          schema: jsonSchema.string({ description: "Provider service identifier." }),
+        },
+      ],
+      data: jsonSchema.array({ $ref: "#/components/schemas/RuntimeConnectedApp" }),
+      errorStatuses: [400, 404],
     }),
     "/api/actions/{actionId}": getOperation("Catalog", "Get one catalog action.", {
       $ref: "#/components/schemas/ActionDefinition",
@@ -156,11 +314,13 @@ export function createOpenApiDocument(
     "/api/oauth/authorizations": createOAuthAuthorizationPath(),
     "/api/runtime-tokens": createRuntimeTokensPath(),
     "/api/runtime-tokens/{id}": createRuntimeTokenPath(),
+    "/api/runtime-policy": createRuntimePolicyPath(),
     "/api/files": createTransitFilesPath(),
     "/api/files/{fileId}": createTransitFilePath(),
     "/v1/actions/{actionId}": runPath,
     "/v1/proxy/{service}": createProxyPath(),
     "/api/runs": createRunsPath(),
+    "/api/runs/{id}": createRunDetailPath(),
     "/mcp": createMcpPath(),
     "/mcp/tools": getOperation("MCP", "List discovery-oriented MCP tool summaries.", {
       type: "object",
@@ -182,7 +342,7 @@ export function createOpenApiDocument(
       { name: "Catalog", description: "Provider and action metadata used by users and agents." },
       { name: "Connections", description: "Local provider credentials and connection state." },
       { name: "OAuth", description: "Local OAuth client configuration and authorization flow." },
-      { name: "Access", description: "Runtime bearer tokens for /v1 and MCP clients." },
+      { name: "Access", description: "Runtime execution policy and bearer tokens for /v1 and MCP clients." },
       { name: "Files", description: "Local temporary file transit for provider actions." },
       { name: "Runs", description: "Local action execution and recent run history." },
       { name: "Proxy", description: "Provider API proxy requests through local credentials." },
@@ -223,24 +383,128 @@ export function createOpenApiDocument(
             description: "A single action returned by fuzzy keyword search.",
           },
         ),
-        ActionSearchRuntimeResult: jsonSchema.object(
+        ActionSearchRuntimeResult: { $ref: "#/components/schemas/ActionSearchResult" },
+        RuntimeProviderMetadata: jsonSchema.object(
           {
-            service: jsonSchema.string({ description: "The provider service that owns the action." }),
-            name: jsonSchema.string({ description: "The provider-scoped action name." }),
-            description: jsonSchema.string({ description: "The action description." }),
-            authenticated: jsonSchema.boolean({
-              description: "Whether the provider service has an authenticated local connection.",
-            }),
-            inputSchema: jsonSchema.unknownObject("The normalized JSON Schema for the action input."),
-            outputSchema: jsonSchema.unknownObject("The normalized JSON Schema for the action output."),
+            service: jsonSchema.string({ description: "Provider service identifier." }),
+            displayName: jsonSchema.string({ description: "Human-readable provider name." }),
+            iconUrl: jsonSchema.nullable(jsonSchema.string({ description: "Provider icon URL." })),
+            homepageUrl: jsonSchema.nullable(jsonSchema.string({ description: "Provider homepage URL." })),
+            categories: jsonSchema.array(
+              jsonSchema.object(
+                {
+                  id: jsonSchema.string(),
+                  displayName: jsonSchema.string(),
+                },
+                { required: ["id", "displayName"], description: "Catalog category." },
+              ),
+            ),
+            authTypes: jsonSchema.array(jsonSchema.string(), { description: "Supported authentication types." }),
           },
           {
-            required: ["service", "name", "description", "authenticated", "inputSchema", "outputSchema"],
-            description: "A single action returned by the /v1 keyword search endpoint.",
+            required: ["service", "displayName", "iconUrl", "homepageUrl", "categories", "authTypes"],
+            description: "Public provider catalog row from GET /v1/providers.",
+          },
+        ),
+        RuntimeActionService: jsonSchema.object(
+          {
+            service: jsonSchema.string({ description: "Provider service identifier." }),
+          },
+          {
+            required: ["service"],
+            description: "Service index row from GET /v1/actions when service is omitted.",
+          },
+        ),
+        RuntimeActionMetadata: jsonSchema.object(
+          {
+            id: jsonSchema.string({ description: "Full action id, usually <service>.<name>." }),
+            service: jsonSchema.string({ description: "Provider service that owns the action." }),
+            name: jsonSchema.string({ description: "Provider-scoped action name." }),
+            description: jsonSchema.string({ description: "Action description." }),
+            requiredScopes: jsonSchema.array(jsonSchema.string()),
+            providerPermissions: jsonSchema.array(jsonSchema.string()),
+            inputSchema: jsonSchema.unknownObject("Normalized JSON Schema for the action input."),
+            outputSchema: jsonSchema.unknownObject("Normalized JSON Schema for the action output."),
+            followUpActions: jsonSchema.array(
+              jsonSchema.object(
+                { actionId: jsonSchema.string() },
+                { required: ["actionId"], description: "Follow-up action." },
+              ),
+            ),
+            asyncLifecycle: jsonSchema.nullable(jsonSchema.unknownObject("Start/status/cancel action ids.")),
+            execution: jsonSchema.object(
+              {
+                locallyExecutable: jsonSchema.boolean(),
+                catalogOnly: jsonSchema.boolean(),
+                requiredAuthTypes: jsonSchema.array(jsonSchema.string()),
+                noAuthRunnable: jsonSchema.boolean(),
+                needsCredential: jsonSchema.boolean(),
+              },
+              {
+                required: [
+                  "locallyExecutable",
+                  "catalogOnly",
+                  "requiredAuthTypes",
+                  "noAuthRunnable",
+                  "needsCredential",
+                ],
+                description: "Runtime execution status.",
+              },
+            ),
+          },
+          {
+            required: [
+              "id",
+              "service",
+              "name",
+              "description",
+              "requiredScopes",
+              "providerPermissions",
+              "inputSchema",
+              "outputSchema",
+              "followUpActions",
+              "asyncLifecycle",
+              "execution",
+            ],
+            description: "Public runtime action metadata.",
+          },
+        ),
+        RuntimeConnectedApp: jsonSchema.object(
+          {
+            id: jsonSchema.string({ description: "Stable local connection identifier." }),
+            service: jsonSchema.string({ description: "Provider service identifier." }),
+            status: { type: "string", enum: ["active", "disconnected"] },
+            alias: jsonSchema.string({ description: namedConnectionDescription }),
+            authType: jsonSchema.string({ description: "Connection authentication type." }),
+            displayName: jsonSchema.string({ description: "Human-readable account label." }),
+            accountLabel: jsonSchema.string({
+              description: "Same value as displayName. Kept for existing /v1 clients.",
+            }),
+            isDefault: jsonSchema.boolean({
+              description: "Whether this is the default connection. Same fact as MCP default.",
+            }),
+            scopes: jsonSchema.array(jsonSchema.string(), {
+              description: "Granted scopes. Same fact as MCP profile.grantedScopes.",
+            }),
+          },
+          {
+            required: [
+              "id",
+              "service",
+              "status",
+              "alias",
+              "authType",
+              "displayName",
+              "accountLabel",
+              "isDefault",
+              "scopes",
+            ],
+            description: "Connected account from GET /v1/apps.",
           },
         ),
         ConnectionSummary: jsonSchema.object(
           {
+            id: jsonSchema.string({ description: "Stable local connection identifier." }),
             service: jsonSchema.string({ description: "Provider service identifier." }),
             authType: jsonSchema.string({ description: "Connection authentication type." }),
             configured: jsonSchema.boolean({ description: "Whether the provider is connected." }),
@@ -268,7 +532,7 @@ export function createOpenApiDocument(
             ),
           },
           {
-            required: ["service", "authType", "configured", "virtual", "profile"],
+            required: ["id", "service", "authType", "configured", "virtual", "profile"],
             description: "Local provider connection summary.",
           },
         ),
@@ -280,14 +544,34 @@ export function createOpenApiDocument(
             configured: jsonSchema.boolean({
               description: "Whether a local OAuth client config is configured.",
             }),
+            customClientAvailable: jsonSchema.boolean({
+              description: "Whether the console may use a connection-scoped OAuth client for this provider.",
+            }),
             clientId: jsonSchema.nullable(jsonSchema.string({ description: "Configured OAuth client id." })),
             expectedRedirectUri: jsonSchema.string({
               description: "Callback URL to configure in the provider OAuth app.",
             }),
             auth: jsonSchema.unknownObject("Provider OAuth capability metadata."),
+            requestedScopes: jsonSchema.nullable(
+              jsonSchema.array(jsonSchema.string(), {
+                description: "Configured scope subset, or null when provider defaults are used.",
+              }),
+            ),
+            effectiveScopes: jsonSchema.array(jsonSchema.string(), {
+              description: "Scopes the runtime will include in new authorization requests.",
+            }),
           },
           {
-            required: ["service", "configured", "clientId", "expectedRedirectUri", "auth"],
+            required: [
+              "service",
+              "configured",
+              "customClientAvailable",
+              "clientId",
+              "expectedRedirectUri",
+              "auth",
+              "requestedScopes",
+              "effectiveScopes",
+            ],
             description: "OAuth client config summary safe for the local console.",
           },
         ),
@@ -296,21 +580,110 @@ export function createOpenApiDocument(
           {
             id: jsonSchema.string({ description: "Runtime token identifier." }),
             name: jsonSchema.string({ description: "User-facing token label." }),
+            allowedActions: policyRuleArraySchema("Action allow rules applied to this stored runtime token."),
+            blockedActions: policyRuleArraySchema("Action block rules applied to this stored runtime token."),
+            allowedProxies: policyRuleArraySchema(
+              "Provider proxies explicitly granted to this token. An empty list grants no proxy access.",
+            ),
+            allowedConnections: connectionIdArraySchema(
+              "Stable connection IDs granted to this stored runtime token. An empty list is unrestricted connection access. IDs are opaque values returned by the connection APIs. Virtual no_auth connections do not require grants.",
+            ),
             createdAt: jsonSchema.string({ description: "Creation timestamp." }),
             lastUsedAt: jsonSchema.string({ description: "Last successful use timestamp." }),
           },
           {
-            required: ["id", "name", "createdAt"],
+            required: [
+              "id",
+              "name",
+              "allowedActions",
+              "blockedActions",
+              "allowedProxies",
+              "allowedConnections",
+              "createdAt",
+            ],
             description: "Runtime API token summary. Plaintext tokens and token hashes are not returned.",
           },
         ),
         RuntimeTokenCreateRequest: jsonSchema.object(
           {
             name: jsonSchema.string({ description: "User-facing token label." }),
+            allowedActions: policyRuleArraySchema("Optional action allow rules for the new token."),
+            blockedActions: policyRuleArraySchema("Optional action block rules for the new token."),
+            allowedProxies: policyRuleArraySchema(
+              "Optional provider proxy grants for the new token. Omit or leave empty to deny proxy access.",
+            ),
+            allowedConnections: connectionIdArraySchema(
+              "Optional stable connection IDs granted to the new token. Omit or leave empty for unrestricted connection access. A non-empty list matches exact opaque IDs returned by the connection APIs. Virtual no_auth connections do not require grants.",
+            ),
           },
           {
             required: ["name"],
             description: "Runtime token creation request.",
+          },
+        ),
+        TokenPolicy: jsonSchema.object(
+          {
+            allowedActions: policyRuleArraySchema("Action allow rules for this token."),
+            blockedActions: policyRuleArraySchema("Action block rules for this token."),
+            allowedProxies: policyRuleArraySchema(
+              "Provider proxies explicitly granted to this token. An empty list grants no proxy access.",
+            ),
+            allowedConnections: connectionIdArraySchema(
+              "Stable connection IDs granted to this stored token. An empty list is unrestricted connection access. A non-empty list matches exact opaque IDs returned by the connection APIs. Virtual no_auth connections do not require grants.",
+            ),
+          },
+          {
+            required: ["allowedActions", "blockedActions", "allowedProxies", "allowedConnections"],
+            description:
+              "Complete replacement of one stored runtime token's action, proxy, and connection permissions.",
+          },
+        ),
+        PolicyRules: policyRulesSchema(),
+        RuntimePolicyState: jsonSchema.object(
+          {
+            deployment: { $ref: "#/components/schemas/PolicyRules" },
+            runtime: { $ref: "#/components/schemas/PolicyRules" },
+            updatedAt: jsonSchema.string({ description: "Last Runtime policy update timestamp, when configured." }),
+          },
+          {
+            required: ["deployment", "runtime"],
+            description: "Deployment and persisted Runtime policy layers. Deployment rules are read-only.",
+          },
+        ),
+        PolicyCheck: jsonSchema.object(
+          {
+            source: { type: "string", enum: ["deployment", "runtime", "token"] },
+            outcome: { type: "string", enum: ["allow_match", "block_match", "allow_miss"] },
+            rule: jsonSchema.string({ description: "First matching policy rule, when one matched." }),
+          },
+          {
+            required: ["source", "outcome"],
+            description: "One policy layer's decisive or matching check.",
+          },
+        ),
+        PolicyDecision: jsonSchema.object(
+          {
+            allowed: jsonSchema.boolean({ description: "Whether policy permits execution." }),
+            code: {
+              type: "string",
+              enum: [
+                "action_not_allowed",
+                "action_blocked",
+                "proxy_not_allowed",
+                "proxy_blocked",
+                "connection_not_allowed",
+              ],
+            },
+            message: jsonSchema.string({ description: "Policy denial message." }),
+            checks: {
+              type: "array",
+              maxItems: 3,
+              items: { $ref: "#/components/schemas/PolicyCheck" },
+            },
+          },
+          {
+            required: ["allowed", "checks"],
+            description: "Layered execution policy decision. code and message are present on denial.",
           },
         ),
         TransitFileUpload: jsonSchema.object(
@@ -339,11 +712,18 @@ export function createOpenApiDocument(
             completedAt: jsonSchema.string({ description: "Completion timestamp." }),
             durationMs: jsonSchema.number({ description: "Run duration in milliseconds." }),
             ok: jsonSchema.boolean({ description: "Whether the run succeeded." }),
+            connectionName: jsonSchema.string({ description: "Named provider connection used by the action." }),
             connectionProfile: jsonSchema.unknownObject(
               "Provider account identity that the action used, when a connection was available.",
             ),
+            connectionId: jsonSchema.string({ description: "Stable connection identifier used by the run." }),
+            runtimeTokenId: jsonSchema.string({ description: "Stored runtime token identifier used by the run." }),
+            policy: { $ref: "#/components/schemas/PolicyDecision" },
             inputSummary: {
               description: "Redacted action input summary.",
+            },
+            outputSummary: {
+              description: "Redacted action output summary.",
             },
             errorCode: jsonSchema.string({ description: "Error code when the run failed." }),
             errorMessage: jsonSchema.string({ description: "Error message when the run failed." }),
@@ -473,7 +853,7 @@ function createRuntimeTokensPath(): Record<string, unknown> {
     post: {
       tags: ["Access"],
       summary: "Create a runtime API token.",
-      description: "The plaintext token is returned once. Only a hash is stored locally.",
+      description: `The plaintext token is returned once. Only a hash is stored locally. Policy request bodies must not exceed ${policyRequestMaxBytes} bytes.`,
       requestBody: {
         required: true,
         content: {
@@ -496,6 +876,7 @@ function createRuntimeTokensPath(): Record<string, unknown> {
           ),
         ),
         400: jsonResponse({ $ref: "#/components/schemas/ErrorResponse" }),
+        413: jsonResponse({ $ref: "#/components/schemas/ErrorResponse" }),
       },
     },
   };
@@ -503,6 +884,25 @@ function createRuntimeTokensPath(): Record<string, unknown> {
 
 function createRuntimeTokenPath(): Record<string, unknown> {
   return {
+    put: {
+      tags: ["Access"],
+      summary: "Replace one stored runtime token's permissions.",
+      description: `Policy request bodies must not exceed ${policyRequestMaxBytes} bytes.`,
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/TokenPolicy" },
+          },
+        },
+      },
+      responses: {
+        200: jsonResponse({ $ref: "#/components/schemas/RuntimeTokenSummary" }),
+        400: jsonResponse({ $ref: "#/components/schemas/ErrorResponse" }),
+        404: jsonResponse({ $ref: "#/components/schemas/ErrorResponse" }),
+        413: jsonResponse({ $ref: "#/components/schemas/ErrorResponse" }),
+      },
+    },
     delete: {
       tags: ["Access"],
       summary: "Revoke a runtime API token.",
@@ -522,6 +922,80 @@ function createRuntimeTokenPath(): Record<string, unknown> {
         404: jsonResponse({ $ref: "#/components/schemas/ErrorResponse" }),
       },
     },
+  };
+}
+
+function createRuntimePolicyPath(): Record<string, unknown> {
+  return {
+    get: {
+      tags: ["Access"],
+      summary: "Read deployment and persisted Runtime policy layers.",
+      responses: {
+        200: jsonResponse({ $ref: "#/components/schemas/RuntimePolicyState" }),
+        500: jsonResponse({ $ref: "#/components/schemas/ErrorResponse" }),
+      },
+    },
+    put: {
+      tags: ["Access"],
+      summary: "Replace the persisted Runtime action and proxy policy.",
+      description: `Deployment policy remains read-only. Block rules take precedence and non-empty allowlists intersect. Policy request bodies must not exceed ${policyRequestMaxBytes} bytes.`,
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/PolicyRules" },
+          },
+        },
+      },
+      responses: {
+        200: jsonResponse({ $ref: "#/components/schemas/RuntimePolicyState" }),
+        400: jsonResponse({ $ref: "#/components/schemas/ErrorResponse" }),
+        413: jsonResponse({ $ref: "#/components/schemas/ErrorResponse" }),
+        500: jsonResponse({ $ref: "#/components/schemas/ErrorResponse" }),
+      },
+    },
+  };
+}
+
+function policyRulesSchema(): JsonSchema {
+  return jsonSchema.object(
+    {
+      allowedActions: policyRuleArraySchema("Action allow rules."),
+      blockedActions: policyRuleArraySchema("Action block rules."),
+      allowedProxies: policyRuleArraySchema("Proxy service allow rules."),
+      blockedProxies: policyRuleArraySchema("Proxy service block rules."),
+    },
+    {
+      required: ["allowedActions", "blockedActions", "allowedProxies", "blockedProxies"],
+      description: "One complete action and proxy policy layer.",
+    },
+  );
+}
+
+function policyRuleArraySchema(description: string): JsonSchema {
+  return {
+    type: "array",
+    maxItems: policyRuleListMaxItems,
+    items: {
+      type: "string",
+      minLength: 1,
+      maxLength: policyRuleMaxBytes,
+      description: `Policy rule. The server enforces a ${policyRuleMaxBytes}-byte UTF-8 limit.`,
+    },
+    description,
+  };
+}
+
+function connectionIdArraySchema(description: string): JsonSchema {
+  return {
+    type: "array",
+    maxItems: policyRuleListMaxItems,
+    items: jsonSchema.string({
+      minLength: 1,
+      maxLength: policyRuleMaxBytes,
+      description: "Opaque stable connection ID returned by a connection API.",
+    }),
+    description,
   };
 }
 
@@ -571,6 +1045,27 @@ function createRunsPath(): Record<string, unknown> {
           schema: { type: "string" },
           description: "Only return runs whose action id belongs to this service.",
         },
+        {
+          name: "actionId",
+          in: "query",
+          required: false,
+          schema: { type: "string", maxLength: 256 },
+          description: "Only return runs for this exact action id.",
+        },
+        {
+          name: "caller",
+          in: "query",
+          required: false,
+          schema: { type: "string", enum: ["http", "mcp", "web"] },
+          description: "Only return runs from this runtime entry point.",
+        },
+        {
+          name: "ok",
+          in: "query",
+          required: false,
+          schema: { type: "boolean" },
+          description: "Only return successful or failed runs.",
+        },
       ],
       responses: {
         200: jsonResponse({ $ref: "#/components/schemas/RunLogPage" }),
@@ -579,43 +1074,51 @@ function createRunsPath(): Record<string, unknown> {
   };
 }
 
+function createRunDetailPath(): Record<string, unknown> {
+  return {
+    get: {
+      tags: ["Runs"],
+      summary: "Get one local action run.",
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Action execution identifier.",
+        },
+      ],
+      responses: {
+        200: jsonResponse({ $ref: "#/components/schemas/RunLog" }),
+        404: jsonResponse({ type: "object", additionalProperties: true }),
+      },
+    },
+  };
+}
+
 function createRunPath(): Record<string, unknown> {
   return {
+    get: {
+      tags: ["Catalog"],
+      summary: "Get one runtime action.",
+      parameters: [actionIdParameter],
+      responses: {
+        200: jsonResponse(runtimeSuccessSchema({ $ref: "#/components/schemas/RuntimeActionMetadata" })),
+        404: jsonResponse(runtimeFailureSchema(actionFailureMetaSchema), "unknown_action."),
+      },
+    },
     post: {
       tags: ["Runs"],
       summary: "Execute a runtime action.",
       description:
-        "Use the action catalog to discover provider-specific input and output schemas. For a compact strongly typed OpenAPI document for one action, request /openapi.json?actionId=<actionId>.",
-      parameters: [
-        {
-          name: "actionId",
-          in: "path",
-          required: true,
-          schema: jsonSchema.string({ description: "Action id, usually <service>.<name>." }),
-        },
-      ],
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: jsonSchema.object(
-              {
-                input: jsonSchema.unknownObject("Action input matching the catalog schema."),
-              },
-              {
-                required: ["input"],
-                description: "Generic action run creation request.",
-              },
-            ),
-          },
-        },
-      },
-      responses: {
-        200: jsonResponse(runtimeSuccessSchema(jsonSchema.unknown("Action output matching the catalog schema."))),
-        400: jsonResponse(runtimeFailureSchema()),
-        404: jsonResponse(runtimeFailureSchema()),
-        500: jsonResponse(runtimeFailureSchema()),
-      },
+        "Use the action catalog to discover provider-specific input and output schemas. For a compact strongly typed OpenAPI document for one action, request /openapi.json?actionId=<actionId>. " +
+        actionIdempotencyDescription,
+      parameters: [actionIdParameter, idempotencyKeyParameter, ...namedConnectionParameters],
+      requestBody: actionRunBody(
+        jsonSchema.unknownObject("Action input matching the catalog schema. Omitted input is treated as {}."),
+        "Generic action run creation request.",
+      ),
+      responses: actionRunResponses(jsonSchema.unknown("Action output matching the catalog schema.")),
     },
   };
 }
@@ -634,6 +1137,7 @@ function createProxyPath(): Record<string, unknown> {
           required: true,
           schema: jsonSchema.string({ description: "Provider service identifier." }),
         },
+        ...namedConnectionParameters,
       ],
       requestBody: {
         required: true,
@@ -656,9 +1160,7 @@ function createProxyPath(): Record<string, unknown> {
                   description: "Provider request headers. Hop-by-hop and auth headers are not forwarded.",
                 },
                 body: jsonSchema.unknown("Provider request body."),
-                connectionName: jsonSchema.string({
-                  description: "Optional local connection name. Defaults to default.",
-                }),
+                ...namedConnectionProperties,
               },
               {
                 required: ["endpoint", "method"],
@@ -755,6 +1257,8 @@ function createOAuthAuthorizationPath(): Record<string, unknown> {
     post: {
       tags: ["OAuth"],
       summary: "Start provider OAuth authorization.",
+      description:
+        "The console may provide a connection-scoped OAuth app through clientId/clientSecret and provider-declared extra fields. The provider must be enabled through OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH and pending OAuth state requires OOMOL_CONNECT_ENCRYPTION_KEY.",
       requestBody: {
         required: true,
         content: {
@@ -765,6 +1269,24 @@ function createOAuthAuthorizationPath(): Record<string, unknown> {
                 connectionName: jsonSchema.string({
                   description: "Optional local connection name. Defaults to default.",
                 }),
+                clientId: jsonSchema.string({ description: "Optional connection-scoped OAuth app client id." }),
+                clientSecret: jsonSchema.string({
+                  description: "Optional connection-scoped OAuth app client secret.",
+                }),
+                requestedScopes: jsonSchema.array(jsonSchema.string(), {
+                  minItems: 1,
+                  description: "Optional non-empty provider-declared scope subset to request.",
+                }),
+                extra: {
+                  type: "object",
+                  additionalProperties: { type: "string" },
+                  description: "Provider-declared non-secret OAuth client fields.",
+                },
+                secretExtra: {
+                  type: "object",
+                  additionalProperties: { type: "string" },
+                  description: "Provider-declared secret OAuth client fields.",
+                },
               },
               {
                 required: ["service"],
@@ -801,7 +1323,7 @@ function createOAuthConfigPath(): Record<string, unknown> {
       tags: ["OAuth"],
       summary: "Upsert local OAuth client configuration.",
       description:
-        "Open-source users provide their own OAuth app. Additional extra fields are declared by provider catalog auth metadata.",
+        "Open-source users provide their own OAuth app. requestedScopes may narrow the provider-declared defaults but cannot add scopes. Additional extra fields are declared by provider catalog auth metadata.",
       requestBody: {
         required: true,
         content: {
@@ -851,6 +1373,75 @@ function getOperation(tag: string, summary: string, schema: JsonSchema): Record<
   };
 }
 
+interface RuntimeGetOperationOptions {
+  data: JsonSchema;
+  description?: string;
+  parameters?: unknown[];
+  errorStatuses?: Array<400 | 404>;
+}
+
+function runtimeGetOperation(
+  tag: string,
+  summary: string,
+  options: RuntimeGetOperationOptions,
+): Record<string, unknown> {
+  const responses: Record<string, unknown> = {
+    200: jsonResponse(runtimeSuccessSchema(options.data)),
+  };
+  for (const status of options.errorStatuses ?? []) {
+    responses[String(status)] = jsonResponse(runtimeFailureSchema());
+  }
+  return {
+    get: {
+      tags: [tag],
+      summary,
+      description: options.description,
+      parameters: options.parameters,
+      responses,
+    },
+  };
+}
+
+function queryParameter(name: string, description: string, schema: JsonSchema = jsonSchema.string()): unknown {
+  return {
+    name,
+    in: "query",
+    required: false,
+    schema,
+    description,
+  };
+}
+
+function actionRunBody(input: JsonSchema, description: string): Record<string, unknown> {
+  return {
+    required: true,
+    content: {
+      "application/json": {
+        schema: jsonSchema.object(
+          {
+            input,
+            ...namedConnectionProperties,
+          },
+          { description },
+        ),
+      },
+    },
+  };
+}
+
+function actionRunResponses(output: JsonSchema): Record<string, unknown> {
+  const failure = runtimeFailureSchema(actionFailureMetaSchema);
+  return {
+    200: jsonResponse(runtimeSuccessSchema(output, actionResultMetaSchema)),
+    400: jsonResponse(failure, "invalid_input, action_blocked, or action_not_allowed."),
+    403: jsonResponse(failure, "authorization_failed."),
+    404: jsonResponse(failure, "unknown_action or connection_not_found."),
+    409: jsonResponse(failure, idempotencyConflictDescription),
+    429: jsonResponse(failure),
+    500: jsonResponse(failure),
+  };
+}
+
 function createConnectionUpsertRequestSchema(): JsonSchema {
   return jsonSchema.object(
     {
@@ -877,39 +1468,26 @@ function createConcreteRunOperation(action: ActionDefinition): Record<string, un
   return {
     tags: ["Runs"],
     summary: `Execute ${action.id}.`,
-    description: action.description,
-    requestBody: {
-      required: true,
-      content: {
-        "application/json": {
-          schema: jsonSchema.object(
-            {
-              input: action.inputSchema,
-            },
-            {
-              required: ["input"],
-              description: `Run creation request for ${action.id}.`,
-            },
-          ),
-        },
-      },
-    },
-    responses: {
-      200: jsonResponse(runtimeSuccessSchema(action.outputSchema)),
-      400: jsonResponse(runtimeFailureSchema()),
-      404: jsonResponse(runtimeFailureSchema()),
-      500: jsonResponse(runtimeFailureSchema()),
-    },
+    description: `${action.description} ${actionIdempotencyDescription}`,
+    parameters: [actionIdParameter, idempotencyKeyParameter, ...namedConnectionParameters],
+    requestBody: actionRunBody(
+      action.inputSchema,
+      `Run creation request for ${action.id}. Omitted input is treated as {}.`,
+    ),
+    responses: actionRunResponses(action.outputSchema),
   };
 }
 
-function runtimeSuccessSchema(data: JsonSchema): JsonSchema {
+function runtimeSuccessSchema(
+  data: JsonSchema,
+  meta: JsonSchema = { type: "object", additionalProperties: true },
+): JsonSchema {
   return jsonSchema.object(
     {
       success: { const: true, type: "boolean" },
       message: { const: "OK", type: "string" },
       data,
-      meta: { type: "object", additionalProperties: true },
+      meta,
     },
     {
       required: ["success", "message", "data", "meta"],
@@ -918,14 +1496,14 @@ function runtimeSuccessSchema(data: JsonSchema): JsonSchema {
   );
 }
 
-function runtimeFailureSchema(): JsonSchema {
+function runtimeFailureSchema(meta: JsonSchema = { type: "object", additionalProperties: true }): JsonSchema {
   return jsonSchema.object(
     {
       success: { const: false, type: "boolean" },
       message: jsonSchema.string({ description: "Human-readable error message." }),
       data: jsonSchema.unknown("Provider or validation error details."),
       errorCode: jsonSchema.string({ description: "Stable machine-readable error code." }),
-      meta: { type: "object", additionalProperties: true },
+      meta,
     },
     {
       required: ["success", "message", "data", "errorCode", "meta"],
@@ -934,9 +1512,9 @@ function runtimeFailureSchema(): JsonSchema {
   );
 }
 
-function jsonResponse(schema: JsonSchema): Record<string, unknown> {
+function jsonResponse(schema: JsonSchema, description = "JSON response."): Record<string, unknown> {
   return {
-    description: "JSON response.",
+    description,
     content: {
       "application/json": {
         schema,

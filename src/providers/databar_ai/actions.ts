@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -25,20 +25,7 @@ const task = s.looseRequiredObject("A Databar task status response.", {
   status: s.string("The current Databar task status."),
 });
 
-export type DatabarAiActionName =
-  | "get_user_info"
-  | "list_tables"
-  | "create_table"
-  | "get_table_columns"
-  | "get_table_rows"
-  | "insert_rows"
-  | "list_enrichments"
-  | "get_enrichment"
-  | "run_enrichment"
-  | "get_task_status"
-  | "run_waterfall";
-
-export const databarAiActions: Array<ProviderActionDefinition<DatabarAiActionName>> = [
+export const databarAiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_user_info",
     description: "Get the current Databar account information for the API key.",

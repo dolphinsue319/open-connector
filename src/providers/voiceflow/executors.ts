@@ -5,7 +5,7 @@ import type {
   ProviderProxyExecutor,
   ProxyExecutionResult,
 } from "../../core/types.ts";
-import type { VoiceflowActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import {
   compactObject,
@@ -16,13 +16,14 @@ import {
   requiredString,
 } from "../../core/cast.ts";
 import {
-  createProviderTimeout,
+  createProviderFetch,
   createProviderProxyUrl,
+  createProviderTimeout,
   defineProviderExecutors,
   normalizeProviderProxyEndpoint,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireApiKeyCredential,
@@ -34,6 +35,9 @@ const generalRuntimeBaseUrl = "https://general-runtime.voiceflow.com";
 const realtimeBaseUrl = "https://realtime-api.voiceflow.com";
 const defaultEnvironmentAlias = "main";
 const voiceflowRequestTimeoutMs = 30_000;
+
+// Fixed-host proxy egress (generalRuntimeBaseUrl / realtimeBaseUrl); DNS-rebinding check is redundant here.
+const voiceflowFetch = createProviderFetch({ skipDnsValidation: true });
 
 interface VoiceflowActionContext {
   apiKey: string;
@@ -68,7 +72,7 @@ interface VoiceflowEnvironment {
   raw: Record<string, unknown>;
 }
 
-export const voiceflowActionHandlers: Record<VoiceflowActionName, VoiceflowActionHandler> = {
+export const voiceflowActionHandlers: ProviderActionHandlers<"voiceflow", VoiceflowActionHandler> = {
   start_session(input, context) {
     return startSession(input, context);
   },
@@ -86,6 +90,7 @@ export const voiceflowActionHandlers: Record<VoiceflowActionName, VoiceflowActio
 export const executors: ProviderExecutors = defineProviderExecutors<VoiceflowActionContext>({
   service,
   handlers: voiceflowActionHandlers,
+  skipDnsValidation: true,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<VoiceflowActionContext> {
     const credential = await requireApiKeyCredential(context, service);
     return {
@@ -127,7 +132,7 @@ export const proxy: ProviderProxyExecutor = async (input, context): Promise<Prox
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await voiceflowFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `provider request failed with HTTP ${response.status}`);

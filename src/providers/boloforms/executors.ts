@@ -1,6 +1,6 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { BoloformsActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -12,7 +12,12 @@ import {
   requiredRecord,
   requiredString,
 } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "boloforms";
 const boloformsApiBaseUrl = "https://sapi.boloforms.com";
@@ -21,7 +26,7 @@ const boloformsValidationPath = "/signature/get-documents";
 type BoloformsRequestPhase = "validate" | "execute";
 type BoloformsActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const boloformsActionHandlers: Record<BoloformsActionName, BoloformsActionHandler> = {
+export const boloformsActionHandlers: ProviderActionHandlers<"boloforms", BoloformsActionHandler> = {
   list_documents(input, context) {
     return listDocuments(input, context);
   },
@@ -55,7 +60,7 @@ export const credentialValidators: CredentialValidators = {
 
     return {
       profile: {
-        accountId: "boloforms",
+        accountId: service,
         displayName: "BoloForms API Key",
       },
       grantedScopes: [],
@@ -407,3 +412,9 @@ function invalidInputError(message: string): ProviderRequestError {
 function providerDataError(message: string): ProviderRequestError {
   return new ProviderRequestError(502, message);
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://sapi.boloforms.com",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

@@ -234,5 +234,3 @@ export const runscopeActions: ProviderActionDefinition[] = [
     outputSchema: listTestResultsOutputSchema,
   }),
 ];
-
-export type RunscopeActionName = (typeof runscopeActions)[number]["name"];

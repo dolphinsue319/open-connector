@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -47,7 +47,7 @@ export type RentmanActionName =
   | "list_equipment"
   | "get_equipment";
 
-function listAction(name: RentmanActionName, description: string): ProviderActionDefinition<RentmanActionName> {
+function listAction(name: RentmanActionName, description: string): ActionDefinition {
   return defineProviderAction(service, {
     name,
     description,
@@ -56,7 +56,7 @@ function listAction(name: RentmanActionName, description: string): ProviderActio
   });
 }
 
-function getAction(name: RentmanActionName, description: string): ProviderActionDefinition<RentmanActionName> {
+function getAction(name: RentmanActionName, description: string): ActionDefinition {
   return defineProviderAction(service, {
     name,
     description,
@@ -65,7 +65,7 @@ function getAction(name: RentmanActionName, description: string): ProviderAction
   });
 }
 
-export const rentmanActions: ProviderActionDefinition<RentmanActionName>[] = [
+export const rentmanActions: ActionDefinition[] = [
   listAction(
     "list_contacts",
     "List Rentman contacts with optional fields, sorting, pagination, expansion, and filters.",

@@ -1,15 +1,25 @@
-import type { CredentialValidators, ExecutionContext, ProviderExecutors } from "../../core/types.ts";
-import type { SemanticScholarActionName } from "./actions.ts";
+import type {
+  CredentialValidators,
+  ExecutionContext,
+  ProviderExecutors,
+  ProviderProxyExecutor,
+} from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalRawString, optionalRecord } from "../../core/cast.ts";
 import { encodePathSegment } from "../../core/request.ts";
 import {
   createProviderTimeout,
   defineProviderExecutors,
-  providerUserAgent,
+  defineProviderProxy,
+  mapProviderActionSources,
+  providerProxyEndpointPrefixes,
   ProviderRequestError,
+  providerUserAgent,
   requireApiKeyCredential,
 } from "../provider-runtime.ts";
+
+const service = "semantic_scholar";
 
 const graphApiBaseUrl = "https://api.semanticscholar.org/graph/v1";
 const recommendationsApiBaseUrl = "https://api.semanticscholar.org/recommendations/v1";
@@ -29,7 +39,7 @@ interface SemanticScholarActionContext {
   signal?: AbortSignal;
 }
 
-export const semanticScholarActionHandlers: Record<SemanticScholarActionName, SemanticScholarActionHandler> = {
+export const semanticScholarActionHandlers: ProviderActionHandlers<"semantic_scholar", SemanticScholarActionHandler> = {
   async get_paper(input, fetcher, apiKey) {
     const paper = await requestSemanticScholarJson({
       family: "graph",
@@ -270,24 +280,20 @@ export const semanticScholarActionHandlers: Record<SemanticScholarActionName, Se
 
     return normalizePaperList(payload);
   },
-} satisfies Record<SemanticScholarActionName, SemanticScholarActionHandler>;
+};
 
-const semanticScholarExecutorHandlers = Object.fromEntries(
-  Object.entries(semanticScholarActionHandlers).map(([name, handler]) => [
-    name,
-    (input: Record<string, unknown>, context: SemanticScholarActionContext) =>
-      handler(input, context.fetcher, context.apiKey),
-  ]),
-) as Record<
-  SemanticScholarActionName,
-  (input: Record<string, unknown>, context: SemanticScholarActionContext) => Promise<unknown>
->;
+const semanticScholarExecutorHandlers = mapProviderActionSources(
+  service,
+  semanticScholarActionHandlers,
+  (_name, handler) => (input: Record<string, unknown>, context: SemanticScholarActionContext) =>
+    handler(input, context.fetcher, context.apiKey),
+);
 
 export const executors: ProviderExecutors = defineProviderExecutors<SemanticScholarActionContext>({
-  service: "semantic_scholar",
+  service,
   handlers: semanticScholarExecutorHandlers,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<SemanticScholarActionContext> {
-    const credential = await requireApiKeyCredential(context, "semantic_scholar");
+    const credential = await requireApiKeyCredential(context, service);
     return {
       apiKey: credential.apiKey,
       fetcher,
@@ -573,3 +579,10 @@ function readStringList(value: unknown) {
 function isAbortLikeError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.semanticscholar.org",
+  auth: { type: "api_key_header", name: "x-api-key" },
+  allowedEndpoint: providerProxyEndpointPrefixes("/graph/v1", "/recommendations/v1", "/datasets/v1"),
+});

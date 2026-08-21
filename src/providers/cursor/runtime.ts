@@ -1,16 +1,16 @@
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { CursorActionName } from "./actions.ts";
 
 import { Buffer } from "node:buffer";
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
 import { queryParams } from "../../core/request.ts";
-import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import { providerFetch, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
 
 type CursorActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
 export const cursorApiBaseUrl = "https://api.cursor.com";
 
-export const cursorActionHandlers: Record<CursorActionName, CursorActionHandler> = {
+export const cursorActionHandlers: ProviderActionHandlers<"cursor", CursorActionHandler> = {
   async list_team_members(_input, context) {
     const payload = await requestCursor({ method: "GET", path: "/teams/members" }, context, "execute");
     return {
@@ -93,7 +93,7 @@ export const cursorActionHandlers: Record<CursorActionName, CursorActionHandler>
 
 export async function validateCursorCredential(
   apiKey: string,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = providerFetch,
   signal?: AbortSignal,
 ): Promise<{
   profile: { accountId: string; displayName: string };

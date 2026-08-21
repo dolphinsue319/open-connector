@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { WebinarjamActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord } from "../../core/cast.ts";
 import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
@@ -16,7 +16,10 @@ interface WebinarjamRequestContext {
   signal?: AbortSignal;
 }
 
-export const webinarjamActionHandlers: Record<WebinarjamActionName, ProviderRuntimeHandler<ApiKeyProviderContext>> = {
+export const webinarjamActionHandlers: ProviderActionHandlers<
+  "webinarjam",
+  ProviderRuntimeHandler<ApiKeyProviderContext>
+> = {
   async list_webinars(_input, context) {
     const raw = await requestWebinarjam({
       path: "/webinars",

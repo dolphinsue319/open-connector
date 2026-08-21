@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -147,7 +147,7 @@ export type DocsautomatorActionName =
   | "get_automation"
   | "list_template_placeholders";
 
-export const docsautomatorActions: Array<ProviderActionDefinition<DocsautomatorActionName>> = [
+export const docsautomatorActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_document",
     description:

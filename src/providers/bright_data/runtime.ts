@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch } from "../provider-runtime.ts";
-import type { BrightDataActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -31,7 +31,7 @@ interface BrightDataRequestOptions {
   notFoundAsInvalidInput?: boolean;
 }
 
-export const brightDataActionHandlers: Record<BrightDataActionName, BrightDataActionHandler> = {
+export const brightDataActionHandlers: ProviderActionHandlers<"bright_data", BrightDataActionHandler> = {
   get_account_status(_input, context) {
     return getAccountStatus(context, "execute");
   },

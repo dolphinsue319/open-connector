@@ -221,5 +221,3 @@ export const typefullyActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type TypefullyActionName = (typeof typefullyActions)[number]["name"];

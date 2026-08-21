@@ -4,17 +4,18 @@ import type {
   ProviderExecutors,
   ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { FeishuCustomBotActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { Buffer } from "node:buffer";
 import { createHash, createHmac } from "node:crypto";
 import { compactObject, optionalRecord, optionalString, requiredRecord, requiredString } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   defineProviderExecutors,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireApiKeyCredential,
@@ -27,6 +28,8 @@ const feishuCustomBotWebhookPathPrefix = "/open-apis/bot/v2/hook/";
 const feishuCustomBotAllowedWebhookHosts = new Set([new URL(feishuCustomBotApiBaseUrl).host]);
 const feishuCustomBotMaxPayloadBytes = 20 * 1024;
 const feishuCustomBotRequestTimeoutMs = 30_000;
+
+const feishuCustomBotFetch = createProviderFetch({ skipDnsValidation: true });
 const feishuCustomBotProbeBadRequestCode = 9499;
 const feishuCustomBotKeywordNotFoundCode = 19024;
 const feishuCustomBotProbePayload = {
@@ -76,64 +79,66 @@ type FeishuCustomBotActionHandler = (
   context: FeishuCustomBotActionContext,
 ) => Promise<unknown>;
 
-export const feishuCustomBotActionHandlers: Record<FeishuCustomBotActionName, FeishuCustomBotActionHandler> = {
-  send_text_message(input, context) {
-    return sendFeishuCustomBotMessage(
-      {
-        msg_type: "text",
-        content: {
-          text: requiredFeishuCustomBotString(input.text, "text"),
+export const feishuCustomBotActionHandlers: ProviderActionHandlers<"feishu_custom_bot", FeishuCustomBotActionHandler> =
+  {
+    send_text_message(input, context) {
+      return sendFeishuCustomBotMessage(
+        {
+          msg_type: "text",
+          content: {
+            text: requiredFeishuCustomBotString(input.text, "text"),
+          },
         },
-      },
-      context,
-    );
-  },
-  send_post_message(input, context) {
-    return sendFeishuCustomBotMessage(
-      {
-        msg_type: "post",
-        content: {
-          post: requiredFeishuCustomBotObject(input.post, "post"),
+        context,
+      );
+    },
+    send_post_message(input, context) {
+      return sendFeishuCustomBotMessage(
+        {
+          msg_type: "post",
+          content: {
+            post: requiredFeishuCustomBotObject(input.post, "post"),
+          },
         },
-      },
-      context,
-    );
-  },
-  send_image_message(input, context) {
-    return sendFeishuCustomBotMessage(
-      {
-        msg_type: "image",
-        content: {
-          image_key: requiredFeishuCustomBotString(input.imageKey, "imageKey"),
+        context,
+      );
+    },
+    send_image_message(input, context) {
+      return sendFeishuCustomBotMessage(
+        {
+          msg_type: "image",
+          content: {
+            image_key: requiredFeishuCustomBotString(input.imageKey, "imageKey"),
+          },
         },
-      },
-      context,
-    );
-  },
-  send_share_chat_message(input, context) {
-    return sendFeishuCustomBotMessage(
-      {
-        msg_type: "share_chat",
-        content: {
-          share_chat_id: requiredFeishuCustomBotString(input.shareChatId, "shareChatId"),
+        context,
+      );
+    },
+    send_share_chat_message(input, context) {
+      return sendFeishuCustomBotMessage(
+        {
+          msg_type: "share_chat",
+          content: {
+            share_chat_id: requiredFeishuCustomBotString(input.shareChatId, "shareChatId"),
+          },
         },
-      },
-      context,
-    );
-  },
-  send_interactive_message(input, context) {
-    return sendFeishuCustomBotMessage(
-      {
-        msg_type: "interactive",
-        card: requiredFeishuCustomBotObject(input.card, "card"),
-      },
-      context,
-    );
-  },
-};
+        context,
+      );
+    },
+    send_interactive_message(input, context) {
+      return sendFeishuCustomBotMessage(
+        {
+          msg_type: "interactive",
+          card: requiredFeishuCustomBotObject(input.card, "card"),
+        },
+        context,
+      );
+    },
+  };
 
 export const executors: ProviderExecutors = defineProviderExecutors<FeishuCustomBotActionContext>({
   service,
+  skipDnsValidation: true,
   handlers: feishuCustomBotActionHandlers,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<FeishuCustomBotActionContext> {
     const credential = await requireApiKeyCredential(context, service);
@@ -181,7 +186,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
 
     const requestSignal = createFeishuCustomBotRequestSignal(context.signal);
     try {
-      const response = await fetch(webhook, {
+      const response = await feishuCustomBotFetch(webhook, {
         method: "POST",
         headers,
         body: requestBody,

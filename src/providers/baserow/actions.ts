@@ -146,5 +146,3 @@ export const baserowActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type BaserowActionName = (typeof baserowActions)[number]["name"];

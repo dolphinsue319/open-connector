@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -164,22 +164,7 @@ const successOutputSchema = s.object("Success marker returned after a MailerLite
   success: s.boolean("Whether MailerLite accepted the operation."),
 });
 
-export type MailerliteActionName =
-  | "list_subscribers"
-  | "get_subscriber"
-  | "upsert_subscriber"
-  | "update_subscriber"
-  | "delete_subscriber"
-  | "list_groups"
-  | "create_group"
-  | "update_group"
-  | "delete_group"
-  | "list_group_subscribers"
-  | "add_subscriber_to_group"
-  | "remove_subscriber_from_group"
-  | "list_fields";
-
-export const mailerliteActions: ProviderActionDefinition<MailerliteActionName>[] = [
+export const mailerliteActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_subscribers",
     description: "List subscribers available to the current MailerLite API key.",

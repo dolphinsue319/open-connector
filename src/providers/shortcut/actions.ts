@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -502,7 +502,7 @@ const searchStoriesInputSchema = s.object(
   { optional: ["next", "detail", "pageSize", "entityTypes"] },
 );
 
-export const shortcutActions: ProviderActionDefinition<ShortcutActionName>[] = [
+export const shortcutActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_members",
     description: "List the members available in the connected Shortcut workspace.",
@@ -640,7 +640,7 @@ export const shortcutActions: ProviderActionDefinition<ShortcutActionName>[] = [
       total: s.nullable(s.integer("The total number of matching stories when Shortcut returns it.")),
     }),
   }),
-] satisfies ProviderActionDefinition<ShortcutActionName>[];
+];
 
 export type ShortcutActionName =
   | "list_members"

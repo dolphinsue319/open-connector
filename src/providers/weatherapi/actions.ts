@@ -114,5 +114,3 @@ export const weatherapiActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type WeatherapiActionName = (typeof weatherapiActions)[number]["name"];

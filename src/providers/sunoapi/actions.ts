@@ -393,6 +393,4 @@ export const sunoapiActions: ActionDefinition[] = [
     inputSchema: taskIdInputSchema,
     outputSchema: detailsOutputSchema,
   }),
-] satisfies ActionDefinition[];
-
-export type SunoApiActionName = (typeof sunoapiActions)[number]["name"];
+];

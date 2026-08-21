@@ -1,31 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "maintainx";
-
-const actionNames = [
-  "list_work_orders",
-  "get_work_order",
-  "create_work_order",
-  "update_work_order",
-  "update_work_order_status",
-  "list_work_order_comments",
-  "create_work_order_comment",
-  "list_locations",
-  "get_location",
-  "create_location",
-  "update_location",
-  "delete_location",
-  "list_users",
-  "get_user",
-  "create_user",
-  "update_user",
-] as const;
-
-export type MaintainxActionName = (typeof actionNames)[number];
 
 const nonEmptyString = (description: string): JsonSchema => s.string(description, { minLength: 1 });
 const positiveId = (description: string): JsonSchema => s.positiveInteger(description);
@@ -197,7 +175,7 @@ const userOptional = [
   "extraFields",
 ];
 
-export const maintainxActions: ProviderActionDefinition<MaintainxActionName>[] = [
+export const maintainxActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_work_orders",
     description: "List MaintainX work orders with filters and cursor pagination.",

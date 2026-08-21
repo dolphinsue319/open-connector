@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -64,16 +64,7 @@ const successOutputSchema = s.object(
   { required: ["ok"], description: "The Customer.io Track API acknowledgement." },
 );
 
-export type CustomerioActionName =
-  | "identify_customer"
-  | "track_customer_event"
-  | "track_anonymous_event"
-  | "delete_customer"
-  | "suppress_customer"
-  | "unsuppress_customer"
-  | "merge_customers";
-
-export const customerioActions: Array<ProviderActionDefinition<CustomerioActionName>> = [
+export const customerioActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "identify_customer",
     description: "Add or update a Customer.io person through the Track API.",

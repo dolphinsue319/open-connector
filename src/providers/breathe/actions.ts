@@ -1,17 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "breathe";
-
-export type BreatheActionName =
-  | "list_employees"
-  | "get_employee"
-  | "list_departments"
-  | "list_locations"
-  | "get_account";
 
 const positiveInteger = (description: string) => s.integer(description, { minimum: 1 });
 
@@ -39,7 +31,7 @@ const singleOutputSchema = (description: string, fieldName: string, itemDescript
     raw: rawPayloadSchema,
   });
 
-export const breatheActions: ProviderActionDefinition<BreatheActionName>[] = [
+export const breatheActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_employees",
     description: "List employees from Breathe with optional pagination and role filters.",

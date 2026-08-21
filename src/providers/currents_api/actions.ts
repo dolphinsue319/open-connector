@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -91,14 +91,7 @@ const taxonomyDescriptionSchema = nonEmptyString(
   "Human-readable description returned by Currents for this taxonomy payload.",
 );
 
-export type CurrentsApiActionName =
-  | "get_latest_news"
-  | "search_news"
-  | "list_available_languages"
-  | "list_available_regions"
-  | "list_available_categories";
-
-export const currentsApiActions: Array<ProviderActionDefinition<CurrentsApiActionName>> = [
+export const currentsApiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_latest_news",
     description: "Retrieve the latest Currents news feed with optional language and region filters.",

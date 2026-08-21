@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -193,15 +193,7 @@ const currentUserOutputSchema = s.object("The current Snipe-IT API user.", {
   user: looseRowSchema,
 });
 
-export type SnipeItActionName =
-  | "get_current_user"
-  | "list_hardware"
-  | "list_users"
-  | "list_companies"
-  | "list_categories"
-  | "list_status_labels";
-
-export const snipeItActions: ProviderActionDefinition<SnipeItActionName>[] = [
+export const snipeItActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get details for the Snipe-IT user associated with the API key.",
@@ -244,8 +236,8 @@ export const snipeItActions: ProviderActionDefinition<SnipeItActionName>[] = [
     inputSchema: listStatusLabelsInputSchema,
     outputSchema: listResultSchema("A page of Snipe-IT status labels.", "statusLabels"),
   }),
-] satisfies ProviderActionDefinition<SnipeItActionName>[];
+];
 
-export const snipeItActionByName: ReadonlyMap<SnipeItActionName, ProviderActionDefinition<SnipeItActionName>> = new Map(
+export const snipeItActionByName: ReadonlyMap<string, ActionDefinition> = new Map(
   snipeItActions.map((action) => [action.name, action]),
 );

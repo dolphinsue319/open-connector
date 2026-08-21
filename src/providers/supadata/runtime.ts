@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch } from "../provider-runtime.ts";
-import type { SupadataActionName } from "./actions.ts";
 
 import { compactObject, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
 import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
@@ -11,7 +11,7 @@ type SupadataRequestPhase = "validate" | "execute";
 type SupadataActionContext = Pick<ApiKeyProviderContext, "apiKey" | "fetcher" | "signal">;
 type SupadataActionHandler = (input: Record<string, unknown>, context: SupadataActionContext) => Promise<unknown>;
 
-const supadataActionPaths: Record<SupadataActionName, string> = {
+const supadataActionPaths: Record<string, string> = {
   get_account: "/me",
   search_youtube: "/youtube/search",
   get_youtube_video: "/youtube/video",
@@ -24,7 +24,7 @@ const supadataActionPaths: Record<SupadataActionName, string> = {
   map_web_links: "/web/map",
 };
 
-export const supadataActionHandlers: Record<SupadataActionName, SupadataActionHandler> = {
+export const supadataActionHandlers: ProviderActionHandlers<"supadata", SupadataActionHandler> = {
   get_account(_input, context) {
     return supadataGet(supadataActionPaths.get_account, {}, context, "execute");
   },

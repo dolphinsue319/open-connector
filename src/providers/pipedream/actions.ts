@@ -136,6 +136,4 @@ export const pipedreamActions: ProviderActionDefinition[] = [
     }),
     outputSchema: s.object("The normalized Pipedream workspace response.", { workspace: workspaceSchema }),
   }),
-] satisfies ProviderActionDefinition[];
-
-export type PipedreamActionName = (typeof pipedreamActions)[number]["name"];
+];

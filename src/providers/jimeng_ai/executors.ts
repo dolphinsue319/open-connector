@@ -5,18 +5,19 @@ import type {
   ProviderExecutors,
   ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { JimengAiActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { createHash, createHmac } from "node:crypto";
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   defineProviderExecutors,
   normalizeProviderProxyEndpoint,
   normalizeProviderProxyHeaders,
   normalizeProviderProxyQuery,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireCustomCredential,
@@ -24,6 +25,7 @@ import {
 } from "../provider-runtime.ts";
 
 const service = "jimeng_ai";
+const jimengAiFetch = createProviderFetch({ skipDnsValidation: true });
 const jimengApiHost = "visual.volcengineapi.com";
 const jimengApiOrigin = `https://${jimengApiHost}`;
 const jimengRegion = "cn-north-1";
@@ -74,7 +76,7 @@ type JimengRequestInput = {
   signal?: AbortSignal;
 };
 
-export const jimengAiActionHandlers: Record<JimengAiActionName, JimengActionHandler> = {
+export const jimengAiActionHandlers: ProviderActionHandlers<"jimeng_ai", JimengActionHandler> = {
   submit_image_generation_4_0(input, context) {
     return submitImageTask(input, context, reqKeys.imageGeneration40);
   },
@@ -164,6 +166,7 @@ export const jimengAiActionHandlers: Record<JimengAiActionName, JimengActionHand
 export const executors: ProviderExecutors = defineProviderExecutors<JimengActionContext>({
   service,
   handlers: jimengAiActionHandlers,
+  skipDnsValidation: true,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<JimengActionContext> {
     const credential = await context.getCredential(service);
     if (credential?.authType !== "custom_credential") {
@@ -207,7 +210,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       init.body = body;
     }
 
-    const response = await fetch(url, init);
+    const response = await jimengAiFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `Jimeng AI request failed with HTTP ${response.status}`);

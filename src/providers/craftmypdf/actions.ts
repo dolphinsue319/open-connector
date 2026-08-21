@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -39,7 +39,7 @@ const anchorSchema = s.looseObject(
   { description: "An anchor entry returned by CraftMyPDF for table-of-contents style output." },
 );
 
-export const craftmypdfActions: Array<ProviderActionDefinition<CraftmypdfActionName>> = [
+export const craftmypdfActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account_info",
     description: "Get the current CraftMyPDF account details resolved by the provided API key.",
@@ -135,5 +135,3 @@ export const craftmypdfActions: Array<ProviderActionDefinition<CraftmypdfActionN
     ),
   }),
 ];
-
-export type CraftmypdfActionName = "get_account_info" | "list_templates" | "get_template" | "create_pdf";

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -171,9 +171,7 @@ const domainPayloadSchema = s.object(
   },
 );
 
-export type MailcheckActionName = "get_status" | "verify_email" | "validate_domain";
-
-export const mailcheckActions: ProviderActionDefinition<MailcheckActionName>[] = [
+export const mailcheckActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_status",
     description: "Retrieve UserCheck account information, plan details, and current API usage.",

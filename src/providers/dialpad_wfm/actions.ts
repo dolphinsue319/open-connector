@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -86,9 +85,7 @@ function metricsOutput(description: string, itemDescription: string): JsonSchema
   );
 }
 
-export type DialpadWfmActionName = "get_schedule" | "list_agent_metrics" | "list_activity_metrics";
-
-export const dialpadWfmActions: Array<ProviderActionDefinition<DialpadWfmActionName>> = [
+export const dialpadWfmActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_schedule",
     description: "Retrieve one page of Dialpad WFM schedule entries for an RFC 3339 time interval.",

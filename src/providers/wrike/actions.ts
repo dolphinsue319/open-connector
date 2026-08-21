@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -275,16 +274,7 @@ function wrikeSingleOutput(description: string, outputKey: string, itemSchema: J
   );
 }
 
-export type WrikeActionName =
-  | "list_contacts"
-  | "list_folders"
-  | "get_folders"
-  | "create_folder"
-  | "list_tasks"
-  | "get_tasks"
-  | "create_task";
-
-export const wrikeActions: ProviderActionDefinition<WrikeActionName>[] = [
+export const wrikeActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_contacts",
     description: "List Wrike contacts in the current account with optional filters.",

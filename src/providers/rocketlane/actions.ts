@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -115,15 +115,7 @@ const commonListFields = {
   match: matchSchema,
 };
 
-export type RocketlaneActionName =
-  | "list_projects"
-  | "get_project"
-  | "list_tasks"
-  | "get_task"
-  | "list_users"
-  | "get_user";
-
-export const rocketlaneActions: ProviderActionDefinition<RocketlaneActionName>[] = [
+export const rocketlaneActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_projects",
     description: "List Rocketlane projects with pagination, sorting, and first-pass project filters.",

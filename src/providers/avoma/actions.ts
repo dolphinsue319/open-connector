@@ -202,10 +202,8 @@ export const avomaActions: readonly ProviderActionDefinition[] = [
     }),
     outputSchema: rawObjectOutputSchema("The Avoma user response.", "user", "Raw Avoma user object."),
   }),
-] as const satisfies readonly ProviderActionDefinition[];
+];
 
 export const avomaActionByName: ReadonlyMap<string, ProviderActionDefinition> = new Map(
   avomaActions.map((action) => [action.name, action] as const),
 );
-
-export type AvomaActionName = (typeof avomaActions)[number]["name"];

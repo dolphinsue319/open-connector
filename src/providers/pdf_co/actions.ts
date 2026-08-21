@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -59,17 +59,7 @@ const sourceDocumentOptionsSchema = {
   ...httpAuthSchema,
 };
 
-export type PdfCoActionName =
-  | "get_account_balance"
-  | "html_to_pdf"
-  | "url_to_pdf"
-  | "get_pdf_info"
-  | "merge_pdfs"
-  | "split_pdf"
-  | "compress_pdf"
-  | "pdf_to_text";
-
-export const pdfCoActions: Array<ProviderActionDefinition<PdfCoActionName>> = [
+export const pdfCoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account_balance",
     description: "Get the current PDF.co account credit balance for the API key.",

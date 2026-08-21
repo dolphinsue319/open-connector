@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { OAuthProviderContext } from "../provider-runtime.ts";
-import type { StravaActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -17,7 +17,7 @@ const stravaApiBaseUrl = "https://www.strava.com/api/v3/";
 
 type StravaActionHandler = (input: Record<string, unknown>, context: OAuthProviderContext) => Promise<unknown>;
 
-export const stravaActionHandlers: Record<StravaActionName, StravaActionHandler> = {
+export const stravaActionHandlers: ProviderActionHandlers<"strava", StravaActionHandler> = {
   get_authenticated_athlete(input, context) {
     return stravaGetAuthenticatedAthlete(input, context);
   },

@@ -1,9 +1,14 @@
-import type { CredentialValidationResult, ProviderExecutors } from "../../core/types.ts";
-import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { RedfoxActionName } from "./actions.ts";
+import type { CredentialValidationResult, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ApiKeyProviderContext, ProviderActionHandlers, ProviderActionSources } from "../provider-runtime.ts";
 
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  mapProviderActionSources,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "redfox";
 const redfoxApiBaseUrl = "https://redfox.hk";
@@ -21,7 +26,7 @@ interface RedfoxEndpoint {
   successCodes?: readonly number[];
 }
 
-const redfoxEndpoints: Record<RedfoxActionName, RedfoxEndpoint> = {
+const redfoxEndpoints: ProviderActionSources<"redfox", RedfoxEndpoint> = {
   search_douyin_works: { path: "/story/api/dyData/searchArticle", buildBody: buildSearchBody },
   search_douyin_users: { path: "/story/api/dyData/searchUser", buildBody: buildSearchBody },
   get_douyin_work: {
@@ -155,10 +160,11 @@ const redfoxEndpoints: Record<RedfoxActionName, RedfoxEndpoint> = {
   },
 };
 
-export const redfoxActionHandlers: Record<RedfoxActionName, RedfoxActionHandler> = Object.fromEntries(
-  Object.entries(redfoxEndpoints).map(([actionName, endpoint]) => [
-    actionName,
-    (input: Record<string, unknown>, context: ApiKeyProviderContext) =>
+export const redfoxActionHandlers: ProviderActionHandlers<"redfox", RedfoxActionHandler> = mapProviderActionSources(
+  service,
+  redfoxEndpoints,
+  (_actionName, endpoint): RedfoxActionHandler =>
+    (input, context) =>
       requestRedfoxJson({
         apiKey: context.apiKey,
         path: endpoint.path,
@@ -167,8 +173,7 @@ export const redfoxActionHandlers: Record<RedfoxActionName, RedfoxActionHandler>
         context,
         mode: "execute",
       }),
-  ]),
-) as Record<RedfoxActionName, RedfoxActionHandler>;
+);
 
 export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, redfoxActionHandlers);
 
@@ -362,6 +367,12 @@ function readRequiredString(value: unknown, fieldName: string): string {
   }
   return result;
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://redfox.hk",
+  auth: { type: "api_key_header", name: "redfox_api_key" },
+});
 
 function readOptionalString(value: unknown): string | undefined {
   if (typeof value !== "string") {

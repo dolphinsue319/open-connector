@@ -619,8 +619,6 @@ export const centralStationCrmActions: ProviderActionDefinition[] = [
   deleteDealAction,
 ];
 
-export type CentralStationCrmActionName = (typeof centralStationCrmActions)[number]["name"];
-
 export const centralStationCrmActionByName: Map<string, ProviderActionDefinition> = new Map(
   centralStationCrmActions.map((action) => [action.name, action] as const),
 );

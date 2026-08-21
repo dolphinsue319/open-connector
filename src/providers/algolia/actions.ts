@@ -326,5 +326,3 @@ export const algoliaActions: ActionDefinition[] = [
     outputSchema: taskAckSchema,
   }),
 ];
-
-export type AlgoliaActionName = (typeof algoliaActions)[number]["name"];

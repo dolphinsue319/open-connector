@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -183,15 +183,7 @@ const listOutputSchema = (description: string, itemDescription: string, itemSche
     totalItems: s.nonNegativeInteger("The total number of matching items."),
   });
 
-export type TypeformActionName =
-  | "get_current_user"
-  | "list_forms"
-  | "get_form"
-  | "list_form_responses"
-  | "list_workspaces"
-  | "get_workspace";
-
-export const typeformActions: ProviderActionDefinition<TypeformActionName>[] = [
+export const typeformActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the current Typeform user associated with the authenticated personal access token.",

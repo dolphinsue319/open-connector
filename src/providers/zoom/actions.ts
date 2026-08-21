@@ -1,12 +1,10 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 import { zoomMeetingListScope, zoomMeetingUpdateScope, zoomMeetingWriteScope, zoomUserReadScope } from "./scopes.ts";
 
 const service = "zoom";
-
-export type ZoomActionName = "get_user" | "list_meetings" | "create_meeting" | "update_meeting";
 
 const userIdSchema = s.nonEmptyString(
   "The Zoom user ID or email address. Use me when the credential can act on the current app user.",
@@ -155,7 +153,7 @@ const meetingWriteProperties = {
   recurrence: recurrenceSchema,
 };
 
-export const zoomActions: ProviderActionDefinition<ZoomActionName>[] = [
+export const zoomActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_user",
     description: "Fetch one Zoom user by user ID, email address, or me when supported by the app.",

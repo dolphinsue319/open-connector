@@ -184,6 +184,4 @@ export const brightDataActions: ProviderActionDefinition[] = [
       "Bright Data snapshot parts response.",
     ),
   }),
-] satisfies ProviderActionDefinition[];
-
-export type BrightDataActionName = (typeof brightDataActions)[number]["name"];
+];

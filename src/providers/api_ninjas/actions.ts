@@ -172,5 +172,3 @@ export const apiNinjasActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type ApiNinjasActionName = (typeof apiNinjasActions)[number]["name"];

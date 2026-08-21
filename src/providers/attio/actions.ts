@@ -174,5 +174,3 @@ export const attioActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AttioActionName = (typeof attioActions)[number]["name"];

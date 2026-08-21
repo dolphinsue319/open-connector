@@ -97,5 +97,3 @@ export const metatextaiActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type MetatextaiActionName = (typeof metatextaiActions)[number]["name"];

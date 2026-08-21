@@ -110,12 +110,4 @@ export const helpscoutDocsActions: ActionDefinition[] = [
       "A Help Scout Docs article returned by the API.",
     ),
   }),
-] satisfies ActionDefinition[];
-
-export type HelpscoutDocsActionName =
-  | "list_sites"
-  | "list_collections"
-  | "list_categories"
-  | "list_articles"
-  | "search_articles"
-  | "get_article";
+];

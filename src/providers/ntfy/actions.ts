@@ -146,5 +146,3 @@ export const ntfyActions: ProviderActionDefinition[] = [
     outputSchema: ntfyMessageOutputSchema,
   }),
 ];
-
-export type NtfyActionName = (typeof ntfyActions)[number]["name"];

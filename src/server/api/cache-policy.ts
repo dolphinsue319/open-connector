@@ -8,11 +8,11 @@ const catalogBrowserCacheControl = "public, max-age=0, must-revalidate";
 const catalogEdgeCacheControl = "public, max-age=31536000, stale-while-revalidate=86400";
 
 export function getResponseCachePolicy(method: string, path: string, status: number): ResponseCachePolicy | undefined {
-  if (isCatalogResponse(method, path) && status >= 200 && status < 300) {
+  if (isCatalogResponse(method, path) && ((status >= 200 && status < 300) || status === 304)) {
     return {
       cacheControl: catalogBrowserCacheControl,
       cloudflareCdnCacheControl: catalogEdgeCacheControl,
-      vary: "Authorization, Cookie",
+      vary: "Authorization, Cookie, Accept-Encoding",
     };
   }
 

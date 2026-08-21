@@ -101,14 +101,7 @@ const resultCodeDataOutput = {
   raw: s.looseObject("The raw OneDesk response."),
 };
 
-export type OnedeskActionName =
-  | "get_organization_profile"
-  | "filter_projects"
-  | "get_project"
-  | "filter_items"
-  | "get_item";
-
-export const onedeskActions: Array<ActionDefinition & { name: OnedeskActionName }> = [
+export const onedeskActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_organization_profile",
     description: "Get the OneDesk organization profile and policy for the connected API key.",

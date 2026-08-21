@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -135,23 +135,7 @@ const listMembershipInputSchema = s.object("Path parameters and body for adding 
   contact_id: contactIdSchema,
 });
 
-export type SendfoxActionName =
-  | "list_contacts"
-  | "create_contact"
-  | "get_contact"
-  | "update_contact"
-  | "delete_contact"
-  | "unsubscribe_contact"
-  | "list_contact_lists"
-  | "create_contact_list"
-  | "get_contact_list"
-  | "update_contact_list"
-  | "delete_contact_list"
-  | "list_contacts_in_list"
-  | "add_contact_to_list"
-  | "remove_contact_from_list";
-
-export const sendfoxActions: ProviderActionDefinition<SendfoxActionName>[] = [
+export const sendfoxActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_contacts",
     description: "List SendFox contacts with optional search, email, and unsubscribe filters.",

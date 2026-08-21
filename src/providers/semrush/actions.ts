@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -89,9 +89,7 @@ const organicCompetitorsAction = defineProviderAction(service, {
   outputSchema: semrushCsvReportOutputSchema,
 });
 
-export type SemrushActionName = "get_domain_overview" | "list_domain_organic_keywords" | "list_organic_competitors";
-
-export const semrushActions: ProviderActionDefinition<SemrushActionName>[] = [
+export const semrushActions: ActionDefinition[] = [
   domainRankAction,
   domainOrganicKeywordsAction,
   organicCompetitorsAction,

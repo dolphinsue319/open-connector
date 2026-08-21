@@ -1,7 +1,6 @@
 import type { CredentialValidationResult, ResolvedCredential } from "../../core/types.ts";
-import type { N8nActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
-import { isIP } from "node:net";
 import {
   compactObject,
   optionalBoolean,
@@ -10,7 +9,7 @@ import {
   optionalString,
   requiredString,
 } from "../../core/cast.ts";
-import { assertPublicHttpUrl } from "../../core/request.ts";
+import { assertPublicHttpUrl, isPrivateNetworkAccessAllowed } from "../../core/request.ts";
 import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
 
 const n8nValidationPath = "/discover";
@@ -37,7 +36,7 @@ interface N8nRequestOptions {
   notFoundAsInvalidInput?: boolean;
 }
 
-export const n8nActionHandlers: Record<N8nActionName, N8nActionHandler> = {
+export const n8nActionHandlers: ProviderActionHandlers<"n8n", N8nActionHandler> = {
   list_workflows(input, context) {
     return requestN8nJson({
       context,
@@ -488,7 +487,19 @@ export async function validateN8nCredential(
   };
 }
 
-export function normalizeN8nInstanceUrl(input?: string): string {
+/**
+ * Normalize a user-supplied n8n instance URL to its canonical origin (+ base path)
+ * form and reject unsafe targets.
+ *
+ * `allowPrivateNetwork` defaults to the deployment opt-in and may be passed
+ * explicitly to pin the policy. With it off, public instances require HTTPS.
+ * With it on, a self-hosted instance may be a plain-HTTP LAN/overlay target.
+ * The shared guard decides which hosts are safe in both modes.
+ */
+export function normalizeN8nInstanceUrl(
+  input?: string,
+  allowPrivateNetwork: boolean = isPrivateNetworkAccessAllowed(),
+): string {
   const raw = input?.trim();
   if (!raw) {
     throw providerInputError("instanceUrl is required");
@@ -502,16 +513,16 @@ export function normalizeN8nInstanceUrl(input?: string): string {
     throw providerInputError("instanceUrl must be a valid URL");
   }
 
-  if (parsed.protocol !== "https:") {
-    throw providerInputError("instanceUrl must use https");
-  }
+  // Checked ahead of the shared guard so a non-HTTP scheme keeps reporting the
+  // n8n-specific message instead of the guard's generic "must use http or https".
+  assertN8nInstanceProtocol(parsed, allowPrivateNetwork);
   if (parsed.username || parsed.password) {
     throw providerInputError("instanceUrl must not include URL credentials");
   }
   if (!parsed.hostname) {
     throw providerInputError("instanceUrl must include a host");
   }
-  validateN8nPublicHostnameShape(parsed.hostname);
+  parsed = assertN8nInstanceTarget(parsed.href, allowPrivateNetwork);
 
   parsed.hash = "";
   parsed.search = "";
@@ -795,37 +806,35 @@ function trimTrailingSlash(value: string): string {
 }
 
 function validatePublicN8nInstanceUrl(instanceUrl: string): void {
-  const parsed = assertPublicHttpUrl(instanceUrl, {
+  assertN8nInstanceTarget(instanceUrl, isPrivateNetworkAccessAllowed());
+}
+
+/**
+ * Apply the shared SSRF egress policy to one n8n URL and return the guard's
+ * normalized URL.
+ *
+ * The shared guard validates both the URL literal and its resolved addresses.
+ */
+function assertN8nInstanceTarget(value: string, allowPrivateNetwork: boolean): URL {
+  const parsed = assertPublicHttpUrl(value, {
     fieldName: "instanceUrl",
     createError: providerInputError,
+    allowPrivateNetwork,
   });
-  if (parsed.protocol !== "https:") {
-    throw providerInputError("instanceUrl must use https");
-  }
-  validateN8nPublicHostnameShape(parsed.hostname);
+  assertN8nInstanceProtocol(parsed, allowPrivateNetwork);
+  return parsed;
 }
 
-function validateN8nPublicHostnameShape(hostname: string): void {
-  const normalizedHostname = normalizeUrlHostname(hostname);
-  if (
-    normalizedHostname === "localhost" ||
-    normalizedHostname.endsWith(".localhost") ||
-    normalizedHostname.endsWith(".local") ||
-    normalizedHostname.endsWith(".internal") ||
-    normalizedHostname === "0.0.0.0" ||
-    !normalizedHostname.includes(".") ||
-    isIP(normalizedHostname) !== 0
-  ) {
-    throw providerInputError("instanceUrl must use a public hostname");
+/**
+ * n8n Cloud and any internet-exposed instance must be HTTPS. A self-hosted LAN or
+ * overlay-network instance usually terminates plain HTTP, so `http:` is accepted
+ * only under the deployment private-network opt-in.
+ */
+function assertN8nInstanceProtocol(url: URL, allowPrivateNetwork: boolean): void {
+  if (url.protocol === "https:" || (url.protocol === "http:" && allowPrivateNetwork)) {
+    return;
   }
-}
-
-function normalizeUrlHostname(hostname: string): string {
-  const lowerHostname = hostname.toLowerCase();
-  if (lowerHostname.startsWith("[") && lowerHostname.endsWith("]")) {
-    return lowerHostname.slice(1, -1);
-  }
-  return lowerHostname;
+  throw providerInputError("instanceUrl must use https");
 }
 
 function providerInputError(message: string): ProviderRequestError {

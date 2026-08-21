@@ -647,6 +647,4 @@ export const tikhubActions: ProviderActionDefinition[] = [
   searchDouyinVideosAction,
   searchDouyinUsersAction,
   fetchDouyinHotTotalListAction,
-] satisfies ProviderActionDefinition[];
-
-export type TikHubActionName = string;
+];

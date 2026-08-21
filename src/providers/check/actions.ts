@@ -78,5 +78,3 @@ export const checkActions: ProviderActionDefinition[] = [
     }),
   }),
 ] satisfies Array<ProviderActionDefinition<"validate_address" | "list_agencies" | "get_agency">>;
-
-export type CheckActionName = (typeof checkActions)[number]["name"];

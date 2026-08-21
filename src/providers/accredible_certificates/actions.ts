@@ -65,16 +65,6 @@ const groupSchema = s.object("Normalized Accredible group details.", {
   raw: s.looseObject("The raw group object returned by Accredible."),
 });
 
-export type AccredibleCertificatesActionName =
-  | "list_groups"
-  | "get_group"
-  | "search_groups"
-  | "list_credentials"
-  | "get_credential"
-  | "search_credentials"
-  | "create_credential"
-  | "delete_credential";
-
 export const accredibleCertificatesActions: readonly ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_groups",
@@ -288,4 +278,4 @@ export const accredibleCertificatesActions: readonly ActionDefinition[] = [
       credential: s.nullable(credentialSchema),
     }),
   }),
-] as const satisfies readonly ActionDefinition[];
+];

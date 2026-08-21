@@ -137,9 +137,7 @@ const acStateHistoryEntrySchema = s.object(
   { optional: ["status", "reason", "changedProperties", "time"] },
 );
 
-export type SensiboActionName = "list_devices" | "get_device" | "get_ac_states" | "set_ac_state";
-
-export const sensiboActions: Array<ActionDefinition & { name: SensiboActionName }> = [
+export const sensiboActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_devices",
     description: "List Sensibo devices linked to the authenticated user.",

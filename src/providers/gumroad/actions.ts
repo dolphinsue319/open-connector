@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -62,18 +62,7 @@ const subscribersOutputSchema = s.actionOutput(
   "Gumroad product subscribers response.",
 );
 
-export type GumroadActionName =
-  | "get_current_user"
-  | "list_products"
-  | "get_product"
-  | "list_sales"
-  | "get_sale"
-  | "list_product_subscribers"
-  | "mark_sale_as_shipped"
-  | "refund_sale"
-  | "resend_sale_receipt";
-
-export const gumroadActions: Array<ProviderActionDefinition<GumroadActionName>> = [
+export const gumroadActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Retrieve the authenticated Gumroad user.",

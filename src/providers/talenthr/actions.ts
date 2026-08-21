@@ -39,5 +39,3 @@ export const talenthrActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type TalenthrActionName = (typeof talenthrActions)[number]["name"];

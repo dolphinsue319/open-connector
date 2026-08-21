@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -76,14 +76,7 @@ const ticketListInputSchema = s.object(
   },
 );
 
-export type RepairshoprActionName =
-  | "get_current_user"
-  | "list_customers"
-  | "get_customer"
-  | "list_tickets"
-  | "get_ticket";
-
-export const repairshoprActions: ProviderActionDefinition<RepairshoprActionName>[] = [
+export const repairshoprActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Retrieve the current RepairShopr API user and account details.",

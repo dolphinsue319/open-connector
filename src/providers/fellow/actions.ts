@@ -1,18 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "fellow";
-
-export type FellowActionName =
-  | "get_current_user"
-  | "list_notes"
-  | "get_note"
-  | "list_action_items"
-  | "get_action_item"
-  | "mark_action_item_complete"
-  | "archive_action_item";
 
 const nullableNonEmptyString = (description: string) => s.nullable(s.nonEmptyString(description));
 
@@ -155,7 +146,7 @@ const actionItemOutputSchema = s.object("Fellow action item response.", {
   action_item: upstreamRecordSchema,
 });
 
-export const fellowActions: Array<ProviderActionDefinition<FellowActionName>> = [
+export const fellowActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the Fellow user and workspace associated with the current API key.",

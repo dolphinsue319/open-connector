@@ -124,5 +124,3 @@ export const callerapiActions: ActionDefinition[] = [
     outputSchema: getPhoneNumberInformationOutputSchema,
   }),
 ];
-
-export type CallerapiActionName = (typeof callerapiActions)[number]["name"];

@@ -127,5 +127,3 @@ export const taveActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type TaveActionName = (typeof taveActions)[number]["name"];

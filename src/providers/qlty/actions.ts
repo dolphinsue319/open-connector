@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -102,17 +102,7 @@ const metricSchema = s.looseObject("A Qlty metric value.", {
 });
 const rateLimitResourcesSchema = s.looseObject("The Qlty rate-limit resources object.");
 
-export type QltyActionName =
-  | "get_authenticated_user"
-  | "list_workspaces"
-  | "get_workspace"
-  | "list_projects"
-  | "get_project"
-  | "list_issues"
-  | "get_project_metrics"
-  | "get_rate_limit_status";
-
-export const qltyActions: ProviderActionDefinition<QltyActionName>[] = [
+export const qltyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_authenticated_user",
     description: "Get the Qlty user associated with the API token.",

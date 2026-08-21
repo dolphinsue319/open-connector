@@ -178,5 +178,3 @@ export const expofpActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type ExpofpActionName = (typeof expofpActions)[number]["name"];

@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -389,26 +388,7 @@ const listTemplateVersionsInputSchema = s.object(
   { optional: ["page", "limit", "pivot"] },
 );
 
-export type MailgunActionName =
-  | "list_domains"
-  | "get_domain"
-  | "verify_domain"
-  | "get_domain_tracking_settings"
-  | "update_domain_tracking_settings"
-  | "send_email"
-  | "list_events"
-  | "list_suppressions"
-  | "get_suppression"
-  | "add_suppression"
-  | "delete_suppression"
-  | "list_templates"
-  | "get_template"
-  | "create_template"
-  | "list_template_versions"
-  | "get_template_version"
-  | "create_template_version";
-
-export const mailgunActions: ProviderActionDefinition<MailgunActionName>[] = [
+export const mailgunActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_domains",
     description: "List Mailgun domains available to the current API key.",

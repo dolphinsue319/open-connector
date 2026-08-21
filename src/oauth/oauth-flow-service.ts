@@ -1,7 +1,13 @@
 import type { ConnectionService } from "../connection-service.ts";
-import type { OAuthClientConfigService } from "./oauth-client-config-service.ts";
+import type { ISecretCodec } from "../server/secrets/secret-codec-core.ts";
+import type {
+  OAuthClientConfig,
+  OAuthClientConfigInput,
+  OAuthClientConfigService,
+} from "./oauth-client-config-service.ts";
 
 import { createHash, randomBytes } from "node:crypto";
+import { normalizeSlackAuthorizationCredential } from "../providers/slack/oauth.ts";
 import { requestAuthorizationCodeToken } from "./oauth-token.ts";
 
 /**
@@ -15,6 +21,7 @@ export type OAuthAuthorizationStart = {
 export interface OAuthAuthorizationStartInput {
   service: string;
   connectionName?: string;
+  clientConfig?: OAuthClientConfigInput;
 }
 
 export interface OAuthAuthorizationCompleteInput {
@@ -25,13 +32,23 @@ export interface OAuthAuthorizationCompleteInput {
 /**
  * Short-lived OAuth state stored while the browser completes authorization.
  */
-export type OAuthAuthorizationState = {
+export interface OAuthAuthorizationState {
   service: string;
   connectionName?: string;
   state: string;
   createdAt: string;
   pkceCodeVerifier?: string;
-};
+  clientConfig?: OAuthClientConfig;
+}
+
+export interface OAuthFlowServiceOptions {
+  clientConfigs: OAuthClientConfigService;
+  connections: ConnectionService;
+  states: IOAuthStateStore;
+  stateMaxAgeMs?: number;
+  secretCodec?: ISecretCodec;
+  isCustomClientConfigAllowed?: (service: string) => boolean;
+}
 
 /**
  * Storage contract for pending OAuth authorization states.
@@ -42,30 +59,32 @@ export interface IOAuthStateStore {
 }
 
 /**
- * Coordinates localhost OAuth authorization and token exchange.
+ * Coordinates runtime OAuth authorization and token exchange.
  */
 export class OAuthFlowService {
   private readonly clientConfigs: OAuthClientConfigService;
   private readonly connections: ConnectionService;
   private readonly states: IOAuthStateStore;
   private readonly stateMaxAgeMs: number;
+  private readonly secretCodec?: ISecretCodec;
+  private readonly isCustomClientConfigAllowed: (service: string) => boolean;
 
-  constructor(input: {
-    clientConfigs: OAuthClientConfigService;
-    connections: ConnectionService;
-    states: IOAuthStateStore;
-    stateMaxAgeMs?: number;
-  }) {
+  constructor(input: OAuthFlowServiceOptions) {
     this.clientConfigs = input.clientConfigs;
     this.connections = input.connections;
     this.states = input.states;
     this.stateMaxAgeMs = input.stateMaxAgeMs ?? 15 * 60 * 1000;
+    this.secretCodec = input.secretCodec;
+    this.isCustomClientConfigAllowed = input.isCustomClientConfigAllowed ?? (() => false);
   }
 
   async startAuthorization(input: OAuthAuthorizationStartInput): Promise<OAuthAuthorizationStart> {
     const { service, connectionName } = input;
+    this.connections.assertProviderAvailable(service);
     const auth = this.clientConfigs.getOAuthDefinition(service);
-    const config = await this.clientConfigs.getConfig(service);
+    const config = input.clientConfig
+      ? this.resolveCustomClientConfig(service, input.clientConfig)
+      : await this.clientConfigs.getConfig(service);
     if (!config) {
       throw new OAuthFlowError("oauth_client_config_required", `Configure an OAuth client for ${service} first.`);
     }
@@ -78,6 +97,7 @@ export class OAuthFlowService {
       state,
       createdAt: new Date().toISOString(),
       pkceCodeVerifier,
+      clientConfig: input.clientConfig ? config : undefined,
     });
 
     const authorizationUrl = new URL(this.clientConfigs.resolveEndpointUrl(service, auth.authorizationUrl, config));
@@ -93,10 +113,11 @@ export class OAuthFlowService {
     );
     setAuthorizationParam(authorizationUrl, auth.authorizationRequestFields?.responseType, "response_type", "code");
     setAuthorizationParam(authorizationUrl, auth.authorizationRequestFields?.state, "state", state);
-    if (auth.scopes.length > 0 && auth.authorizationRequestFields?.scope !== false) {
+    const effectiveScopes = this.clientConfigs.getEffectiveScopes(service, config);
+    if (effectiveScopes.length > 0 && auth.authorizationRequestFields?.scope !== false) {
       authorizationUrl.searchParams.set(
         auth.authorizationRequestFields?.scope ?? "scope",
-        auth.scopes.join(auth.scopeSeparator ?? " "),
+        effectiveScopes.join(auth.scopeSeparator ?? " "),
       );
     }
     if (pkceCodeVerifier) {
@@ -120,7 +141,7 @@ export class OAuthFlowService {
     }
 
     const auth = this.clientConfigs.getOAuthDefinition(pending.service);
-    const config = await this.clientConfigs.getConfig(pending.service);
+    const config = pending.clientConfig ?? (await this.clientConfigs.getConfig(pending.service));
     if (!config) {
       throw new OAuthFlowError(
         "oauth_client_config_required",
@@ -128,8 +149,9 @@ export class OAuthFlowService {
       );
     }
 
-    const tokenResponse = await requestAuthorizationCodeToken({
+    let tokenResponse = await requestAuthorizationCodeToken({
       code: input.code,
+      state: pending.state,
       clientId: config.clientId,
       clientSecret: config.clientSecret,
       redirectUri: this.clientConfigs.expectedRedirectUri(pending.service),
@@ -141,6 +163,11 @@ export class OAuthFlowService {
       extraFields: createTokenExtraFields(pending),
       createError: (message) => new OAuthFlowError("oauth_token_exchange_failed", message),
     });
+    if (pending.service == "slack") {
+      // Slack returns a separately rotated user grant in `authed_user`.
+      // Move it out of non-secret metadata before storing the credential.
+      tokenResponse = normalizeSlackAuthorizationCredential(tokenResponse);
+    }
     const oauthCredential = {
       ...tokenResponse,
       metadata: {
@@ -148,6 +175,7 @@ export class OAuthFlowService {
         oauthClientId: config.clientId,
         oauthClientExtra: config.extra,
         oauthClientSecretExtra: config.secretExtra,
+        oauthClientConfig: pending.clientConfig ? config : undefined,
       },
     };
 
@@ -156,6 +184,22 @@ export class OAuthFlowService {
       service: pending.service,
       connected: true,
     };
+  }
+
+  private resolveCustomClientConfig(service: string, input: OAuthClientConfigInput): OAuthClientConfig {
+    if (!this.isCustomClientConfigAllowed(service)) {
+      throw new OAuthFlowError(
+        "oauth_custom_app_not_allowed",
+        `Custom OAuth apps are not enabled for ${service} on this runtime.`,
+      );
+    }
+    if (!this.secretCodec?.encrypted) {
+      throw new OAuthFlowError(
+        "oauth_custom_app_encryption_required",
+        "Configure OOMOL_CONNECT_ENCRYPTION_KEY before using a custom OAuth app.",
+      );
+    }
+    return this.clientConfigs.normalizeConfig(service, input);
   }
 }
 

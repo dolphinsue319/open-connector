@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -195,20 +195,7 @@ const deleteVoteInputSchema = s.object("Input parameters for deleting one vote."
   voteId: voteIdSchema,
 });
 
-export type TheDogApiActionName =
-  | "search_images"
-  | "get_image"
-  | "list_breeds"
-  | "search_breeds"
-  | "get_breed"
-  | "list_favourites"
-  | "create_favourite"
-  | "delete_favourite"
-  | "list_votes"
-  | "create_vote"
-  | "delete_vote";
-
-export const theDogApiActions: Array<ProviderActionDefinition<TheDogApiActionName>> = [
+export const theDogApiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "search_images",
     description: "Search for dog images with optional breed, category, type, size, and paging filters.",

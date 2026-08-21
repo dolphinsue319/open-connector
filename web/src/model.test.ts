@@ -1,7 +1,13 @@
 import type { AppData, ProviderDefinition, RunLog } from "./model";
 
 import { describe, expect, it } from "vitest";
-import { createOverviewSummary, resolveProviderConnectionStatus, sortProviders } from "./model";
+import {
+  createOverviewSummary,
+  filterProvidersByCategory,
+  providerCategoryCounts,
+  resolveProviderConnectionStatus,
+  sortProviders,
+} from "./model";
 
 function provider(service: string, displayName: string): ProviderDefinition {
   return {
@@ -101,6 +107,56 @@ describe("sortProviders", () => {
   });
 });
 
+describe("filterProvidersByCategory", () => {
+  function categorized(service: string, categories: string[]): ProviderDefinition {
+    return { ...provider(service, service), categories };
+  }
+
+  it("returns everything for the all filter", () => {
+    const providers = [categorized("a", ["Data"]), categorized("b", ["Communication"])];
+
+    expect(filterProvidersByCategory(providers, "all")).toEqual(providers);
+  });
+
+  it("keeps only providers in the selected category", () => {
+    const providers = [
+      categorized("a", ["Data"]),
+      categorized("b", ["Communication"]),
+      categorized("c", ["Data", "AI"]),
+    ];
+
+    expect(filterProvidersByCategory(providers, "Data").map((item) => item.service)).toEqual(["a", "c"]);
+    expect(filterProvidersByCategory(providers, "AI").map((item) => item.service)).toEqual(["c"]);
+  });
+
+  it("returns nothing for an unmatched category", () => {
+    const providers = [categorized("a", ["Data"])];
+
+    expect(filterProvidersByCategory(providers, "Storage")).toEqual([]);
+  });
+});
+
+describe("providerCategoryCounts", () => {
+  it("counts providers per category, including multi-category providers once per category", () => {
+    const providers = [
+      { ...provider("a", "a"), categories: ["Data", "AI"] },
+      { ...provider("b", "b"), categories: ["Data"] },
+      { ...provider("c", "c"), categories: ["Communication"] },
+    ];
+
+    const counts = providerCategoryCounts(providers);
+    expect(counts.get("Data")).toBe(2);
+    expect(counts.get("AI")).toBe(1);
+    expect(counts.get("Communication")).toBe(1);
+    expect(counts.get("Storage")).toBeUndefined();
+  });
+
+  it("handles providers without categories", () => {
+    const counts = providerCategoryCounts([provider("a", "a"), provider("b", "b")]);
+    expect(counts.size).toBe(0);
+  });
+});
+
 describe("createOverviewSummary", () => {
   it("counts locally executable actions", () => {
     const clock = {
@@ -179,7 +235,7 @@ describe("resolveProviderConnectionStatus", () => {
     expect(status.connection?.authType).toBe("oauth2");
   });
 
-  it("can show an OAuth client warning alongside another credential connection", () => {
+  it("does not show an OAuth client warning alongside a usable API-key connection", () => {
     const status = resolveProviderConnectionStatus(
       {
         ...oauthProvider("notion", "Notion"),
@@ -192,6 +248,15 @@ describe("resolveProviderConnectionStatus", () => {
 
     expect(status).toMatchObject({
       connected: true,
+      oauthClientRequired: false,
+    });
+  });
+
+  it("keeps the OAuth client warning for an unconfigured OAuth-only provider", () => {
+    const status = resolveProviderConnectionStatus(oauthProvider("gmail", "Gmail"), [], []);
+
+    expect(status).toMatchObject({
+      connected: false,
       oauthClientRequired: true,
     });
   });
@@ -207,6 +272,22 @@ describe("resolveProviderConnectionStatus", () => {
     );
 
     expect(status.connection?.authType).toBe("api_key");
+    expect(status.connections).toHaveLength(2);
+  });
+
+  it("excludes virtual, no-auth, and explicitly unconfigured records", () => {
+    const status = resolveProviderConnectionStatus(
+      oauthProvider("slack", "Slack"),
+      [
+        { service: "slack", connectionName: "work", authType: "oauth2", metadata: {} },
+        { service: "slack", connectionName: "virtual", authType: "oauth2", virtual: true, metadata: {} },
+        { service: "slack", connectionName: "disabled", authType: "oauth2", configured: false, metadata: {} },
+        { service: "slack", connectionName: "anonymous", authType: "no_auth", metadata: {} },
+      ],
+      [{ service: "slack", configured: true, clientId: "slack-client-id" }],
+    );
+
+    expect(status.connections.map((connection) => connection.connectionName)).toEqual(["work"]);
   });
 });
 

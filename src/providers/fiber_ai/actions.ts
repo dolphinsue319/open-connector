@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -50,7 +50,7 @@ const listEnumValuesInputSchema = s.oneOf(
   { description: "Input parameters for listing a Fiber AI enum or reference dataset." },
 );
 
-export const fiberAiActions: Array<ProviderActionDefinition<FiberAiActionName>> = [
+export const fiberAiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_org_credits",
     description: "Get Fiber AI organization credit balance and per-operation pricing metadata.",
@@ -70,5 +70,3 @@ export const fiberAiActions: Array<ProviderActionDefinition<FiberAiActionName>> 
     outputSchema: commonFiberOutputSchema,
   }),
 ];
-
-export type FiberAiActionName = "get_org_credits" | "get_rate_limits" | "list_enum_values";

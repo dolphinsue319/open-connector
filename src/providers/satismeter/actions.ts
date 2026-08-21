@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -181,15 +181,7 @@ const getSurveyStatisticsInputSchema = s.object(
   { optional: ["startDate", "endDate"] },
 );
 
-export type SatismeterActionName =
-  | "get_project"
-  | "list_surveys"
-  | "get_survey"
-  | "list_project_responses"
-  | "list_survey_responses"
-  | "get_survey_statistics";
-
-export const satismeterActions: ProviderActionDefinition<SatismeterActionName>[] = [
+export const satismeterActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_project",
     description: "Retrieve a SatisMeter project by ID.",

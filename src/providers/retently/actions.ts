@@ -1,20 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "retently";
-
-export type RetentlyActionName =
-  | "get_account_status"
-  | "list_customers"
-  | "get_customer"
-  | "list_feedback"
-  | "get_feedback"
-  | "list_templates"
-  | "get_template"
-  | "list_campaigns"
-  | "upsert_customers";
 
 const nonEmptyStringSchema = (description: string) => s.string(description, { minLength: 1 });
 
@@ -230,7 +219,7 @@ const upsertCustomersOutputSchema = s.object(
   { required: ["customers", "pagination", "raw"] },
 );
 
-export const retentlyActions: Array<ProviderActionDefinition<RetentlyActionName>> = [
+export const retentlyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account_status",
     description:

@@ -6,7 +6,7 @@ import type {
   ProviderProxyExecutor,
   TransitFileWriter,
 } from "../../core/types.ts";
-import type { FuxinActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { createHash } from "node:crypto";
 import { basename } from "node:path";
@@ -20,14 +20,15 @@ import {
   optionalString,
   requiredString,
 } from "../../core/cast.ts";
-import { assertPublicHttpUrl } from "../../core/request.ts";
+import { assertPublicHttpUrl, readBoundedResponseBytes } from "../../core/request.ts";
 import {
   defineProviderExecutors,
   normalizeProviderProxyEndpoint,
   normalizeProviderProxyHeaders,
   normalizeProviderProxyQuery,
-  providerUserAgent,
+  providerFetch,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyResponse,
   requireCustomCredential,
   toProviderProxyError,
@@ -82,7 +83,7 @@ interface FuxinDocumentSourceInput {
   fallbackBaseName: string;
 }
 
-export const fuxinActionHandlers: Record<FuxinActionName, FuxinActionHandler> = {
+export const fuxinActionHandlers: ProviderActionHandlers<"fuxin", FuxinActionHandler> = {
   upload_file(input, context) {
     return fuxinUploadFile(input, context);
   },
@@ -207,7 +208,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await providerFetch(url, init);
     if (!response.ok) {
       const payload = await readFuxinPayload(response);
       throw normalizeFuxinError(response, payload, "execute");
@@ -353,13 +354,19 @@ async function fuxinDownloadFile(input: Record<string, unknown>, context: FuxinA
     signal: context.signal,
   });
 
-  const bytes = await response.arrayBuffer();
+  const bytes = await readBoundedResponseBytes(response, {
+    maxBytes: context.transitFiles.maxBytes,
+    fieldName: "Foxit file download",
+    createError: (message) => new ProviderRequestError(413, message),
+  });
   const mimeType = normalizeMimeType(response.headers.get("content-type")) ?? fuxinBinaryMimeTypeFallback;
   const resolvedFileName =
     fileName ??
     readDispositionFileName(response.headers.get("content-disposition")) ??
     buildDefaultFileName("foxit-download", mimeType);
-  const upload = await context.transitFiles.create(new File([bytes], resolvedFileName, { type: mimeType }));
+  const upload = await context.transitFiles.create(
+    new File([Uint8Array.from(bytes)], resolvedFileName, { type: mimeType }),
+  );
 
   return {
     file: {

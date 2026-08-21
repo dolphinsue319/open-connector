@@ -1,11 +1,12 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { StartonActionName } from "./actions.ts";
 
 import { nullableString, optionalBoolean, optionalNumber, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
   createProviderTimeout,
   defineApiKeyProviderExecutors,
+  defineProviderProxy,
   isAbortLikeError,
   ProviderRequestError,
   providerUserAgent,
@@ -18,7 +19,7 @@ const startonDefaultRequestTimeoutMs = 30_000;
 type StartonPhase = "validate" | "execute";
 type StartonActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const startonActionHandlers: Record<StartonActionName, StartonActionHandler> = {
+export const startonActionHandlers: ProviderActionHandlers<"starton", StartonActionHandler> = {
   async list_pins(input, context) {
     const payload = await requestStartonJson({
       apiKey: context.apiKey,
@@ -326,3 +327,9 @@ function readOptionalIntegerString(value: unknown): string | undefined {
 function compactUndefined(input: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.starton.com",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

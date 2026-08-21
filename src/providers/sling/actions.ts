@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -91,23 +91,7 @@ const shiftOutputSchema = s.object("The Sling shift returned by the connector.",
   shift: rawObject("The Sling shift record returned by the API."),
 });
 
-export type SlingActionName =
-  | "get_current_session"
-  | "list_users"
-  | "get_user"
-  | "list_groups"
-  | "get_group"
-  | "list_calendar_events"
-  | "get_shift"
-  | "get_detailed_shift"
-  | "list_shift_coworkers"
-  | "get_current_shift"
-  | "get_next_shift"
-  | "list_working_users"
-  | "list_tasks"
-  | "get_task";
-
-export const slingActions: ProviderActionDefinition<SlingActionName>[] = [
+export const slingActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_session",
     description: "Retrieve the current Sling API session, including user and organization details.",

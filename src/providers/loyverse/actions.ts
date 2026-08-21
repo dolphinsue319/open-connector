@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -125,20 +125,7 @@ const listReceiptsInputSchema = s.object(
   },
 );
 
-export type LoyverseActionName =
-  | "get_merchant"
-  | "list_stores"
-  | "get_store"
-  | "list_items"
-  | "get_item"
-  | "list_categories"
-  | "get_category"
-  | "list_customers"
-  | "get_customer"
-  | "list_receipts"
-  | "get_receipt";
-
-export const loyverseActions: ProviderActionDefinition<LoyverseActionName>[] = [
+export const loyverseActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_merchant",
     description: "Get merchant profile information for the connected Loyverse account.",

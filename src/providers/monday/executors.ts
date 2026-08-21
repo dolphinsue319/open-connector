@@ -1,14 +1,18 @@
 import type { CredentialValidators, ExecutionContext, ProviderExecutors } from "../../core/types.ts";
 import type { ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderFetch } from "../provider-runtime.ts";
 import type { MondayActionHandler } from "./runtime-common.ts";
 
 import {
+  createProviderFetch,
   createProviderProxyUrl,
+  combineProviderActionHandlers,
   defineProviderExecutors,
+  mapProviderActionSources,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireBearerCredential,
@@ -25,40 +29,45 @@ import { mondayStructureActionHandlers } from "./runtime-structure.ts";
 import { getMondayAuthorizationScopes, parseMondayScopeString } from "./scopes.ts";
 
 const service = "monday";
+const mondayFetch = createProviderFetch({ skipDnsValidation: true });
 
 interface MondayActionContext {
   apiKey: string;
   fetcher: ProviderFetch;
 }
 
-const runtimeActionHandlers: Record<string, MondayActionHandler> = {
-  ...mondayAutomationActionHandlers,
-  ...mondayCollaborationActionHandlers,
-  ...mondayDiscoveryActionHandlers,
-  ...mondayEnterpriseActionHandlers,
-  ...mondayFormsActionHandlers,
-  ...mondayStructureActionHandlers,
-  ...mondayItemActionHandlers,
-};
+const runtimeActionHandlers: ProviderActionHandlers<"monday", MondayActionHandler> = combineProviderActionHandlers<
+  "monday",
+  MondayActionHandler
+>(
+  service,
+  mondayAutomationActionHandlers,
+  mondayCollaborationActionHandlers,
+  mondayDiscoveryActionHandlers,
+  mondayEnterpriseActionHandlers,
+  mondayFormsActionHandlers,
+  mondayStructureActionHandlers,
+  mondayItemActionHandlers,
+);
 
-const actionHandlers = Object.fromEntries(
-  Object.entries(runtimeActionHandlers).map(([actionName, handler]) => [
-    actionName,
-    (input: Record<string, unknown>, context: MondayActionContext) =>
-      handler(
-        {
-          apiKey: context.apiKey,
-          actionName,
-          input,
-        },
-        context.fetcher,
-      ),
-  ]),
+const actionHandlers = mapProviderActionSources(
+  service,
+  runtimeActionHandlers,
+  (actionName, handler) => (input: Record<string, unknown>, context: MondayActionContext) =>
+    handler(
+      {
+        apiKey: context.apiKey,
+        actionName,
+        input,
+      },
+      context.fetcher,
+    ),
 );
 
 export const executors: ProviderExecutors = defineProviderExecutors<MondayActionContext>({
   service,
   handlers: actionHandlers,
+  skipDnsValidation: true,
   async createContext(context: ExecutionContext, fetcher: ProviderFetch): Promise<MondayActionContext> {
     const credential = await requireBearerCredential(context, service);
     return {
@@ -89,7 +98,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await mondayFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `monday request failed with HTTP ${response.status}`);

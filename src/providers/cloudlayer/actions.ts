@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -88,17 +87,7 @@ const assetSchema = s.object("The normalized cloudlayer.io asset payload.", {
   timestamp: s.integer("The Unix epoch timestamp in milliseconds when the asset was created."),
 });
 
-export type CloudlayerActionName =
-  | "get_account"
-  | "create_html_pdf_job"
-  | "create_url_pdf_job"
-  | "create_template_pdf_job"
-  | "get_job"
-  | "list_jobs"
-  | "get_asset"
-  | "list_assets";
-
-export const cloudlayerActions: ProviderActionDefinition<CloudlayerActionName>[] = [
+export const cloudlayerActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description: "Get the current cloudlayer.io account usage, limits, and job totals for the API key.",

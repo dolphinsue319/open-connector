@@ -4,15 +4,16 @@ import type {
   ProviderExecutors,
   ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { OnePageCrmActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   defineProviderExecutors,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireCustomCredential,
@@ -21,6 +22,7 @@ import {
 
 const service = "one_page_crm";
 const onePageCrmApiBaseUrl = "https://app.onepagecrm.com/api/v3";
+const onePageCrmFetch = createProviderFetch({ skipDnsValidation: true });
 const onePageCrmValidationPath = "/users";
 
 interface OnePageCrmCredential {
@@ -46,7 +48,7 @@ interface OnePageCrmRequestOptions {
 
 type OnePageCrmActionHandler = (input: Record<string, unknown>, context: OnePageCrmActionContext) => Promise<unknown>;
 
-export const onePageCrmActionHandlers: Record<OnePageCrmActionName, OnePageCrmActionHandler> = {
+export const onePageCrmActionHandlers: ProviderActionHandlers<"one_page_crm", OnePageCrmActionHandler> = {
   list_contacts(input, context) {
     return listRecords({
       context,
@@ -102,6 +104,7 @@ export const onePageCrmActionHandlers: Record<OnePageCrmActionName, OnePageCrmAc
 export const executors: ProviderExecutors = defineProviderExecutors<OnePageCrmActionContext>({
   service,
   handlers: onePageCrmActionHandlers,
+  skipDnsValidation: true,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<OnePageCrmActionContext> {
     const credential = await requireCustomCredential(context, service);
     return {
@@ -133,7 +136,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await onePageCrmFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `OnePageCRM request failed with HTTP ${response.status}`);

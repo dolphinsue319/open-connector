@@ -1,12 +1,12 @@
 import type { CatalogStore } from "../../catalog-store.ts";
 import type { ConnectionService } from "../../connection-service.ts";
-import type { ActionPolicyService } from "../../core/action-policy.ts";
-import type { ProxyRequestInput, ProxyResponse } from "../../core/types.ts";
+import type { ActionPolicyService, ActionPolicySnapshot } from "../../core/action-policy.ts";
+import type { ProviderProxyExecutor, ProxyRequestInput, ProxyResponse } from "../../core/types.ts";
 import type { IProviderLoader } from "../../providers/provider-loader.ts";
 import type { Logger } from "../logger.ts";
 
 import { ConnectionError } from "../../connection-service.ts";
-import { optionalRecord, requiredString } from "../../core/cast.ts";
+import { optionalRecord, requiredRecord, requiredString } from "../../core/cast.ts";
 import { mapConnectionErrorStatus } from "../api/runtime-api.ts";
 
 export type ProxyFailureStatus = 400 | 403 | 404 | 409 | 413 | 429 | 500 | 501;
@@ -23,6 +23,7 @@ export interface RunProxyInput {
   service: string;
   input: unknown;
   connectionName?: string;
+  policy?: ActionPolicySnapshot;
 }
 
 export type ProxyRunResult =
@@ -66,7 +67,8 @@ export class ProxyRunner {
       };
     }
 
-    const decision = this.options.actionPolicy?.evaluateProxy(provider.service);
+    const snapshot = input.policy ?? this.options.actionPolicy?.createSnapshot();
+    const decision = snapshot?.evaluateProxy(provider.service);
     if (decision && !decision.allowed) {
       return {
         ok: false,
@@ -76,8 +78,19 @@ export class ProxyRunner {
         meta: { service: provider.service },
       };
     }
-
-    const executor = await this.options.providerLoader.loadProxyExecutor(provider.service, provider.displayName);
+    let executor: ProviderProxyExecutor | undefined;
+    try {
+      executor = await this.options.providerLoader.loadProxyExecutor(provider.service, provider.displayName);
+    } catch {
+      this.options.logger?.warn({ service: provider.service, errorCode: "internal_error" }, "proxy request failed");
+      return {
+        ok: false,
+        status: 500,
+        errorCode: "internal_error",
+        message: "Proxy request failed unexpectedly.",
+        meta: { service: provider.service },
+      };
+    }
     if (!executor) {
       return {
         ok: false,
@@ -99,10 +112,21 @@ export class ProxyRunner {
       endpoint: loggableProxyEndpoint(request.input.endpoint),
       connectionName: input.connectionName,
     };
-    this.options.logger?.info(logContext, "proxy request started");
     const startedAtMs = Date.now();
     try {
-      await this.options.connections.getConnectionSummary(provider.service, input.connectionName);
+      const connection = await this.options.connections.getConnectionSummary(provider.service, input.connectionName);
+      const connectionDecision =
+        connection?.authType === "no_auth" ? undefined : snapshot?.evaluateConnection(connection?.id);
+      if (connectionDecision && !connectionDecision.allowed) {
+        return {
+          ok: false,
+          status: 403,
+          errorCode: connectionDecision.code,
+          message: connectionDecision.message,
+          meta: { service: provider.service },
+        };
+      }
+      this.options.logger?.info(logContext, "proxy request started");
       const result = await executor(request.input, {
         ...this.options.connections.forConnection(input.connectionName),
       });
@@ -129,17 +153,38 @@ export class ProxyRunner {
       this.options.logger?.warn({ ...logContext, durationMs, errorCode: failure.errorCode }, "proxy request failed");
       return failure;
     } catch (error) {
+      const durationMs = Date.now() - startedAtMs;
       if (error instanceof ConnectionError) {
-        return {
+        const missingConnectionDecision =
+          error.code === "connection_not_found" ? snapshot?.evaluateConnection() : undefined;
+        if (missingConnectionDecision && !missingConnectionDecision.allowed) {
+          return {
+            ok: false,
+            status: 403,
+            errorCode: missingConnectionDecision.code,
+            message: missingConnectionDecision.message,
+            meta: { service: provider.service },
+          };
+        }
+        const failure: ProxyRunFailure = {
           ok: false,
           status: mapConnectionErrorStatus(error),
           errorCode: error.code,
           message: error.message,
           meta: { service: provider.service },
         };
+        this.options.logger?.warn({ ...logContext, durationMs, errorCode: failure.errorCode }, "proxy request failed");
+        return failure;
       }
 
-      throw error;
+      this.options.logger?.warn({ ...logContext, durationMs, errorCode: "internal_error" }, "proxy request failed");
+      return {
+        ok: false,
+        status: 500,
+        errorCode: "internal_error",
+        message: "Proxy request failed unexpectedly.",
+        meta: { service: provider.service },
+      };
     }
   }
 
@@ -164,13 +209,11 @@ export class ProxyRunner {
         endpoint,
         method,
       };
-      const query = optionalRecord(body.query);
-      if (query) {
-        request.query = query;
+      if ("query" in body) {
+        request.query = requiredRecord(body.query, "query", (message) => new ProxyInputError(message));
       }
-      const headers = optionalRecord(body.headers);
-      if (headers) {
-        request.headers = headers;
+      if ("headers" in body) {
+        request.headers = requiredRecord(body.headers, "headers", (message) => new ProxyInputError(message));
       }
       if ("body" in body) {
         request.body = body.body;
@@ -195,8 +238,10 @@ export class ProxyRunner {
       throw new ProxyInputError("endpoint must be a relative path starting with /");
     }
     try {
-      new URL(endpoint);
-      throw new ProxyInputError("endpoint must be a relative path");
+      const url = new URL(endpoint.slice(1));
+      if (url.protocol === "http:" || url.protocol === "https:") {
+        throw new ProxyInputError("endpoint must be a relative path");
+      }
     } catch (error) {
       if (error instanceof ProxyInputError) {
         throw error;

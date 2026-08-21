@@ -4,19 +4,20 @@ import type {
   ProviderProxyExecutor,
   ProxyExecutionResult,
 } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { CronitorActionName } from "./actions.ts";
 
 import { Buffer } from "node:buffer";
 import { compactObject, optionalRecord, optionalString, requiredRecord, requiredString } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   createProviderTimeout,
   defineApiKeyProviderExecutors,
   isAbortLikeError,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireApiKeyCredential,
@@ -28,11 +29,13 @@ const cronitorApiBaseUrl = "https://cronitor.io/api";
 const cronitorApiVersion = "2025-11-28";
 const cronitorDefaultRequestTimeoutMs = 30_000;
 
+const cronitorFetch = createProviderFetch({ skipDnsValidation: true });
+
 type CronitorPhase = "validate" | "execute";
 type CronitorMethod = "GET" | "POST" | "DELETE";
 type CronitorActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const cronitorActionHandlers: Record<CronitorActionName, CronitorActionHandler> = {
+export const cronitorActionHandlers: ProviderActionHandlers<"cronitor", CronitorActionHandler> = {
   async list_monitors(_input, context) {
     const payload = await requestCronitorJson({ context, path: "/monitors", phase: "execute" });
     return { monitors: readMonitorsPayload(payload) };
@@ -83,7 +86,9 @@ export const cronitorActionHandlers: Record<CronitorActionName, CronitorActionHa
   },
 };
 
-export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, cronitorActionHandlers);
+export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, cronitorActionHandlers, {
+  skipDnsValidation: true,
+});
 
 export const proxy: ProviderProxyExecutor = async (input, context): Promise<ProxyExecutionResult> => {
   try {
@@ -97,7 +102,7 @@ export const proxy: ProviderProxyExecutor = async (input, context): Promise<Prox
       headers.set("content-type", "application/json");
     }
 
-    const response = await fetch(url, {
+    const response = await cronitorFetch(url, {
       method: input.method,
       headers,
       body:

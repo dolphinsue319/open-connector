@@ -1,21 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "ordinal";
-
-export type OrdinalActionName =
-  | "get_workspace"
-  | "list_scheduling_profiles"
-  | "list_engagement_profiles"
-  | "list_users"
-  | "list_labels"
-  | "list_posts"
-  | "get_post"
-  | "list_ideas"
-  | "get_idea";
 
 const uuidSchema = s.uuid("An Ordinal UUID.");
 const paginationLimitSchema = s.integer("The maximum number of items to return, from 1 to 100.", {
@@ -102,7 +90,7 @@ const paginatedIdeasOutputSchema = s.object("A paginated Ordinal ideas response.
   hasMore: s.boolean("Whether Ordinal reported more ideas."),
 });
 
-export const ordinalActions: ProviderActionDefinition<OrdinalActionName>[] = [
+export const ordinalActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_workspace",
     description: "Get details about the current Ordinal workspace.",

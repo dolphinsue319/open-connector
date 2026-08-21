@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -92,18 +91,7 @@ function idInputSchema(description: string): JsonSchema {
   return s.object(description, { id: s.positiveInteger("Reply.io resource ID.") });
 }
 
-export type ReplyIoActionName =
-  | "get_current_user"
-  | "list_contacts"
-  | "create_contact"
-  | "get_contact"
-  | "update_contact"
-  | "list_sequences"
-  | "get_sequence"
-  | "start_sequence"
-  | "pause_sequence";
-
-export const replyIoActions: ProviderActionDefinition<ReplyIoActionName>[] = [
+export const replyIoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the authenticated Reply.io user ID and username.",

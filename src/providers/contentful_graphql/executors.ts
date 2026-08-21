@@ -3,16 +3,18 @@ import type {
   CredentialValidators,
   ExecutionContext,
   ProviderExecutors,
+  ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { ContentfulGraphqlActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
   createProviderTimeout,
   defineProviderExecutors,
+  defineProviderProxy,
   isAbortLikeError,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   requireApiKeyCredential,
 } from "../provider-runtime.ts";
 
@@ -52,7 +54,10 @@ interface ContentfulGraphqlResponse {
   rateLimitReset?: number;
 }
 
-export const contentfulGraphqlActionHandlers: Record<ContentfulGraphqlActionName, ContentfulGraphqlActionHandler> = {
+export const contentfulGraphqlActionHandlers: ProviderActionHandlers<
+  "contentful_graphql",
+  ContentfulGraphqlActionHandler
+> = {
   execute_query(input, context) {
     return executeContentfulGraphqlQuery(input, context);
   },
@@ -375,3 +380,9 @@ function formatContentfulGraphqlAccountLabel(input: ContentfulGraphqlTarget): st
 function providerInputError(message: string): ProviderRequestError {
   return new ProviderRequestError(400, message);
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://graphql.contentful.com",
+  auth: { type: "api_key_authorization", prefix: "Bearer " },
+});

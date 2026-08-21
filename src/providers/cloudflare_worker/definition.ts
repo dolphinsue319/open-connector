@@ -40,7 +40,7 @@ export const provider: ProviderDefinition = {
       authorizationUrl: "https://dash.cloudflare.com/oauth2/auth",
       tokenUrl: "https://dash.cloudflare.com/oauth2/token",
       refreshTokenUrl: "https://dash.cloudflare.com/oauth2/token",
-      scopes: ["workers-scripts.read", "workers-scripts.write"],
+      scopes: ["workers-scripts.read", "workers-scripts.write", "workers-ci.read", "workers-ci.write"],
       tokenEndpointAuthMethod: "client_secret_basic",
     },
   ],

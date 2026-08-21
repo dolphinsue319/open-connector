@@ -353,8 +353,6 @@ export const capsuleCrmActions: ActionDefinition[] = [
   }),
 ];
 
-export type CapsuleCrmActionName = (typeof capsuleCrmActions)[number]["name"];
-
 export const capsuleCrmActionByName: Map<string, ActionDefinition> = new Map(
   capsuleCrmActions.map((action) => [action.name, action]),
 );

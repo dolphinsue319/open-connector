@@ -394,5 +394,3 @@ export const bestbuyActions: ActionDefinition[] = [
     outputSchema: storeSchema,
   }),
 ];
-
-export type BestbuyActionName = (typeof bestbuyActions)[number]["name"];

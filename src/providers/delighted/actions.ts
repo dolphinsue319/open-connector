@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -81,17 +81,7 @@ const pageWindow = {
   until: timestamp,
 };
 
-export type DelightedActionName =
-  | "create_or_update_person"
-  | "list_people"
-  | "list_unsubscribed_people"
-  | "list_bounced_people"
-  | "unsubscribe_person"
-  | "delete_person"
-  | "list_survey_responses"
-  | "get_metrics";
-
-export const delightedActions: Array<ProviderActionDefinition<DelightedActionName>> = [
+export const delightedActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_or_update_person",
     description: "Create or update a Delighted person and optionally schedule a survey request.",

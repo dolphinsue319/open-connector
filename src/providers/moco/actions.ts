@@ -163,5 +163,3 @@ export const mocoActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type MocoActionName = (typeof mocoActions)[number]["name"];

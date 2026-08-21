@@ -1,9 +1,10 @@
 import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { UptimerobotActionName } from "./actions.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   createProviderTimeout,
   defineApiKeyProviderExecutors,
@@ -22,10 +23,13 @@ const service = "uptimerobot";
 const uptimerobotApiBaseUrl = "https://api.uptimerobot.com/v2";
 const uptimerobotDefaultRequestTimeoutMs = 30_000;
 
+// Fixed-host proxy egress (uptimerobotApiBaseUrl); DNS-rebinding check is redundant here.
+const uptimerobotProxyFetch = createProviderFetch({ skipDnsValidation: true });
+
 type UptimerobotRequestPhase = "validate" | "execute";
 type UptimerobotActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const uptimerobotActionHandlers: Record<UptimerobotActionName, UptimerobotActionHandler> = {
+export const uptimerobotActionHandlers: ProviderActionHandlers<"uptimerobot", UptimerobotActionHandler> = {
   async get_account_details(_input, context) {
     const payload = await requestUptimerobotJson({ context, endpoint: "getAccountDetails", phase: "execute" });
     return { account: requireObjectPayload(payload.account, "uptimerobot account details response") };
@@ -94,7 +98,9 @@ export const uptimerobotActionHandlers: Record<UptimerobotActionName, Uptimerobo
   },
 };
 
-export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, uptimerobotActionHandlers);
+export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, uptimerobotActionHandlers, {
+  skipDnsValidation: true,
+});
 
 export const proxy: ProviderProxyExecutor = async (input, context) => {
   try {
@@ -112,7 +118,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
     body.set("api_key", credential.apiKey);
     body.set("format", "json");
 
-    const response = await fetch(url, {
+    const response = await uptimerobotProxyFetch(url, {
       method: input.method,
       headers,
       body,

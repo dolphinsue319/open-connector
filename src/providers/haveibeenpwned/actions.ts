@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -57,16 +57,7 @@ const subscriptionSchema = s.object("Subscription status returned by Have I Been
 
 const emailAddressSchema = s.email("Email address to search in Have I Been Pwned.");
 
-export type HaveIBeenPwnedActionName =
-  | "list_breaches"
-  | "get_breach"
-  | "get_latest_breach"
-  | "list_data_classes"
-  | "search_breached_account"
-  | "list_pastes_for_account"
-  | "get_subscription_status";
-
-export const haveibeenpwnedActions: Array<ProviderActionDefinition<HaveIBeenPwnedActionName>> = [
+export const haveibeenpwnedActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_breaches",
     description: "List breaches in Have I Been Pwned and optionally filter by domain or spam-list flag.",

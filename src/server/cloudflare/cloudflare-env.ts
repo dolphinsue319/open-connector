@@ -1,8 +1,9 @@
-import type { AssetsBinding, D1DatabaseBinding, R2BucketBinding } from "./cloudflare-bindings.ts";
+import type { AssetsBinding, D1DatabaseBinding, KVNamespaceBinding, R2BucketBinding } from "./cloudflare-bindings.ts";
 
 export interface CloudflareEnv {
   DB: D1DatabaseBinding;
-  TRANSIT_FILES: R2BucketBinding;
+  TRANSIT_FILES: R2BucketBinding | KVNamespaceBinding;
+  TRANSIT_FILES_BACKEND?: "r2" | "kv"; // New: used to distinguish backend type at runtime
   ASSETS?: AssetsBinding;
   OOMOL_CONNECT_ORIGIN?: string;
   OOMOL_CONNECT_ADMIN_TOKEN?: string;
@@ -12,8 +13,12 @@ export interface CloudflareEnv {
   OOMOL_CONNECT_BLOCKED_ACTIONS?: string;
   OOMOL_CONNECT_ALLOWED_PROXIES?: string;
   OOMOL_CONNECT_BLOCKED_PROXIES?: string;
+  OOMOL_CONNECT_ALLOWED_CUSTOM_OAUTH?: string;
+  OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK?: string;
+  OOMOL_CONNECT_EGRESS_TRUSTED_HOSTS?: string;
   OOMOL_CONNECT_TRANSIT_FILE_TTL_SECONDS?: string;
   OOMOL_CONNECT_TRANSIT_FILE_MAX_BYTES?: string;
+  OOMOL_CONNECT_RUN_LIMIT?: string;
 }
 
 export function resolvePublicOrigin(request: Request, env: CloudflareEnv): string {

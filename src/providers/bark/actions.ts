@@ -99,5 +99,3 @@ export const barkActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type BarkActionName = (typeof barkActions)[number]["name"];

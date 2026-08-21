@@ -235,5 +235,3 @@ export const metabaseActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type MetabaseActionName = (typeof metabaseActions)[number]["name"];

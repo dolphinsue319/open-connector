@@ -101,8 +101,6 @@ export const weatherbitActions: ProviderActionDefinition[] = [
   }),
 ];
 
-export type WeatherbitActionName = (typeof weatherbitActions)[number]["name"];
-
 function locationRequired(schema: JsonSchema): JsonSchema {
   return {
     ...schema,

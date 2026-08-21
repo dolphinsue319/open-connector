@@ -4,6 +4,7 @@ import UnoCSS from "@unocss/vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
+import { providerIconsPlugin } from "./provider-icons-plugin";
 
 export default defineConfig({
   plugins: [
@@ -12,6 +13,7 @@ export default defineConfig({
     UnoCSS({
       presets: [presetIcons()],
     }),
+    providerIconsPlugin(),
   ],
   resolve: {
     alias: {

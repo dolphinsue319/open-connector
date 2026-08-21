@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -101,15 +101,7 @@ const createNoteInputSchema = s.object("Input payload for creating a note on a L
   value: s.nonEmptyString("The note text to add to the opportunity."),
 });
 
-export type LeverActionName =
-  | "list_postings"
-  | "get_posting"
-  | "list_opportunities"
-  | "get_opportunity"
-  | "list_opportunity_notes"
-  | "create_opportunity_note";
-
-export const leverActions: Array<ProviderActionDefinition<LeverActionName>> = [
+export const leverActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_postings",
     description: "List Lever job postings with optional state, owner, location, and team filters.",

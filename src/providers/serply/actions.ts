@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -81,9 +81,7 @@ const newsFeedSchema = s.looseObject("The Google News feed object returned by Se
   ),
 });
 
-export type SerplyActionName = "google_search" | "google_news_search" | "google_video_search" | "google_scholar_search";
-
-export const serplyActions: ProviderActionDefinition<SerplyActionName>[] = [
+export const serplyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "google_search",
     description: "Search Google through Serply and return web search results in JSON format.",

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -94,16 +94,7 @@ const lifecycleResultSchema = (action: string, description: string) =>
     success: s.boolean("Whether the lifecycle request completed successfully."),
   });
 
-export type RunpodActionName =
-  | "list_pods"
-  | "get_pod"
-  | "start_pod"
-  | "stop_pod"
-  | "restart_pod"
-  | "reset_pod"
-  | "delete_pod";
-
-export const runpodActions: ProviderActionDefinition<RunpodActionName>[] = [
+export const runpodActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_pods",
     description: "List Runpod Pods with optional official filter parameters.",

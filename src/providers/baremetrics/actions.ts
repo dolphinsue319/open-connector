@@ -243,5 +243,3 @@ export const baremetricsActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type BaremetricsActionName = (typeof baremetricsActions)[number]["name"];

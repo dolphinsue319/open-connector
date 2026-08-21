@@ -213,6 +213,4 @@ export const subvisoryActions: ActionDefinition[] = [
     inputSchema: idInputSchema,
     outputSchema: successOnlyOutputSchema,
   }),
-] satisfies ActionDefinition[];
-
-export type SubvisoryActionName = (typeof subvisoryActions)[number]["name"];
+];

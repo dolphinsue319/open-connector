@@ -254,5 +254,3 @@ export const abyssaleActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type AbyssaleActionName = (typeof abyssaleActions)[number]["name"];

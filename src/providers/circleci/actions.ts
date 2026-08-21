@@ -1,22 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "circleci";
-
-export type CircleciActionName =
-  | "get_current_user"
-  | "get_project"
-  | "list_pipelines_for_project"
-  | "get_pipeline"
-  | "list_workflows_by_pipeline"
-  | "get_workflow_summary"
-  | "get_job_details"
-  | "get_job_artifacts"
-  | "list_insights_summary"
-  | "trigger_pipeline"
-  | "list_project_env_vars";
 
 const projectSlugField = s.nonEmptyString(
   "Project slug in the form `vcs-slug/org-name/repo-name`. GitHub App and GitLab projects may use an opaque CircleCI slug such as `circleci/<org-id>/<project-id>`.",
@@ -166,7 +153,7 @@ const envVarListSchema = s.object("Paginated CircleCI environment variable list.
   next_page_token: paginationOutputTokenSchema,
 });
 
-export const circleciActions: ProviderActionDefinition<CircleciActionName>[] = [
+export const circleciActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the currently authenticated CircleCI user profile.",

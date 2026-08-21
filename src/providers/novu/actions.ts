@@ -250,5 +250,3 @@ export const novuActions: readonly ActionDefinition[] = [
     ),
   }),
 ];
-
-export type NovuActionName = (typeof novuActions)[number]["name"];

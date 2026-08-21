@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -79,9 +79,7 @@ const pageContentOutputSchema = s.object(
   { required: ["url", "pageContent"], optional: ["statusCode"] },
 );
 
-export type ZyteApiActionName = "fetch_browser_html" | "extract_product" | "extract_article" | "extract_page_content";
-
-export const zyteApiActions: ProviderActionDefinition<ZyteApiActionName>[] = [
+export const zyteApiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "fetch_browser_html",
     description: "Fetch browser-rendered HTML for one public URL with Zyte API.",

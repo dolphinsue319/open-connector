@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { TallyActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
 import { ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
@@ -9,7 +9,7 @@ const tallyApiBaseUrl = "https://api.tally.so";
 
 type TallyActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const tallyActionHandlers: Record<TallyActionName, TallyActionHandler> = {
+export const tallyActionHandlers: ProviderActionHandlers<"tally", TallyActionHandler> = {
   list_forms(input, context) {
     return requestTally(context, buildListFormsUrl(input));
   },

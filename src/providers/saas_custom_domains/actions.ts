@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -78,20 +78,7 @@ const customDomainScopedInputSchema = s.object("Input parameters for a custom-do
   domain_uuid: customDomainUuidSchema,
 });
 
-export type SaasCustomDomainsActionName =
-  | "list_accounts"
-  | "list_upstreams"
-  | "create_upstream"
-  | "get_upstream"
-  | "delete_upstream"
-  | "list_custom_domains"
-  | "create_custom_domain"
-  | "get_custom_domain"
-  | "delete_custom_domain"
-  | "verify_custom_domain_dns_records"
-  | "purge_custom_domain_http_cache";
-
-export const saasCustomDomainsActions: ProviderActionDefinition<SaasCustomDomainsActionName>[] = [
+export const saasCustomDomainsActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_accounts",
     description: "List SaaS Custom Domains accounts available to the API token.",

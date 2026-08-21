@@ -88,5 +88,3 @@ export const awsStsActions: ActionDefinition[] = [
     outputSchema: stsCredentialOutputSchema,
   }),
 ];
-
-export type AwsStsActionName = (typeof awsStsActions)[number]["name"];

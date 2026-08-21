@@ -898,5 +898,3 @@ function hasProviderPermissions(definition: ApaleoActionDefinition): definition 
 } {
   return "providerPermissions" in definition;
 }
-
-export type ApaleoActionName = string;

@@ -197,5 +197,3 @@ export const sageHrActions: ProviderActionDefinition[] = [
     outputSchema: timeOffRequestListOutputSchema,
   }),
 ];
-
-export type SageHrActionName = (typeof sageHrActions)[number]["name"];

@@ -1,9 +1,9 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { BenchmarkEmailActionName } from "./actions.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
-import { assertPublicHttpUrl } from "../../core/request.ts";
+import { assertPublicHttpUrl, isPrivateNetworkAccessAllowed } from "../../core/request.ts";
 import {
   createProviderTimeout,
   isAbortLikeError,
@@ -22,7 +22,7 @@ export interface BenchmarkEmailContext extends ApiKeyProviderContext {
 
 type BenchmarkEmailActionHandler = ProviderRuntimeHandler<BenchmarkEmailContext>;
 
-export const benchmarkEmailActionHandlers: Record<BenchmarkEmailActionName, BenchmarkEmailActionHandler> = {
+export const benchmarkEmailActionHandlers: ProviderActionHandlers<"benchmark_email", BenchmarkEmailActionHandler> = {
   get_account_summary(_input, context) {
     return requestBenchmarkEmailJson({
       context,
@@ -235,7 +235,7 @@ function readBenchmarkEmailErrorMessage(payload: unknown): string | undefined {
   );
 }
 
-function normalizeBaseUrl(value: unknown): string {
+function normalizeBaseUrl(value: unknown, allowPrivateNetwork: boolean = isPrivateNetworkAccessAllowed()): string {
   const text = optionalString(value);
   if (!text) {
     throw new ProviderRequestError(400, "baseUrl is required");
@@ -244,6 +244,7 @@ function normalizeBaseUrl(value: unknown): string {
   const url = assertPublicHttpUrl(text, {
     fieldName: "baseUrl",
     createError: (message) => new ProviderRequestError(400, message),
+    allowPrivateNetwork,
   });
 
   if (url.protocol !== "https:") {

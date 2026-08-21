@@ -141,5 +141,3 @@ export const recruiterflowActions: ProviderActionDefinition[] = [
   listUsersAction,
   getUserAction,
 ];
-
-export type RecruiterflowActionName = (typeof recruiterflowActions)[number]["name"];

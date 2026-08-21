@@ -185,4 +185,4 @@ export const pipedriveActions: ProviderActionDefinition[] = actionSpecs.map((act
     inputSchema: action.inputSchema,
     outputSchema: action.outputSchema,
   }),
-) satisfies ProviderActionDefinition[];
+);

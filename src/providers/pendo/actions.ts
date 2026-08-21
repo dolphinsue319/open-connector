@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -39,9 +39,7 @@ function idsInput(description: string, fieldDescription: string) {
   });
 }
 
-export type PendoActionName = "identify" | "list_pages" | "get_pages" | "list_features" | "get_features";
-
-export const pendoActions: Array<ProviderActionDefinition<PendoActionName>> = [
+export const pendoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "identify",
     description: "Verify the current Pendo integration key and report whether Pendo says it has write access.",

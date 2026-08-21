@@ -45,5 +45,3 @@ export const trentActions: ActionDefinition[] = [
     outputSchema: chatOutputSchema,
   }),
 ];
-
-export type TrentActionName = (typeof trentActions)[number]["name"];

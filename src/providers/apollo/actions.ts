@@ -214,5 +214,3 @@ export const apolloActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type ApolloActionName = (typeof apolloActions)[number]["name"];

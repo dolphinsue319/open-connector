@@ -4,11 +4,12 @@ import type {
   ProviderProxyExecutor,
   ProxyExecutionResult,
 } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { SegmentActionName } from "./actions.ts";
 
 import { compactObject, optionalRawString, optionalRecord, requiredRecord } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   defineApiKeyProviderExecutors,
   normalizeProviderProxyHeaders,
@@ -22,11 +23,12 @@ import {
 
 const service = "segment";
 const segmentApiBaseUrl = "https://api.segment.io/v1";
+const segmentFetch = createProviderFetch({ skipDnsValidation: true });
 
 type SegmentActionContext = Pick<ApiKeyProviderContext, "apiKey" | "fetcher" | "signal">;
 type SegmentActionHandler = (input: Record<string, unknown>, context: SegmentActionContext) => Promise<unknown>;
 
-export const segmentActionHandlers: Record<SegmentActionName, SegmentActionHandler> = {
+export const segmentActionHandlers: ProviderActionHandlers<"segment", SegmentActionHandler> = {
   identify(input, context) {
     return requestSegment("identify", withWriteKey(input, context.apiKey), context);
   },
@@ -51,7 +53,9 @@ export const segmentActionHandlers: Record<SegmentActionName, SegmentActionHandl
   },
 };
 
-export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, segmentActionHandlers);
+export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, segmentActionHandlers, {
+  skipDnsValidation: true,
+});
 
 export const proxy: ProviderProxyExecutor = async (input, context): Promise<ProxyExecutionResult> => {
   try {
@@ -62,7 +66,7 @@ export const proxy: ProviderProxyExecutor = async (input, context): Promise<Prox
     headers.set("content-type", "application/json");
     headers.set("user-agent", providerUserAgent);
 
-    const response = await fetch(url, {
+    const response = await segmentFetch(url, {
       method: input.method,
       headers,
       body: JSON.stringify(withWriteKey(optionalRecord(input.body) ?? {}, credential.apiKey)),

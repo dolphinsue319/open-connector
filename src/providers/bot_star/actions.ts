@@ -557,5 +557,3 @@ export const botStarActions: ProviderActionDefinition[] = [
     outputSchema: successSchema,
   }),
 ];
-
-export type BotStarActionName = (typeof botStarActions)[number]["name"];

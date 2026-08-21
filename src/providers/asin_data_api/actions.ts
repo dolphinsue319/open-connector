@@ -134,5 +134,3 @@ export const asinDataApiActions: ActionDefinition[] = [
     outputSchema: actionResultSchema,
   }),
 ];
-
-export type AsinDataApiActionName = (typeof asinDataApiActions)[number]["name"];

@@ -192,9 +192,6 @@ export interface MxToolboxLookupActionDefinition {
   inputObjectDescription: string;
 }
 
-export type MxToolboxLookupActionName = MxToolboxLookupActionDefinition["name"];
-export type MxToolboxActionName = MxToolboxLookupActionName | "usage_check" | "monitor_status";
-
 export const mxToolboxLookupActionDefinitions: readonly MxToolboxLookupActionDefinition[] = [
   {
     name: "lookup_dns",
@@ -314,7 +311,7 @@ const monitorStatusAction = defineProviderAction(service, {
   outputSchema: monitorStatusResponseSchema,
 });
 
-export const mxToolboxActions: Array<ActionDefinition & { name: MxToolboxActionName }> = [
+export const mxToolboxActions: ActionDefinition[] = [
   ...mxToolboxLookupActionDefinitions.map((definition) =>
     defineProviderAction(service, {
       name: definition.name,
@@ -326,4 +323,4 @@ export const mxToolboxActions: Array<ActionDefinition & { name: MxToolboxActionN
   ),
   usageCheckAction,
   monitorStatusAction,
-] satisfies Array<ActionDefinition & { name: MxToolboxActionName }>;
+];

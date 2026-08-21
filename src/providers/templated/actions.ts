@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -99,16 +99,7 @@ const layerOverrideSchema = s.looseObject("Layer override object forwarded to Te
   html: s.string("Custom HTML content override."),
 });
 
-export type TemplatedActionName =
-  | "get_account"
-  | "list_templates"
-  | "get_template"
-  | "create_render"
-  | "list_renders"
-  | "get_render"
-  | "delete_render";
-
-export const templatedActions: ProviderActionDefinition<TemplatedActionName>[] = [
+export const templatedActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description: "Get the current Templated account associated with the API key.",

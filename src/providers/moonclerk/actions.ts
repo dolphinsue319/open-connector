@@ -1,17 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "moonclerk";
-
-export type MoonclerkActionName =
-  | "list_forms"
-  | "get_form"
-  | "list_customers"
-  | "get_customer"
-  | "list_payments"
-  | "get_payment";
 
 const moonclerkDateSchema = s.date("The date in YYYY-MM-DD format required by MoonClerk.");
 const moonclerkPositiveIdSchema = s.positiveInteger("The MoonClerk numeric identifier.");
@@ -301,7 +293,7 @@ const customerStatusSchema = s.stringEnum("The MoonClerk customer subscription s
 
 const paymentStatusSchema = s.stringEnum("The MoonClerk payment status filter.", ["successful", "refunded", "failed"]);
 
-export const moonclerkActions: Array<ProviderActionDefinition<MoonclerkActionName>> = [
+export const moonclerkActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_forms",
     description: "List MoonClerk payment forms with official pagination parameters.",

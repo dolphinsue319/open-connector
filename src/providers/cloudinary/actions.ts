@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -89,9 +88,7 @@ const updateAssetInputSchema = s.object(
 ) as JsonSchema;
 updateAssetInputSchema.anyOf = [{ required: ["displayName"] }, { required: ["assetFolder"] }, { required: ["tags"] }];
 
-export type CloudinaryActionName = "upload_asset" | "update_asset" | "rename_asset" | "list_assets" | "get_asset";
-
-export const cloudinaryActions: ProviderActionDefinition<CloudinaryActionName>[] = [
+export const cloudinaryActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "upload_asset",
     description:

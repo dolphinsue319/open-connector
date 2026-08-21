@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -259,19 +259,7 @@ const deleteCardInputSchema = s.object(
   { required: ["card_id"], optional: ["exceeding_reason"] },
 );
 
-export type BusinessmapActionName =
-  | "list_workspaces"
-  | "list_boards"
-  | "get_board"
-  | "create_board"
-  | "update_board"
-  | "list_cards"
-  | "get_card"
-  | "create_card"
-  | "update_card"
-  | "delete_card";
-
-export const businessmapActions: ProviderActionDefinition<BusinessmapActionName>[] = [
+export const businessmapActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_workspaces",
     description: "List Businessmap workspaces visible to the connected API key.",

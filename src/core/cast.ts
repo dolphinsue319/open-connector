@@ -46,6 +46,22 @@ export function optionalRawString(value: unknown): string | undefined {
 }
 
 /**
+ * Return a string exactly as provided, including empty strings and surrounding whitespace, or throw.
+ */
+export function requiredRawString(
+  value: unknown,
+  fieldName: string,
+  createError: CastErrorFactory = (message) => new CastError(message),
+): string {
+  const result = optionalRawString(value);
+  if (result !== undefined) {
+    return result;
+  }
+
+  throw createError(`${fieldName} must be a string`);
+}
+
+/**
  * Return a string or throw a caller-provided error. Examples:
  * `requiredString(" x ", "name") => "x"`, `requiredString("", "name")` throws.
  */
@@ -144,6 +160,30 @@ export function stringArray(
   }
 
   return value.map((item) => String(item));
+}
+
+/**
+ * Return an array only when every item is already a string, or throw.
+ * Unlike `stringArray`, this helper does not coerce scalar values.
+ */
+export function requiredStringArray(
+  value: unknown,
+  fieldName: string,
+  createError: CastErrorFactory = (message) => new CastError(message),
+): string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw createError(`${fieldName} must be an array of strings`);
+  }
+
+  return value;
+}
+
+/**
+ * Return an array only when every item is already a string. Invalid or absent
+ * values return undefined.
+ */
+export function optionalStringArray(value: unknown): string[] | undefined {
+  return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : undefined;
 }
 
 /**
@@ -255,6 +295,22 @@ export function optionalBoolean(value: unknown): boolean | undefined {
 }
 
 /**
+ * Return a boolean or throw a caller-provided error.
+ */
+export function requiredBoolean(
+  value: unknown,
+  fieldName: string,
+  createError: CastErrorFactory = (message) => new CastError(message),
+): boolean {
+  const result = optionalBoolean(value);
+  if (result !== undefined) {
+    return result;
+  }
+
+  throw createError(`${fieldName} must be a boolean`);
+}
+
+/**
  * Return a boolean or null when the value is not boolean.
  */
 export function optionalBooleanOrNull(value: unknown): boolean | null {
@@ -335,13 +391,17 @@ export function optionalStringOrNull(value: unknown): string | null {
 }
 
 /**
- * Return an integer from an integer number or numeric string, or null.
+ * Return an integer from an integer number or numeric string, or null. Examples:
+ * `optionalIntegerOrNull("2") => 2`, `optionalIntegerOrNull("") => null`.
+ *
+ * A blank string is reported as missing rather than parsed, because `Number("")`
+ * is `0` and an empty field would otherwise reach a provider as a real zero.
  */
 export function optionalIntegerOrNull(value: unknown): number | null {
   if (Number.isInteger(value)) {
     return value as number;
   }
-  if (typeof value === "string") {
+  if (typeof value === "string" && value.trim() !== "") {
     const parsed = Number(value);
     return Number.isInteger(parsed) ? parsed : null;
   }

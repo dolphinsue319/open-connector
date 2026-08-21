@@ -1,6 +1,11 @@
-import type { CredentialValidationResult, CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type {
+  CredentialValidationResult,
+  CredentialValidators,
+  ProviderExecutors,
+  ProviderProxyExecutor,
+} from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { TeltelActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -10,7 +15,7 @@ import {
   optionalStringOrNull,
   requiredString,
 } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, ProviderRequestError } from "../provider-runtime.ts";
+import { defineApiKeyProviderExecutors, defineProviderProxy, ProviderRequestError } from "../provider-runtime.ts";
 
 const service = "teltel";
 const teltelApiBaseUrl = "https://api.teltel.io/v2";
@@ -50,7 +55,7 @@ interface TeltelSmsReportPayload {
   error_msg?: unknown;
 }
 
-export const teltelActionHandlers: Record<TeltelActionName, TeltelActionHandler> = {
+export const teltelActionHandlers: ProviderActionHandlers<"teltel", TeltelActionHandler> = {
   async get_account_balance(_input, context): Promise<unknown> {
     return getTeltelAccountBalance(context);
   },
@@ -288,3 +293,9 @@ function nullableInteger(value: unknown): number | null {
   const parsed = nullableNumber(value);
   return parsed === null ? null : Number.isInteger(parsed) ? parsed : null;
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.teltel.io/v2",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

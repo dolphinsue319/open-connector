@@ -4,18 +4,19 @@ import type {
   ProviderProxyExecutor,
   ProxyExecutionResult,
 } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { ShippoActionName } from "./actions.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
-  createProviderTimeout,
+  createProviderFetch,
   createProviderProxyUrl,
+  createProviderTimeout,
   defineApiKeyProviderExecutors,
   isAbortLikeError,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireApiKeyCredential,
@@ -27,6 +28,7 @@ const shippoApiBaseUrl = "https://api.goshippo.com";
 const shippoApiVersion = "2018-02-08";
 const shippoDefaultRequestTimeoutMs = 30_000;
 const shippoValidationEndpoint = "/addresses/";
+const shippoFetch = createProviderFetch({ skipDnsValidation: true });
 
 interface ShippoRequestInput {
   path: string;
@@ -40,7 +42,7 @@ interface ShippoRequestInput {
 
 type ShippoActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const shippoActionHandlers: Record<ShippoActionName, ShippoActionHandler> = {
+export const shippoActionHandlers: ProviderActionHandlers<"shippo", ShippoActionHandler> = {
   list_addresses(input, context) {
     return requestAndWrapShippoPaginatedJson({
       path: "/addresses/",
@@ -121,7 +123,9 @@ export const shippoActionHandlers: Record<ShippoActionName, ShippoActionHandler>
   },
 };
 
-export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, shippoActionHandlers);
+export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, shippoActionHandlers, {
+  skipDnsValidation: true,
+});
 
 export const proxy: ProviderProxyExecutor = async (input, context): Promise<ProxyExecutionResult> => {
   try {
@@ -147,7 +151,7 @@ export const proxy: ProviderProxyExecutor = async (input, context): Promise<Prox
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await shippoFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `provider request failed with HTTP ${response.status}`);

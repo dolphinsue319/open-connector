@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { TalenthrActionName } from "./actions.ts";
 
 import { optionalRecord, optionalString } from "../../core/cast.ts";
 import { queryParams } from "../../core/request.ts";
@@ -11,7 +11,7 @@ const validationEndpoint = "/directory";
 
 type TalenthrActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const talenthrActionHandlers: Record<TalenthrActionName, TalenthrActionHandler> = {
+export const talenthrActionHandlers: ProviderActionHandlers<"talenthr", TalenthrActionHandler> = {
   async change_employee_role(input, context): Promise<unknown> {
     const employeeId = readPositiveInteger(input.employeeId, "employeeId");
     const role = readEmployeeRole(input.role);

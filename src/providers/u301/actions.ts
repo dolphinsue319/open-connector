@@ -80,5 +80,3 @@ export const u301Actions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type U301ActionName = (typeof u301Actions)[number]["name"];

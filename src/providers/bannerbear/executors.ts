@@ -1,6 +1,6 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { BannerbearActionName } from "./actions.ts";
 
 import { createHash } from "node:crypto";
 import {
@@ -13,6 +13,7 @@ import {
 } from "../../core/cast.ts";
 import {
   defineProviderExecutors,
+  defineProviderProxy,
   ProviderRequestError,
   providerUserAgent,
   requireApiKeyCredential,
@@ -25,7 +26,7 @@ const bannerbearSyncApiBaseUrl = "https://sync.api.bannerbear.com";
 
 type BannerbearActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const bannerbearActionHandlers: Record<BannerbearActionName, BannerbearActionHandler> = {
+export const bannerbearActionHandlers: ProviderActionHandlers<"bannerbear", BannerbearActionHandler> = {
   get_auth(input, context) {
     return getBannerbearAuth(input, context);
   },
@@ -317,3 +318,9 @@ function invalidInputError(message: string): ProviderRequestError {
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.bannerbear.com",
+  auth: { type: "api_key_authorization", prefix: "Bearer " },
+});

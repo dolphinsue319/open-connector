@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -147,9 +147,7 @@ sendEmailInputSchema.allOf = [
   },
 ];
 
-export type SendgridActionName = "get_account_info" | "get_user_scopes" | "list_transactional_templates" | "send_email";
-
-export const sendgridActions: ProviderActionDefinition<SendgridActionName>[] = [
+export const sendgridActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account_info",
     description: "Get the current SendGrid account type and sender reputation.",

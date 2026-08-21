@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -61,9 +61,7 @@ const orttoMergePeopleOutputSchema = s.actionOutput(
   "The normalized Ortto merge people result.",
 );
 
-export type OrttoActionName = "list_people" | "get_people_by_ids" | "merge_people";
-
-export const orttoActions: ProviderActionDefinition<OrttoActionName>[] = [
+export const orttoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_people",
     description:

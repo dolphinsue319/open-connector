@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -53,14 +53,7 @@ const fieldValueSchema = s.looseRequiredObject("A SafetyCulture custom field val
   field_id: s.string("The custom field ID."),
 });
 
-export type SafetycultureActionName =
-  | "search_inspections"
-  | "get_inspection"
-  | "list_actions"
-  | "get_action"
-  | "create_action";
-
-export const safetycultureActions: ProviderActionDefinition<SafetycultureActionName>[] = [
+export const safetycultureActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "search_inspections",
     description:

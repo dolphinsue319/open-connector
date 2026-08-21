@@ -1,5 +1,5 @@
 import type { CredentialValidationResult, ResolvedCredential } from "../../core/types.ts";
-import type { IntercomActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
@@ -12,6 +12,7 @@ import { intercomGrantedPermissions } from "./scopes.ts";
 
 const intercomDefaultApiBaseUrl = "https://api.intercom.io";
 const intercomApiVersion = "2.13";
+const intercomJobsApiVersion = "2.15";
 const intercomRequestTimeoutMs = 30_000;
 
 const intercomRegionBaseUrlByCode: Record<string, string> = {
@@ -40,6 +41,7 @@ interface IntercomJsonRequestInput {
   method?: "GET" | "POST" | "PUT";
   query?: Record<string, string | number | boolean | undefined>;
   body?: unknown;
+  apiVersion?: string;
   providerMetadata?: Record<string, unknown>;
   phase: "validate" | "execute";
   notFoundAsInvalidInput?: boolean;
@@ -54,7 +56,7 @@ interface IntercomPaginationSummary {
   totalCount: number | null;
 }
 
-export const intercomActionHandlers: Record<IntercomActionName, IntercomActionHandler> = {
+export const intercomActionHandlers: ProviderActionHandlers<"intercom", IntercomActionHandler> = {
   async get_current_admin(_input, context) {
     const admin = await intercomRequestJson<Record<string, unknown>>({
       accessToken: context.accessToken,
@@ -207,6 +209,48 @@ export const intercomActionHandlers: Record<IntercomActionName, IntercomActionHa
     return { contact };
   },
 
+  async list_companies(input, context) {
+    const payload = await intercomRequestJson<Record<string, unknown>>({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: "/companies/list",
+      method: "POST",
+      providerMetadata: context.providerMetadata,
+      phase: "execute",
+      query: compactObject({
+        page: readOptionalInteger(input.page),
+        per_page: readOptionalInteger(input.perPage),
+        order: readOptionalString(input.order),
+        starting_after: readOptionalString(input.startingAfter),
+      }),
+    });
+
+    return {
+      companies: readPaginatedData(payload),
+      pagination: normalizeIntercomPagination(payload),
+    };
+  },
+
+  async get_company(input, context) {
+    validateGetCompanyInput(input);
+    const payload = await intercomRequestJson<Record<string, unknown>>({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: "/companies",
+      providerMetadata: context.providerMetadata,
+      phase: "execute",
+      notFoundAsInvalidInput: true,
+      query: compactObject({
+        company_id: readOptionalString(input.companyId),
+        name: readOptionalString(input.name),
+      }),
+    });
+
+    return { company: readRequiredFirstPaginatedObject(payload, "Intercom company") };
+  },
+
   async list_conversations(input, context) {
     const payload = await intercomRequestJson<Record<string, unknown>>({
       accessToken: context.accessToken,
@@ -309,6 +353,149 @@ export const intercomActionHandlers: Record<IntercomActionName, IntercomActionHa
 
     return { conversation };
   },
+
+  async list_events(input, context) {
+    validateListEventsInput(input);
+    const payload = await intercomRequestJson<Record<string, unknown>>({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: "/events",
+      providerMetadata: context.providerMetadata,
+      phase: "execute",
+      query: compactObject({
+        type: "user",
+        user_id: readOptionalString(input.userId),
+        email: readOptionalString(input.email),
+        intercom_user_id: readOptionalString(input.intercomUserId),
+        per_page: readOptionalInteger(input.perPage),
+        summary: readOptionalBoolean(input.summary),
+      }),
+    });
+
+    return {
+      events: readObjectArray(payload.events ?? payload.data),
+      eventSummary: payload,
+    };
+  },
+
+  async list_tags(_input, context) {
+    const payload = await intercomRequestJson<Record<string, unknown>>({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: "/tags",
+      providerMetadata: context.providerMetadata,
+      phase: "execute",
+    });
+
+    return { tags: readObjectArray(payload.data) };
+  },
+
+  async get_counts(input, context) {
+    const counts = await intercomRequestJson<Record<string, unknown>>({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: "/counts",
+      providerMetadata: context.providerMetadata,
+      phase: "execute",
+      query: compactObject({
+        type: readOptionalString(input.type),
+        count: readOptionalString(input.count),
+      }),
+    });
+
+    return { counts };
+  },
+
+  async get_ticket(input, context) {
+    const ticketId = readRequiredString(input.ticketId, "ticketId", "action input");
+    const ticket = await intercomRequestJson<Record<string, unknown>>({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: `/tickets/${encodeURIComponent(ticketId)}`,
+      providerMetadata: context.providerMetadata,
+      phase: "execute",
+      notFoundAsInvalidInput: true,
+    });
+
+    return { ticket };
+  },
+
+  async search_tickets(input, context) {
+    const searchQuery = readRequiredObject(input.query, "query");
+    const payload = await intercomRequestJson<Record<string, unknown>>({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: "/tickets/search",
+      method: "POST",
+      providerMetadata: context.providerMetadata,
+      phase: "execute",
+      body: compactObject({
+        query: searchQuery,
+        pagination: buildIntercomPaginationRequest(input),
+      }),
+    });
+
+    return {
+      tickets: readObjectArray(payload.tickets ?? payload.data),
+      pagination: normalizeIntercomPagination(payload),
+    };
+  },
+
+  async get_job_status(input, context) {
+    const jobId = readRequiredString(input.jobId, "jobId", "action input");
+    const job = await intercomRequestJson<Record<string, unknown>>({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: `/jobs/status/${encodeURIComponent(jobId)}`,
+      apiVersion: intercomJobsApiVersion,
+      providerMetadata: context.providerMetadata,
+      phase: "execute",
+      notFoundAsInvalidInput: true,
+    });
+
+    return { job };
+  },
+
+  async list_articles(input, context) {
+    const payload = await intercomRequestJson<Record<string, unknown>>({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: "/articles",
+      providerMetadata: context.providerMetadata,
+      phase: "execute",
+      query: compactObject({
+        per_page: readOptionalInteger(input.perPage),
+        starting_after: readOptionalString(input.startingAfter),
+      }),
+    });
+
+    return {
+      articles: readPaginatedData(payload),
+      pagination: normalizeIntercomPagination(payload),
+    };
+  },
+
+  async get_article(input, context) {
+    const articleId = readRequiredPathToken(input.articleId, "articleId");
+    const article = await intercomRequestJson<Record<string, unknown>>({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      signal: context.signal,
+      path: `/articles/${encodeURIComponent(articleId)}`,
+      providerMetadata: context.providerMetadata,
+      phase: "execute",
+      notFoundAsInvalidInput: true,
+    });
+
+    return { article };
+  },
 };
 
 export async function validateIntercomOAuthCredential(
@@ -374,7 +561,7 @@ async function intercomRequestJson<T>(input: IntercomJsonRequestInput): Promise<
     const headers = new Headers({
       accept: "application/json",
       authorization: `Bearer ${input.accessToken}`,
-      "Intercom-Version": intercomApiVersion,
+      "Intercom-Version": input.apiVersion ?? intercomApiVersion,
       "user-agent": providerUserAgent,
     });
     if (input.body !== undefined) {
@@ -548,8 +735,34 @@ function validateUpdateContactInput(input: Record<string, unknown>): void {
   }
 }
 
+function validateGetCompanyInput(input: Record<string, unknown>): void {
+  const provided = [readOptionalString(input.companyId), readOptionalString(input.name)].filter((value) => value);
+  if (provided.length !== 1) {
+    throw new ProviderRequestError(400, "get_company requires exactly one of companyId or name");
+  }
+}
+
+function validateListEventsInput(input: Record<string, unknown>): void {
+  const provided = [
+    readOptionalString(input.userId),
+    readOptionalString(input.email),
+    readOptionalString(input.intercomUserId),
+  ].filter((value) => value);
+  if (provided.length !== 1) {
+    throw new ProviderRequestError(400, "list_events requires exactly one of userId, email, or intercomUserId");
+  }
+}
+
 function readPaginatedData(payload: Record<string, unknown>): Array<Record<string, unknown>> {
   return readObjectArray(payload.data);
+}
+
+function readRequiredFirstPaginatedObject(payload: Record<string, unknown>, label: string): Record<string, unknown> {
+  const first = readPaginatedData(payload)[0];
+  if (!first) {
+    throw new ProviderRequestError(400, `${label} was not found`);
+  }
+  return first;
 }
 
 function normalizeIntercomPagination(payload: Record<string, unknown>): IntercomPaginationSummary {

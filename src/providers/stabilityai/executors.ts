@@ -1,9 +1,10 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { StabilityAiActionName } from "./actions.ts";
 
 import { Buffer } from "node:buffer";
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
+import { readBoundedResponseBytes } from "../../core/request.ts";
 import {
   createProviderTimeout,
   defineApiKeyProviderExecutors,
@@ -32,7 +33,7 @@ interface StabilityAiRequestInput {
   accept?: string;
 }
 
-export const stabilityaiActionHandlers: Record<StabilityAiActionName, StabilityAiActionHandler> = {
+export const stabilityaiActionHandlers: ProviderActionHandlers<"stabilityai", StabilityAiActionHandler> = {
   text_to_audio(input, context) {
     return stabilityAiTextToAudio(input, context);
   },
@@ -90,7 +91,13 @@ async function stabilityAiTextToAudio(input: Record<string, unknown>, context: A
     accept: "audio/*",
   });
 
-  const bytes = Buffer.from(await response.arrayBuffer());
+  const bytes = Buffer.from(
+    await readBoundedResponseBytes(response, {
+      maxBytes: context.transitFiles.maxBytes,
+      fieldName: "Stability AI audio output",
+      createError: (message) => new ProviderRequestError(413, message),
+    }),
+  );
   const contentType = response.headers.get("content-type") ?? inferContentType(outputFormat);
   const extension = inferStabilityAiAudioExtension(contentType, outputFormat);
   const name = `stabilityai-text-to-audio.${extension}`;

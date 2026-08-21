@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -109,15 +108,7 @@ const projectIdSchema = s.nonEmptyString("The project ID.");
 const projectInputSchema = (description: string): JsonSchema =>
   s.actionInput({ ...paginationProperties, projectId: projectIdSchema }, ["projectId"], description);
 
-export type ZeplinActionName =
-  | "get_current_user"
-  | "list_personal_projects"
-  | "get_project"
-  | "list_project_colors"
-  | "list_project_text_styles"
-  | "list_screen_versions";
-
-export const zeplinActions: ProviderActionDefinition<ZeplinActionName>[] = [
+export const zeplinActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the current authenticated Zeplin user profile.",

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -168,7 +168,7 @@ const groupFileInputSchema = s.object("Input parameters for changing Pinata grou
   fileId: idSchema,
 });
 
-export const pinataActions: readonly ProviderActionDefinition<PinataActionName>[] = [
+export const pinataActions: readonly ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_files",
     description: "List Pinata files from the public or private IPFS network with optional filters.",
@@ -279,17 +279,3 @@ export const pinataActions: readonly ProviderActionDefinition<PinataActionName>[
     outputSchema: emptyOutputSchema,
   }),
 ];
-
-export type PinataActionName =
-  | "list_files"
-  | "get_file"
-  | "update_file"
-  | "delete_file"
-  | "pin_by_cid"
-  | "query_pin_requests"
-  | "list_groups"
-  | "get_group"
-  | "create_group"
-  | "update_group"
-  | "add_file_to_group"
-  | "remove_file_from_group";

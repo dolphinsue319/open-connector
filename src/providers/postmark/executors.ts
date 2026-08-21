@@ -1,8 +1,14 @@
-import type { CredentialValidationResult, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidationResult, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "postmark";
 const postmarkApiBaseUrl = "https://api.postmarkapp.com";
@@ -12,7 +18,7 @@ const providerSide422Codes = new Set([405, 412, 413]);
 
 type PostmarkActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const postmarkActionHandlers: Record<string, PostmarkActionHandler> = {
+export const postmarkActionHandlers: ProviderActionHandlers<"postmark", PostmarkActionHandler> = {
   get_server: (_input: Record<string, unknown>, context: ApiKeyProviderContext) =>
     requestPostmarkJson({ path: validationPath, context, mode: "execute" }),
   send_email: (input: Record<string, unknown>, context: ApiKeyProviderContext) =>
@@ -263,3 +269,9 @@ function stringifyPathValue(value: unknown, fieldName: string): string {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) return String(value);
   return requiredInputString(value, fieldName);
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.postmarkapp.com",
+  auth: { type: "api_key_header", name: "x-postmark-server-token" },
+});

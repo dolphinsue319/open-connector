@@ -172,5 +172,3 @@ export const tomtomActions: ActionDefinition[] = [
     outputSchema: reverseGeocodeOutputSchema,
   }),
 ];
-
-export type TomtomActionName = (typeof tomtomActions)[number]["name"];

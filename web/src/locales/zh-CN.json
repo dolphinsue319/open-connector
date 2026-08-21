@@ -32,6 +32,7 @@
     "label": "语言",
     "en": "English",
     "zh-CN": "简体中文",
+    "zh-TW": "繁體中文",
     "ja": "日本語",
     "ru": "Русский",
     "fr": "Français"
@@ -39,6 +40,7 @@
   "nav": {
     "overview": "概览",
     "providers": "提供商",
+    "oauthApps": "OAuth Apps",
     "actions": "操作",
     "runs": "运行记录",
     "access": "API Key",
@@ -65,6 +67,10 @@
       "providers": {
         "title": "提供商",
         "subtitle": "连接提供商并查看能力配置。"
+      },
+      "oauthApps": {
+        "title": "OAuth Apps",
+        "subtitle": "管理各提供商默认使用的 OAuth App。"
       },
       "actions": {
         "title": "操作",
@@ -120,6 +126,7 @@
   },
   "providers": {
     "catalogTitle": "提供商",
+    "brandNotice": "第三方名称、标志及商标归其各自权利人所有，此处仅用于识别对应的提供商。本项目不主张拥有相关权利。再分发本项目或将其用于商业用途的用户，应自行查阅适用的品牌规范，并按其具体用途取得所需许可。",
     "searchPlaceholder": "搜索提供商",
     "statusFilterLabel": "提供商状态",
     "filters": {
@@ -147,6 +154,9 @@
     "noSetupBadge": "无需设置",
     "unconfiguredBadge": "未连接",
     "oauthClientRequiredBadge": "需要 OAuth client",
+    "runtimeUnavailableBadge": "不可用",
+    "runtimeUnavailableTitle": "当前运行时不可用",
+    "runtimeUnavailableDescription": "{{name}} 仍保留在目录中供查阅，但当前运行时无法配置连接或执行操作。",
     "summary": {
       "actions": "操作",
       "auth": "鉴权",
@@ -156,16 +166,34 @@
       "notUsed": "未使用"
     },
     "connection": "连接",
+    "connectionCount": "{{count}} 个连接",
+    "savedConnections": "已保存的连接",
+    "defaultConnection": "默认",
+    "connectionName": "连接名称",
+    "connectionNamePlaceholder": "例如 work",
+    "connectionNameDescription": "运行操作时使用这个名称选择账号。",
+    "connectionNameErrors": {
+      "required": "请输入连接名称。",
+      "invalid": "请以字母或数字开头，并仅使用最多 64 个字母、数字、下划线或连字符。",
+      "duplicate": "这个名称已被使用，请选择已有连接进行更新。"
+    },
     "connectionMethod": "连接方式",
+    "oauthAppMode": "OAuth App",
+    "oauthAppModes": {
+      "configured": "默认 App",
+      "manual": "自定义 App"
+    },
     "connectionDescriptions": {
       "noSetup": "这个提供商无需本地凭证即可运行。",
+      "adding": "配置一个新的命名连接。",
       "connected": "本地凭证已通过 {{authType}} 配置。",
+      "saved": "{{count}} 个已保存的连接。选择一个进行管理，或添加新连接。",
       "oauthClientRequired": "{{name}} 需要先配置本地 OAuth client 才能开始 OAuth。",
-      "notConnected": "运行需要凭证的 {{name}} 操作前，请先配置本地凭证。"
+      "notConnected": "运行需要凭证的 {{name}} 操作前，请先配置本地凭证。",
+      "unavailable": "当前运行时无法配置连接。"
     },
     "noConnectionMethodTitle": "没有连接方式",
     "noConnectionMethodDescription": "这个提供商不需要本地凭证。",
-    "oauthClient": "OAuth Client",
     "scopes": "Scopes",
     "scopesDescription": "这个提供商的本地操作需要的 scopes。",
     "actions": "操作",
@@ -181,6 +209,7 @@
     "connectionMessages": {
       "noAuth": "这个提供商无需本地凭证即可运行。",
       "needsOAuthClient": "{{name}} 需要先配置本地 OAuth client 才能连接。",
+      "manualOAuthClient": "使用自定义 OAuth App 连接 {{name}}。",
       "connectedOAuth": "{{name}} 已通过 OAuth 连接。",
       "connectOAuth": "通过 OAuth 授权流程连接 {{name}}。",
       "saving": "正在保存连接...",
@@ -194,23 +223,25 @@
       "disconnectFailed": "断开连接失败。"
     },
     "buttons": {
-      "configureOAuthClient": "配置 OAuth Client",
-      "editOAuthClient": "编辑 OAuth Client",
+      "configureOAuthClient": "配置默认 App",
+      "editOAuthClient": "编辑默认 App",
       "saveConnection": "保存连接",
+      "addConnection": "添加连接",
+      "cancel": "取消",
+      "clearSelection": "取消选择",
+      "selected": "已选择",
       "connect": "连接",
       "details": "详情",
       "manageConnection": "管理",
       "connectProvider": "连接 {{name}}",
       "reconnectProvider": "重新连接 {{name}}",
       "disconnect": "断开连接",
-      "saveOAuthClient": "保存 OAuth Client",
-      "updateOAuthClient": "更新 OAuth Client",
-      "resetOAuthClient": "重置 OAuth Client"
+      "saveOAuthClient": "保存默认 App",
+      "updateOAuthClient": "更新默认 App",
+      "resetOAuthClient": "重置默认 App"
     },
     "oauthClientSettings": {
-      "configuredTitle": "OAuth client 已配置",
-      "requiredTitle": "需要 OAuth client",
-      "missingDescription": "{{name}} 需要先配置本地 OAuth client 才能连接。",
+      "callbackUrl": "Callback URL",
       "clientId": "Client ID",
       "clientSecret": "Client Secret",
       "storedSecretHint": "已保存的 secret 不会显示；保存变更时需要重新输入。",
@@ -224,9 +255,33 @@
     "execution": {
       "executable": "可执行",
       "catalogOnly": "仅目录"
+    },
+    "categoryFilterLabel": "分类",
+    "categories": {
+      "all": "所有分类"
+    }
+  },
+  "oauthApps": {
+    "title": "默认 OAuth Apps",
+    "description": "管理各提供商默认使用的 OAuth App。",
+    "searchPlaceholder": "搜索提供商",
+    "configured": "已配置",
+    "notConfigured": "未配置",
+    "configure": "配置",
+    "edit": "编辑",
+    "emptyTitle": "暂无 OAuth 提供商",
+    "emptyDescription": "当前目录中没有支持 OAuth 的提供商。",
+    "noResultsTitle": "未找到提供商",
+    "noResultsDescription": "请尝试其他搜索词。",
+    "dialog": {
+      "configureTitle": "配置 {{name}} OAuth App",
+      "editTitle": "编辑 {{name}} OAuth App"
     }
   },
   "actions": {
+    "connection": "连接",
+    "selectConnection": "选择连接",
+    "connectionRequired": "请选择用于运行此操作的连接。",
     "searchPlaceholder": "按名称、ID 或提供商搜索操作",
     "provider": "提供商",
     "allProviders": "全部提供商",
@@ -255,28 +310,189 @@
     "run": "运行",
     "running": "运行中",
     "runningAction": "正在运行操作...",
-    "actionFailed": "操作失败。"
+    "actionFailed": "操作失败。",
+    "loadingDetails": "正在加载动作详情..."
   },
   "runs": {
     "noRunsTitle": "暂无运行记录",
     "noRunsDescription": "运行一个操作后会显示最近执行历史。",
+    "action": "操作",
+    "actionPlaceholder": "按操作 ID 筛选",
+    "applyActionFilter": "应用操作筛选",
     "service": "服务",
     "allServices": "全部服务",
+    "caller": "调用方",
+    "allCallers": "全部调用方",
+    "status": "状态",
+    "allStatuses": "全部状态",
+    "copyExecutionId": "复制 execution ID",
+    "expandResult": "展开结果",
+    "collapseResult": "收起结果",
     "loadMore": "加载更多",
     "loadMoreFailed": "加载更多运行记录失败。",
+    "policyAllowed": "策略允许",
+    "policyBlocked": "策略拒绝",
+    "runtimeToken": "运行时 token",
     "table": {
       "action": "操作",
-      "caller": "调用方",
+      "context": "上下文",
       "status": "状态",
-      "started": "开始时间",
-      "duration": "耗时",
+      "timing": "时间",
       "input": "输入",
-      "error": "错误"
+      "result": "结果"
     }
   },
   "access": {
     "title": "运行时 Token",
-    "description": "为 /v1 和 MCP 客户端签发 bearer token。新 token 只会显示一次。",
+    "description": "用于 /v1 和 MCP 客户端认证。",
+    "policy": {
+      "title": "访问策略",
+      "description": "限制操作和提供商代理请求。",
+      "rulesHint": "Block 规则优先；非空 allowlist 会在部署、运行时和 token 层之间取交集。每行填写一条规则。",
+      "deployment": "部署策略（只读）",
+      "runtime": "运行时策略",
+      "allowedActions": "允许的操作",
+      "blockedActions": "禁止的操作",
+      "allowedProxies": "允许的代理",
+      "blockedProxies": "禁止的代理",
+      "save": "保存策略",
+      "saving": "正在保存策略...",
+      "saved": "策略已保存。",
+      "saveFailed": "保存策略失败。",
+      "unrestricted": "没有 token 专属限制",
+      "edit": "编辑策略",
+      "editToken": "编辑 Token 策略",
+      "baseline": {
+        "title": "当前运行时基线",
+        "healthy": "当前策略保留了可用能力",
+        "actionsBlocked": "当前目录中的操作已全部被阻止",
+        "proxiesBlocked": "当前提供商已全部被代理策略阻止",
+        "allBlocked": "当前目录中的操作和提供商代理请求已全部被阻止",
+        "actions": "目录操作",
+        "proxies": "当前提供商",
+        "layers": "已配置规则",
+        "allowedCount": "允许 {{allowed}} / {{total}}",
+        "catalogHint": "按当前操作目录计算",
+        "providersHint": "代理策略允许的提供商",
+        "layerCount": "部署 {{deployment}} · 运行时 {{runtime}}",
+        "blockPriority": "Block 规则优先"
+      },
+      "tester": {
+        "title": "权限测试器",
+        "description": "使用执行时相同的分层策略检查操作或提供商。",
+        "resourceLabel": "权限类型",
+        "action": "操作",
+        "proxy": "提供商代理请求",
+        "tokenLabel": "运行时 Token",
+        "noToken": "不使用 Token 层",
+        "inputLabel": "操作或提供商 ID",
+        "actionPlaceholder": "github.create_issue",
+        "proxyPlaceholder": "github",
+        "test": "测试",
+        "allowed": "允许",
+        "blocked": "阻止",
+        "trace": "判定链路"
+      },
+      "sources": {
+        "deployment": "部署约束",
+        "runtime": "运行时策略",
+        "token": "Token 策略"
+      },
+      "outcomes": {
+        "unrestricted": "不额外限制",
+        "allow_match": "匹配允许规则",
+        "allow_miss": "未包含在允许规则中",
+        "block_match": "匹配阻止规则"
+      },
+      "deploymentSummary": {
+        "title": "部署约束",
+        "none": "无规则"
+      },
+      "runtimeSummary": {
+        "title": "运行时策略",
+        "updated": "最后更新于 {{date}}",
+        "edit": "编辑策略"
+      },
+      "summary": {
+        "unrestricted": "不额外限制",
+        "restricted": "允许规则 {{count}} 条",
+        "withBlocked": "{{allow}} · 始终阻止 {{count}} 条"
+      },
+      "layerSummary": "操作：{{action}} · 代理：{{proxy}}",
+      "tokenSummary": "操作允许规则 {{allowed}} 条 · 操作阻止规则 {{blocked}} 条 · Proxy 授权 {{proxies}} 条 · 仍受运行时基线限制",
+      "connectionsUnrestricted": "全部连接",
+      "connectionsRestricted": "连接：{{names}}",
+      "editor": {
+        "title": "编辑运行时策略",
+        "description": "保存前会结合部署约束预览修改影响。",
+        "resourceLabel": "策略资源",
+        "actionsTab": "操作权限",
+        "proxiesTab": "提供商代理请求",
+        "unsaved": "有未保存的修改",
+        "noChanges": "没有未保存的修改",
+        "allowMode": "允许范围",
+        "unrestricted": "不额外限制",
+        "restricted": "仅允许以下规则",
+        "actionUnrestrictedHint": "继承部署约束中的操作范围。",
+        "proxyUnrestrictedHint": "继承部署约束中的提供商范围。",
+        "actionRestrictedHint": "每个操作都必须匹配至少一条运行时允许规则。",
+        "proxyRestrictedHint": "每个提供商代理请求都必须匹配至少一条运行时允许规则。",
+        "allowedList": "允许规则",
+        "blockedList": "始终阻止",
+        "actionAllowedHint": "可填写精确操作 ID、provider.* 或 *。",
+        "actionBlockedHint": "即使其他规则允许，Block 仍然优先。",
+        "proxyAllowedHint": "可填写提供商 ID 或 *。",
+        "proxyBlockedHint": "被阻止的提供商不能接收代理请求。",
+        "ruleCount": "{{count}} 条规则",
+        "actionAllowedInput": "搜索或输入允许的操作规则",
+        "actionBlockedInput": "搜索或输入阻止的操作规则",
+        "proxyAllowedInput": "搜索或输入允许的提供商",
+        "proxyBlockedInput": "搜索或输入阻止的提供商",
+        "advanced": "高级文本编辑",
+        "advancedHint": "每行填写一条原始规则。允许规则为空表示本层不额外限制。",
+        "allowedRaw": "原始允许规则",
+        "blockedRaw": "原始阻止规则",
+        "ruleRequired": "请先输入规则。",
+        "ruleTooLong": "规则不能超过 256 个 UTF-8 字节。",
+        "ruleInvalid": "请使用 *、provider.*、精确的 provider.action，代理规则则使用精确的提供商 ID。",
+        "ruleDuplicate": "这条规则已经在列表中。",
+        "tooManyRules": "每个规则列表最多包含 128 条规则。",
+        "addRule": "添加规则",
+        "unknownRule": "当前目录中未找到",
+        "allow": "允许",
+        "block": "阻止",
+        "removeRule": "移除 {{rule}}",
+        "noRules": "这个列表中暂无规则。",
+        "actionAllowRequired": "请至少添加一条操作允许规则，或选择不额外限制。",
+        "proxyAllowRequired": "请至少添加一条提供商允许规则，或选择不额外限制。",
+        "connectionsTitle": "连接访问",
+        "connectionsUnrestrictedHint": "此 Token 可以使用任何已存储的连接；请求未指定名称时使用 default。",
+        "connectionsRestrictedHint": "此 Token 只能使用下方选中的 Provider 连接。",
+        "connectionsList": "允许的连接",
+        "connectionsRequired": "请至少选择一个连接，或选择不额外限制。",
+        "tooManyConnections": "连接列表最多包含 128 个连接。",
+        "connectionCount": "{{count}} 个连接",
+        "noConnections": "这个列表中暂无连接。",
+        "connectionsDefaultHint": "选择某个 Provider 的 default 连接后，Token 才能执行该 Provider 未指定连接名称的 HTTP、MCP 或代理请求。",
+        "discard": "放弃修改",
+        "preview": "预览影响"
+      },
+      "impact": {
+        "title": "草稿影响",
+        "description": "这里使用尚未保存的运行时规则计算。",
+        "actionsBlocked": "这份草稿会阻止当前目录中的全部操作。",
+        "proxiesBlocked": "这份草稿会阻止所有当前提供商接收代理请求。",
+        "allBlocked": "这份草稿会阻止当前目录中的全部操作和所有当前提供商代理请求。"
+      },
+      "confirm": {
+        "title": "保存会阻止全部能力的策略？",
+        "actions": "该策略会阻止当前目录中的全部操作。在策略再次修改前，运行时客户端无法执行操作。",
+        "proxies": "该策略会阻止所有当前提供商接收代理请求，直到策略再次修改。",
+        "all": "该策略会阻止当前目录中的全部操作和所有当前提供商代理请求，直到策略再次修改。",
+        "save": "保存阻止策略",
+        "keepEditing": "继续编辑"
+      }
+    },
     "name": "名称",
     "namePlaceholder": "本地 MCP 客户端",
     "createToken": "创建 Token",
@@ -294,11 +510,12 @@
     "copiedToken": "已复制",
     "copyRuntimeToken": "复制运行时 token",
     "copiedRuntimeToken": "已复制运行时 token",
-    "noTokensTitle": "暂无运行时 token",
-    "noTokensDescription": "连接 MCP 客户端或本地脚本前先创建一个 token。token 只会显示一次。",
+    "noTokensTitle": "暂无 Token",
+    "noTokensDescription": "创建 Token 后即可访问 /v1 或 MCP。",
     "table": {
       "name": "名称",
       "status": "状态",
+      "policy": "策略",
       "created": "创建时间",
       "lastUsed": "上次使用"
     },

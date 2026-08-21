@@ -316,5 +316,3 @@ export const zorusActions: ProviderActionDefinition[] = [
     outputSchema: searchOutputSchema("Active Zorus unblock-request search results.", unblockRequestSchema),
   }),
 ];
-
-export type ZorusActionName = (typeof zorusActions)[number]["name"];

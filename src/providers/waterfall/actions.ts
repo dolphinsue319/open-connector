@@ -215,8 +215,6 @@ export const waterfallActions: ProviderActionDefinition[] = [
   }),
 ];
 
-export type WaterfallActionName = (typeof waterfallActions)[number]["name"];
-
 function requireAtLeastOneFieldSet(
   schema: JsonSchema,
   fieldSets: readonly (readonly string[])[],

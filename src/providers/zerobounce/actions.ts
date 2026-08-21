@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -154,15 +153,7 @@ const filterEntrySchema = s.object("One ZeroBounce custom filter rule entry.", {
   value: s.string("The filter value returned by ZeroBounce."),
 });
 
-export type ZerobounceActionName =
-  | "get_credit_balance"
-  | "get_api_usage"
-  | "validate_email"
-  | "get_activity_data"
-  | "create_filter_rule"
-  | "list_filter_rules";
-
-export const zerobounceActions: ProviderActionDefinition<ZerobounceActionName>[] = [
+export const zerobounceActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_credit_balance",
     description: "Get the current ZeroBounce credit balance.",

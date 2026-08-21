@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -729,6 +728,4 @@ const specs: MailtrapActionSpec[] = [
   },
 ];
 
-export const mailtrapActions: ProviderActionDefinition<MailtrapActionName>[] = specs.map((action) =>
-  defineProviderAction(service, action),
-);
+export const mailtrapActions: ActionDefinition[] = specs.map((action) => defineProviderAction(service, action));

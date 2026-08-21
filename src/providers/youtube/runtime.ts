@@ -1,10 +1,10 @@
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { OAuthProviderContext, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { YoutubeActionName } from "./actions.ts";
 
 import { randomUUID } from "node:crypto";
 import { compactObject, optionalBoolean, optionalInteger, optionalString } from "../../core/cast.ts";
 import { assertPublicHttpUrl, readBoundedResponseBytes } from "../../core/request.ts";
-import { googleJsonRequest, googleRequest } from "../googledrive/runtime-shared.ts";
+import { googleJsonRequest, googleRequest } from "../google-runtime.ts";
 import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
 
 const youtubeApiBaseUrl = "https://www.googleapis.com/youtube/v3";
@@ -48,7 +48,7 @@ interface StreamingUploadSource {
   contentLength: number;
 }
 
-export const youtubeActionHandlers: Record<YoutubeActionName, YoutubeActionHandler> = {
+export const youtubeActionHandlers: ProviderActionHandlers<"youtube", YoutubeActionHandler> = {
   search(input, context) {
     return searchYoutube(input, context);
   },
@@ -466,9 +466,12 @@ async function downloadCaption(input: Record<string, unknown>, context: YoutubeA
   const mimeType = optionalString(input.mimeType) ?? inferMimeType(response.headers.get("content-type"));
   const fileName =
     optionalString(input.fileName) ?? resolveCaptionFileName(captionId, optionalString(input.tfmt), mimeType);
-  const upload = await context.transitFiles.create(
-    new File([await response.arrayBuffer()], fileName, { type: mimeType }),
-  );
+  const bytes = await readBoundedResponseBytes(response, {
+    maxBytes: context.transitFiles.maxBytes,
+    fieldName: "YouTube caption download",
+    createError: (message) => new ProviderRequestError(413, message),
+  });
+  const upload = await context.transitFiles.create(new File([Uint8Array.from(bytes)], fileName, { type: mimeType }));
   return {
     file: {
       id: captionId,

@@ -292,5 +292,3 @@ export const leadfeederActions: ProviderActionDefinition[] = [
     outputSchema: objectOutputSchema,
   }),
 ];
-
-export type LeadfeederActionName = (typeof leadfeederActions)[number]["name"];

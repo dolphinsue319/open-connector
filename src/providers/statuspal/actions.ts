@@ -153,5 +153,3 @@ export const statuspalActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type StatuspalActionName = (typeof statuspalActions)[number]["name"];

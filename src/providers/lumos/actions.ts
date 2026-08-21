@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -71,9 +71,7 @@ const pagedAccessRequestsOutputSchema = s.object("A normalized page of Lumos acc
   raw: s.looseObject("The raw Lumos response payload."),
 });
 
-export type LumosActionName = "list_appstore_apps" | "get_appstore_app" | "list_access_requests" | "get_access_request";
-
-export const lumosActions: ProviderActionDefinition<LumosActionName>[] = [
+export const lumosActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_appstore_apps",
     description: "List AppStore apps in Lumos with optional search and visibility filters.",

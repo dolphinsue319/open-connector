@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -31,7 +31,7 @@ export type SystemeIoActionName =
   | "list_subscriptions"
   | "cancel_subscription";
 
-function action(name: SystemeIoActionName, description: string): ProviderActionDefinition<SystemeIoActionName> {
+function action(name: SystemeIoActionName, description: string): ActionDefinition {
   return defineProviderAction(service, {
     name,
     description,
@@ -40,7 +40,7 @@ function action(name: SystemeIoActionName, description: string): ProviderActionD
   });
 }
 
-export const systemeIoActions: ProviderActionDefinition<SystemeIoActionName>[] = [
+export const systemeIoActions: ActionDefinition[] = [
   action("list_contacts", "List Systeme.io contacts."),
   action("get_contact", "Get a Systeme.io contact."),
   action("create_contact", "Create a Systeme.io contact."),

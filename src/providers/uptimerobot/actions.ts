@@ -213,5 +213,3 @@ export const uptimerobotActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type UptimerobotActionName = (typeof uptimerobotActions)[number]["name"];

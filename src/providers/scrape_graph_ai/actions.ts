@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -168,9 +167,7 @@ const creditsOutputSchema = s.looseObject("The output payload for ScrapeGraphAI 
   jobs: s.looseObject("Current crawl and monitor job quotas."),
 });
 
-export type ScrapeGraphAiActionName = "scrape" | "extract" | "search" | "list_history" | "get_history" | "get_credits";
-
-export const scrapeGraphAiActions: ProviderActionDefinition<ScrapeGraphAiActionName>[] = [
+export const scrapeGraphAiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "scrape",
     description: "Fetch a public URL with ScrapeGraphAI and return one or more content formats.",

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -46,74 +46,71 @@ const clusterSchema = s.object("A normalized MongoDB Atlas cluster.", {
   raw: s.looseObject("The raw MongoDB Atlas cluster object."),
 });
 
-export const mongoDbAtlasAdministrationActions: Array<ProviderActionDefinition<MongoDbAtlasAdministrationActionName>> =
-  [
-    defineProviderAction(service, {
-      name: "list_projects",
-      description: "List MongoDB Atlas projects visible to the connected API key.",
-      inputSchema: s.actionInput(paginationInputSchema, [], "Input parameters for listing MongoDB Atlas projects."),
-      outputSchema: s.actionOutput(
-        {
-          projects: s.array("The MongoDB Atlas projects returned for this page.", projectSchema),
-          meta: atlasListMetaSchema,
-        },
-        "The MongoDB Atlas project list response.",
-      ),
-    }),
-    defineProviderAction(service, {
-      name: "get_project",
-      description: "Return one MongoDB Atlas project by project ID.",
-      inputSchema: s.actionInput(
-        {
-          groupId: groupIdSchema,
-        },
-        ["groupId"],
-        "Input parameters for reading one MongoDB Atlas project.",
-      ),
-      outputSchema: s.actionOutput(
-        {
-          project: projectSchema,
-        },
-        "The MongoDB Atlas project response.",
-      ),
-    }),
-    defineProviderAction(service, {
-      name: "list_clusters",
-      description: "List MongoDB Atlas clusters in one project.",
-      inputSchema: s.actionInput(
-        {
-          groupId: groupIdSchema,
-          ...paginationInputSchema,
-        },
-        ["groupId"],
-        "Input parameters for listing MongoDB Atlas clusters in one project.",
-      ),
-      outputSchema: s.actionOutput(
-        {
-          clusters: s.array("The MongoDB Atlas clusters returned for this page.", clusterSchema),
-          meta: atlasListMetaSchema,
-        },
-        "The MongoDB Atlas cluster list response.",
-      ),
-    }),
-    defineProviderAction(service, {
-      name: "get_cluster",
-      description: "Return one MongoDB Atlas cluster by project ID and cluster name.",
-      inputSchema: s.actionInput(
-        {
-          groupId: groupIdSchema,
-          name: clusterNameSchema,
-        },
-        ["groupId", "name"],
-        "Input parameters for reading one MongoDB Atlas cluster.",
-      ),
-      outputSchema: s.actionOutput(
-        {
-          cluster: clusterSchema,
-        },
-        "The MongoDB Atlas cluster response.",
-      ),
-    }),
-  ] satisfies Array<ProviderActionDefinition<MongoDbAtlasAdministrationActionName>>;
-
-export type MongoDbAtlasAdministrationActionName = "list_projects" | "get_project" | "list_clusters" | "get_cluster";
+export const mongoDbAtlasAdministrationActions: ActionDefinition[] = [
+  defineProviderAction(service, {
+    name: "list_projects",
+    description: "List MongoDB Atlas projects visible to the connected API key.",
+    inputSchema: s.actionInput(paginationInputSchema, [], "Input parameters for listing MongoDB Atlas projects."),
+    outputSchema: s.actionOutput(
+      {
+        projects: s.array("The MongoDB Atlas projects returned for this page.", projectSchema),
+        meta: atlasListMetaSchema,
+      },
+      "The MongoDB Atlas project list response.",
+    ),
+  }),
+  defineProviderAction(service, {
+    name: "get_project",
+    description: "Return one MongoDB Atlas project by project ID.",
+    inputSchema: s.actionInput(
+      {
+        groupId: groupIdSchema,
+      },
+      ["groupId"],
+      "Input parameters for reading one MongoDB Atlas project.",
+    ),
+    outputSchema: s.actionOutput(
+      {
+        project: projectSchema,
+      },
+      "The MongoDB Atlas project response.",
+    ),
+  }),
+  defineProviderAction(service, {
+    name: "list_clusters",
+    description: "List MongoDB Atlas clusters in one project.",
+    inputSchema: s.actionInput(
+      {
+        groupId: groupIdSchema,
+        ...paginationInputSchema,
+      },
+      ["groupId"],
+      "Input parameters for listing MongoDB Atlas clusters in one project.",
+    ),
+    outputSchema: s.actionOutput(
+      {
+        clusters: s.array("The MongoDB Atlas clusters returned for this page.", clusterSchema),
+        meta: atlasListMetaSchema,
+      },
+      "The MongoDB Atlas cluster list response.",
+    ),
+  }),
+  defineProviderAction(service, {
+    name: "get_cluster",
+    description: "Return one MongoDB Atlas cluster by project ID and cluster name.",
+    inputSchema: s.actionInput(
+      {
+        groupId: groupIdSchema,
+        name: clusterNameSchema,
+      },
+      ["groupId", "name"],
+      "Input parameters for reading one MongoDB Atlas cluster.",
+    ),
+    outputSchema: s.actionOutput(
+      {
+        cluster: clusterSchema,
+      },
+      "The MongoDB Atlas cluster response.",
+    ),
+  }),
+];

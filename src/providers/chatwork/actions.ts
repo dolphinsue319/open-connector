@@ -156,6 +156,4 @@ export const chatworkActions: ActionDefinition[] = [
     ),
     outputSchema: s.object({ taskId }),
   }),
-] satisfies ActionDefinition[];
-
-export type ChatworkActionName = (typeof chatworkActions)[number]["name"];
+];

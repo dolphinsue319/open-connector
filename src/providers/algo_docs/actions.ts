@@ -151,5 +151,3 @@ export const algoDocsActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AlgoDocsActionName = (typeof algoDocsActions)[number]["name"];

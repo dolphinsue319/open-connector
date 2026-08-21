@@ -191,5 +191,3 @@ export const addresszenActions: ActionDefinition[] = [
     outputSchema: retrieveAddressUsaOutputSchema,
   }),
 ];
-
-export type AddresszenActionName = (typeof addresszenActions)[number]["name"];

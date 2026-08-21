@@ -1,7 +1,7 @@
 import type { QueryValue } from "../../core/request.ts";
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { OpenweatherApiActionName } from "./actions.ts";
 
 import { Buffer } from "node:buffer";
 import {
@@ -17,6 +17,7 @@ import {
 import { queryParams, readBoundedResponseBytes } from "../../core/request.ts";
 import {
   defineApiKeyProviderExecutors,
+  defineProviderProxy,
   isAbortLikeError,
   ProviderRequestError,
   providerUserAgent,
@@ -50,7 +51,7 @@ interface OpenweatherBinaryRequestInput {
   query?: Record<string, QueryValue>;
 }
 
-export const openweatherApiActionHandlers: Record<OpenweatherApiActionName, OpenweatherActionHandler> = {
+export const openweatherApiActionHandlers: ProviderActionHandlers<"openweather_api", OpenweatherActionHandler> = {
   get_geocoding_direct(input, context) {
     return executeDirectGeocoding(input, context);
   },
@@ -139,7 +140,7 @@ export const credentialValidators: CredentialValidators = {
 
     return {
       profile: {
-        accountId: "openweather_api",
+        accountId: service,
         displayName: "OpenWeather API Key",
         grantedScopes: [],
       },
@@ -909,3 +910,9 @@ function readResponseArray(value: unknown, label: string): unknown[] {
 function providerInvalidInput(message: string): ProviderRequestError {
   return new ProviderRequestError(400, message);
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.openweathermap.org",
+  auth: { type: "api_key_query", name: "appid" },
+});

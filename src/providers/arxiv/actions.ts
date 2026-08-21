@@ -183,5 +183,3 @@ export const arxivActions: ActionDefinition[] = [
     outputSchema: searchOutputSchema,
   }),
 ];
-
-export type ArxivActionName = (typeof arxivActions)[number]["name"];

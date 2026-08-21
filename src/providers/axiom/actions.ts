@@ -149,5 +149,3 @@ export const axiomActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AxiomActionName = (typeof axiomActions)[number]["name"];

@@ -281,5 +281,3 @@ export const botsonicActions: ProviderActionDefinition[] = [
     outputSchema: conversationSchema,
   }),
 ];
-
-export type BotsonicActionName = (typeof botsonicActions)[number]["name"];

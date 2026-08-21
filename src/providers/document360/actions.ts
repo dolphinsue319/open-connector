@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -266,7 +266,7 @@ export type Document360ActionName =
   | "get_workspace_categories"
   | "search_workspace";
 
-export const document360Actions: Array<ProviderActionDefinition<Document360ActionName>> = [
+export const document360Actions: ActionDefinition[] = [
   listWorkspacesAction,
   listWorkspaceArticlesAction,
   getWorkspaceCategoriesAction,

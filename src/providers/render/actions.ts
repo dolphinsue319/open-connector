@@ -262,5 +262,3 @@ export const renderActions: ProviderActionDefinition[] = [
     outputSchema: lifecycleAckSchema,
   }),
 ];
-
-export type RenderActionName = (typeof renderActions)[number]["name"];

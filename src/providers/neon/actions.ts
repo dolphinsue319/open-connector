@@ -556,6 +556,4 @@ export const neonActions: readonly ActionDefinition[] = [
     ),
     outputSchema: s.actionOutput({ operation: operationSchema }),
   }),
-] as const satisfies readonly ActionDefinition[];
-
-export type NeonActionName = (typeof neonActions)[number]["name"];
+];

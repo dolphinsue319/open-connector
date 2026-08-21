@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { CalendarificActionName } from "./actions.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
@@ -18,7 +18,7 @@ const requestTimeoutMs = 30_000;
 type CalendarificPhase = "validate" | "execute";
 type CalendarificActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-const calendarificActionHandlers: Record<CalendarificActionName, CalendarificActionHandler> = {
+const calendarificActionHandlers: ProviderActionHandlers<"calendarific", CalendarificActionHandler> = {
   async list_supported_countries(_input, context) {
     const payload = await requestCalendarificJson({
       path: "/countries",

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -40,9 +40,7 @@ const fieldListSchema = s.array(
 const orderFieldSchema = s.nonEmptyString("A Contentstack field UID used to sort the returned items.");
 const looseRecordSchema = s.looseObject("The raw Contentstack JSON object.");
 
-export const contentstackContentDeliveryActions: Array<
-  ProviderActionDefinition<ContentstackContentDeliveryActionName>
-> = [
+export const contentstackContentDeliveryActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_content_types",
     description: "List content types available in a Contentstack stack.",
@@ -218,10 +216,3 @@ export const contentstackContentDeliveryActions: Array<
     }),
   }),
 ];
-
-export type ContentstackContentDeliveryActionName =
-  | "list_content_types"
-  | "get_content_type"
-  | "list_entries"
-  | "get_entry"
-  | "list_assets";

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -172,17 +172,7 @@ const getLinkStatisticsInputSchema = s.object(
   { optional: ["period", "tz", "clicksChartInterval", "skipTops", "startDate", "endDate"] },
 );
 
-export type ShortIoActionName =
-  | "list_domains"
-  | "get_domain"
-  | "list_links"
-  | "get_link"
-  | "create_link"
-  | "update_link"
-  | "delete_link"
-  | "get_link_statistics";
-
-export const shortIoActions: ProviderActionDefinition<ShortIoActionName>[] = [
+export const shortIoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_domains",
     description: "List domains available to the authenticated Short.io API key.",

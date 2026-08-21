@@ -141,5 +141,3 @@ export const appveyorActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AppveyorActionName = (typeof appveyorActions)[number]["name"];

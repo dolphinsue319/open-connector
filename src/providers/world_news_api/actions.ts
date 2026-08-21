@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -109,14 +108,7 @@ const searchNewsSourcesInputSchema: JsonSchema = {
   anyOf: searchNewsSourcesOptionalFields.map((field) => ({ required: [field] })),
 };
 
-export type WorldNewsApiActionName =
-  | "search_news"
-  | "get_top_news"
-  | "retrieve_news"
-  | "search_news_sources"
-  | "get_geo_coordinates";
-
-export const worldNewsApiActions: ProviderActionDefinition<WorldNewsApiActionName>[] = [
+export const worldNewsApiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "search_news",
     description: "Search news articles with World News API using the first-pass filtering subset.",

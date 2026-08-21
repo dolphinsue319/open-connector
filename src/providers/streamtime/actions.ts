@@ -212,6 +212,4 @@ export const streamtimeActions: ActionDefinition[] = [
     inputSchema: updateJobInputSchema,
     outputSchema: jobOutputSchema,
   }),
-] satisfies ActionDefinition[];
-
-export type StreamtimeActionName = (typeof streamtimeActions)[number]["name"];
+];

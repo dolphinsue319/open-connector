@@ -286,6 +286,4 @@ export const datascopeActions: readonly ProviderActionDefinition[] = [
     ),
     outputSchema: s.actionOutput({ element: datascopeListElementSchema }),
   }),
-] satisfies readonly ProviderActionDefinition[];
-
-export type DatascopeActionName = (typeof datascopeActions)[number]["name"];
+];

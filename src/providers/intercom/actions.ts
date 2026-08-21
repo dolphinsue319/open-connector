@@ -16,6 +16,7 @@ const optionalPerPageField = s.integer("Maximum number of Intercom records to re
   minimum: 1,
   maximum: 150,
 });
+const optionalPageField = s.integer("One-based Intercom page number to fetch.", { minimum: 1 });
 const paginationSchema = s.object("Normalized Intercom cursor pagination metadata.", {
   hasMore: s.boolean("Whether Intercom reported another page of results."),
   nextStartingAfter: s.nullable(s.string("Cursor for the next Intercom page, or null when there is no next page.")),
@@ -27,7 +28,10 @@ const paginationSchema = s.object("Normalized Intercom cursor pagination metadat
 
 const adminSchema = { ...looseObjectSchema, description: "Intercom admin payload." };
 const contactSchema = { ...looseObjectSchema, description: "Intercom contact payload." };
+const companySchema = { ...looseObjectSchema, description: "Intercom company payload." };
 const conversationSchema = { ...looseObjectSchema, description: "Intercom conversation payload." };
+const ticketSchema = { ...looseObjectSchema, description: "Intercom ticket payload." };
+const articleSchema = { ...looseObjectSchema, description: "Intercom article payload." };
 
 const listAdminsInputSchema = s.object(
   "Input parameters for listing Intercom admins.",
@@ -45,6 +49,10 @@ const getCurrentAdminInputSchema = s.object(
 const adminIdField = s.union(
   [s.string("Intercom admin identifier.", { minLength: 1 }), s.nonNegativeInteger("Intercom admin identifier.")],
   { description: "Intercom admin identifier." },
+);
+const pathTokenField = s.union(
+  [s.string("Intercom resource identifier.", { minLength: 1 }), s.nonNegativeInteger("Intercom resource identifier.")],
+  { description: "Intercom resource identifier." },
 );
 
 const getAdminInputSchema = s.object("Input parameters for reading a single Intercom admin.", {
@@ -114,6 +122,26 @@ const updateContactInputSchema = s.object(
   { optional: contactWriteFieldNames },
 );
 
+const listCompaniesInputSchema = s.object(
+  "Input parameters for listing Intercom companies.",
+  {
+    page: optionalPageField,
+    perPage: optionalPerPageField,
+    order: s.stringEnum("Order in which Intercom should return companies.", ["asc", "desc"]),
+    startingAfter: optionalCursorField,
+  },
+  { optional: ["page", "perPage", "order", "startingAfter"] },
+);
+
+const getCompanyInputSchema = s.object(
+  "Input parameters for reading a single Intercom company. Exactly one of companyId or name is required.",
+  {
+    companyId: s.string("Company identifier defined by you in Intercom.", { minLength: 1 }),
+    name: s.string("Company name to look up in Intercom.", { minLength: 1 }),
+  },
+  { optional: ["companyId", "name"] },
+);
+
 const listConversationsInputSchema = s.object(
   "Input parameters for listing Intercom conversations.",
   {
@@ -170,6 +198,60 @@ const reopenConversationInputSchema = s.object("Input parameters for reopening a
   adminId: s.string("Intercom admin identifier performing the reopen.", { minLength: 1 }),
 });
 
+const listEventsInputSchema = s.object(
+  "Input parameters for reading Intercom user data events. Exactly one of userId, email, or intercomUserId is required.",
+  {
+    userId: s.string("User ID used to identify the Intercom user.", { minLength: 1 }),
+    email: s.email("Email address used to identify the Intercom user."),
+    intercomUserId: s.string("Intercom user or lead identifier.", { minLength: 1 }),
+    summary: s.boolean("Whether Intercom should return event summary data."),
+    perPage: optionalPerPageField,
+  },
+  { optional: ["userId", "email", "intercomUserId", "summary", "perPage"] },
+);
+
+const listTagsInputSchema = s.actionInput({}, [], "Input parameters for listing Intercom tags.");
+
+const getCountsInputSchema = s.object(
+  "Input parameters for reading Intercom counts.",
+  {
+    type: s.string("Intercom count type to request, such as conversation.", { minLength: 1 }),
+    count: s.string("Intercom count grouping to request, such as tag or segment.", { minLength: 1 }),
+  },
+  { optional: ["type", "count"] },
+);
+
+const getTicketInputSchema = s.object("Input parameters for reading a single Intercom ticket.", {
+  ticketId: s.string("Internal Intercom ticket identifier.", { minLength: 1 }),
+});
+
+const searchTicketsInputSchema = s.object(
+  "Input parameters for searching Intercom tickets.",
+  {
+    query: unknownRecordSchema,
+    perPage: optionalPerPageField,
+    startingAfter: optionalCursorField,
+  },
+  { optional: ["perPage", "startingAfter"] },
+);
+
+const getJobStatusInputSchema = s.object("Input parameters for reading Intercom job status.", {
+  jobId: s.string("Intercom job identifier.", { minLength: 1 }),
+});
+
+const listArticlesInputSchema = s.object(
+  "Input parameters for listing Intercom articles.",
+  {
+    perPage: optionalPerPageField,
+    startingAfter: optionalCursorField,
+  },
+  { optional: ["perPage", "startingAfter"] },
+);
+
+const getArticleInputSchema = s.object("Input parameters for reading a single Intercom article.", {
+  articleId: pathTokenField,
+});
+
 const listAdminsOutputSchema = s.object("Intercom admin list response wrapper.", {
   admins: s.array("Intercom admins returned for the current workspace.", adminSchema),
 });
@@ -193,6 +275,13 @@ const getContactOutputSchema = s.object("Intercom single contact response wrappe
 const writeContactOutputSchema = s.object("Intercom contact write response wrapper.", {
   contact: contactSchema,
 });
+const listCompaniesOutputSchema = s.object("Intercom company list response wrapper.", {
+  companies: s.array("Intercom companies returned for the current page.", companySchema),
+  pagination: paginationSchema,
+});
+const getCompanyOutputSchema = s.object("Intercom single company response wrapper.", {
+  company: companySchema,
+});
 const listConversationsOutputSchema = s.object("Intercom conversation list response wrapper.", {
   conversations: s.array("Intercom conversations returned for the current page.", conversationSchema),
   pagination: paginationSchema,
@@ -202,6 +291,33 @@ const getConversationOutputSchema = s.object("Intercom single conversation respo
 });
 const writeConversationOutputSchema = s.object("Intercom conversation write response wrapper.", {
   conversation: conversationSchema,
+});
+const listEventsOutputSchema = s.object("Intercom user event response wrapper.", {
+  events: s.array("Intercom events returned by the endpoint.", s.looseObject("Intercom event.")),
+  eventSummary: s.looseObject("Raw Intercom event summary payload."),
+});
+const listTagsOutputSchema = s.object("Intercom tag list response wrapper.", {
+  tags: s.array("Intercom tags returned for the workspace.", s.looseObject("Intercom tag.")),
+});
+const getCountsOutputSchema = s.object("Intercom counts response wrapper.", {
+  counts: s.looseObject("Raw Intercom counts payload."),
+});
+const getTicketOutputSchema = s.object("Intercom single ticket response wrapper.", {
+  ticket: ticketSchema,
+});
+const searchTicketsOutputSchema = s.object("Intercom ticket search response wrapper.", {
+  tickets: s.array("Intercom tickets returned by the search query.", ticketSchema),
+  pagination: paginationSchema,
+});
+const getJobStatusOutputSchema = s.object("Intercom job status response wrapper.", {
+  job: s.looseObject("Intercom job status payload."),
+});
+const listArticlesOutputSchema = s.object("Intercom article list response wrapper.", {
+  articles: s.array("Intercom articles returned for the current page.", articleSchema),
+  pagination: paginationSchema,
+});
+const getArticleOutputSchema = s.object("Intercom single article response wrapper.", {
+  article: articleSchema,
 });
 
 export const intercomActions: ActionDefinition[] = [
@@ -269,6 +385,20 @@ export const intercomActions: ActionDefinition[] = [
     outputSchema: writeContactOutputSchema,
   }),
   defineProviderAction(service, {
+    name: "list_companies",
+    description: "List Intercom companies with pagination.",
+    requiredScopes: [intercomPermissionLabels.contactsRead],
+    inputSchema: listCompaniesInputSchema,
+    outputSchema: listCompaniesOutputSchema,
+  }),
+  defineProviderAction(service, {
+    name: "get_company",
+    description: "Get a single Intercom company by company ID or name.",
+    requiredScopes: [intercomPermissionLabels.contactsRead],
+    inputSchema: getCompanyInputSchema,
+    outputSchema: getCompanyOutputSchema,
+  }),
+  defineProviderAction(service, {
     name: "list_conversations",
     description: "List Intercom conversations with cursor-based pagination.",
     requiredScopes: [intercomPermissionLabels.conversationsRead],
@@ -303,20 +433,60 @@ export const intercomActions: ActionDefinition[] = [
     inputSchema: reopenConversationInputSchema,
     outputSchema: writeConversationOutputSchema,
   }),
+  defineProviderAction(service, {
+    name: "list_events",
+    description: "List recent Intercom data events for one user or lead.",
+    requiredScopes: [intercomPermissionLabels.eventsRead],
+    inputSchema: listEventsInputSchema,
+    outputSchema: listEventsOutputSchema,
+  }),
+  defineProviderAction(service, {
+    name: "list_tags",
+    description: "List all Intercom tags for the current workspace.",
+    requiredScopes: [intercomPermissionLabels.tagsRead],
+    inputSchema: listTagsInputSchema,
+    outputSchema: listTagsOutputSchema,
+  }),
+  defineProviderAction(service, {
+    name: "get_counts",
+    description: "Read Intercom workspace, conversation, or grouped counts.",
+    requiredScopes: [intercomPermissionLabels.countsRead],
+    inputSchema: getCountsInputSchema,
+    outputSchema: getCountsOutputSchema,
+  }),
+  defineProviderAction(service, {
+    name: "get_ticket",
+    description: "Get a single Intercom ticket by internal ticket identifier.",
+    requiredScopes: [intercomPermissionLabels.ticketsRead],
+    inputSchema: getTicketInputSchema,
+    outputSchema: getTicketOutputSchema,
+  }),
+  defineProviderAction(service, {
+    name: "search_tickets",
+    description: "Search Intercom tickets with the official search DSL.",
+    requiredScopes: [intercomPermissionLabels.ticketsRead],
+    inputSchema: searchTicketsInputSchema,
+    outputSchema: searchTicketsOutputSchema,
+  }),
+  defineProviderAction(service, {
+    name: "get_job_status",
+    description: "Get the status of an Intercom asynchronous job.",
+    requiredScopes: [intercomPermissionLabels.jobsRead],
+    inputSchema: getJobStatusInputSchema,
+    outputSchema: getJobStatusOutputSchema,
+  }),
+  defineProviderAction(service, {
+    name: "list_articles",
+    description: "List Intercom help center articles.",
+    requiredScopes: [intercomPermissionLabels.articlesRead],
+    inputSchema: listArticlesInputSchema,
+    outputSchema: listArticlesOutputSchema,
+  }),
+  defineProviderAction(service, {
+    name: "get_article",
+    description: "Get a single Intercom help center article by identifier.",
+    requiredScopes: [intercomPermissionLabels.articlesRead],
+    inputSchema: getArticleInputSchema,
+    outputSchema: getArticleOutputSchema,
+  }),
 ];
-
-export type IntercomActionName =
-  | "get_current_admin"
-  | "list_admins"
-  | "get_admin"
-  | "list_contacts"
-  | "search_contacts"
-  | "get_contact"
-  | "get_contact_by_external_id"
-  | "create_contact"
-  | "update_contact"
-  | "list_conversations"
-  | "get_conversation"
-  | "reply_to_conversation"
-  | "close_conversation"
-  | "reopen_conversation";

@@ -1,11 +1,16 @@
 import type { CredentialValidators, ProviderExecutors, TransitFileWriter } from "../../core/types.ts";
-import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { MistralAiActionName } from "./actions.ts";
+import type {
+  ApiKeyProviderContext,
+  ProviderActionHandlers,
+  ProviderActionName,
+  ProviderActionSources,
+} from "../provider-runtime.ts";
 
 import { base64Bytes, compactObject, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import { assertPublicHttpUrl, compactJson, readBoundedResponseBytes } from "../../core/request.ts";
 import {
   defineApiKeyProviderExecutors,
+  mapProviderActionSources,
   ProviderRequestError,
   providerUserAgent,
   readTransitFileInput,
@@ -34,7 +39,7 @@ interface UploadSource {
   mimeType: string;
 }
 
-const mistralActionSpecs: Record<MistralAiActionName, MistralActionSpec> = {
+const mistralActionSpecs: ProviderActionSources<"mistral_ai", MistralActionSpec> = {
   list_models: { method: "GET", path: "/v1/models" },
   get_model: { method: "GET", path: "/v1/models/{model_id}", pathKeys: ["model_id"] },
   list_conversations: { method: "GET", path: "/v1/conversations" },
@@ -171,13 +176,14 @@ const mistralActionSpecs: Record<MistralAiActionName, MistralActionSpec> = {
   },
 };
 
-export const mistralAiActionHandlers = Object.fromEntries(
-  Object.keys(mistralActionSpecs).map((name) => [
-    name,
-    (input: Record<string, unknown>, context: ApiKeyProviderContext) =>
-      executeMistralAction(name as MistralAiActionName, input, context),
-  ]),
-) as Record<MistralAiActionName, MistralActionHandler>;
+export const mistralAiActionHandlers: ProviderActionHandlers<"mistral_ai", MistralActionHandler> =
+  mapProviderActionSources(
+    service,
+    mistralActionSpecs,
+    (name): MistralActionHandler =>
+      (input, context) =>
+        executeMistralAction(name, input, context),
+  );
 
 export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, mistralAiActionHandlers);
 
@@ -206,7 +212,7 @@ export const credentialValidators: CredentialValidators = {
 };
 
 async function executeMistralAction(
-  actionName: MistralAiActionName,
+  actionName: ProviderActionName<"mistral_ai">,
   input: Record<string, unknown>,
   context: ApiKeyProviderContext,
 ): Promise<unknown> {

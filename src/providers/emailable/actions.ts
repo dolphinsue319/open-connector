@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -67,9 +67,7 @@ const countSummarySchema = s.looseObject(
   "Summary counts grouped by verification state or provider reason for the Emailable batch.",
 );
 
-export type EmailableActionName = "get_account_info" | "verify_email" | "verify_batch_emails" | "get_batch_status";
-
-export const emailableActions: ProviderActionDefinition<EmailableActionName>[] = [
+export const emailableActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account_info",
     description: "Retrieve Emailable account information including owner email and available credits.",

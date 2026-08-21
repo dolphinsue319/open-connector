@@ -1,6 +1,11 @@
-import type { CredentialValidationResult, CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type {
+  CredentialValidationResult,
+  CredentialValidators,
+  ProviderExecutors,
+  ProviderProxyExecutor,
+} from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { ListennotesActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -12,7 +17,12 @@ import {
   requiredString,
 } from "../../core/cast.ts";
 import { queryFlag, queryParams } from "../../core/request.ts";
-import { defineApiKeyProviderExecutors, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "listennotes";
 const listennotesApiBaseUrl = "https://listen-api.listennotes.com/api/v2";
@@ -20,7 +30,7 @@ const listennotesValidationPath = "/languages";
 
 type ListennotesActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const listennotesActionHandlers: Record<ListennotesActionName, ListennotesActionHandler> = {
+export const listennotesActionHandlers: ProviderActionHandlers<"listennotes", ListennotesActionHandler> = {
   async search(input, context) {
     const resultType = readSearchType(input.type);
     const payload = await requestListennotesJson({
@@ -503,3 +513,9 @@ function joinNumberArray(value: unknown): string | undefined {
 function invalidInputError(message: string): ProviderRequestError {
   return new ProviderRequestError(400, message);
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://listen-api.listennotes.com/api/v2",
+  auth: { type: "api_key_header", name: "x-listenapi-key" },
+});

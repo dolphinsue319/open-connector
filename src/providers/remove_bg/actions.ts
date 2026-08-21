@@ -202,5 +202,3 @@ export const removeBgActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type RemoveBgActionName = (typeof removeBgActions)[number]["name"];

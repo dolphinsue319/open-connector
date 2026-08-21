@@ -5,23 +5,51 @@ import type {
   ProviderProxyExecutor,
   TransitFileWriter,
 } from "../../core/types.ts";
-import type { FeishuAppBotActionName } from "./actions.ts";
+import type { FeishuActionRuntimeContext } from "../feishu/shared/client.ts";
+import type { ProviderActionHandlerSubset } from "../provider-runtime.ts";
 
 import { Buffer } from "node:buffer";
 import { compactObject, optionalBoolean, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
-import { assertPublicHttpUrl } from "../../core/request.ts";
+import { assertPublicHttpUrl, readBoundedResponseBytes } from "../../core/request.ts";
+import { createFeishuApplicationActionHandlers } from "../feishu/shared/application-runtime.ts";
+import { createFeishuBaseAdvancedActionHandlers } from "../feishu/shared/base-advanced-runtime.ts";
+import { createFeishuBaseActionHandlers } from "../feishu/shared/base-runtime.ts";
+import { createFeishuCalendarActionHandlers } from "../feishu/shared/calendar-runtime.ts";
+import { createFeishuJsonRequest } from "../feishu/shared/client.ts";
+import { createFeishuContactActionHandlers } from "../feishu/shared/contact-runtime.ts";
+import { createFeishuDocsActionHandlers } from "../feishu/shared/docs-runtime.ts";
+import { createFeishuDomainMediaActionHandlers } from "../feishu/shared/domain-media-runtime.ts";
+import { createFeishuDriveAdvancedActionHandlers } from "../feishu/shared/drive-advanced-runtime.ts";
+import { createFeishuDriveActionHandlers } from "../feishu/shared/drive-runtime.ts";
+import { createFeishuFileActionHandlers } from "../feishu/shared/file-runtime.ts";
+import { createFeishuImActionHandlers } from "../feishu/shared/im-runtime.ts";
+import { createFeishuMailAdvancedActionHandlers } from "../feishu/shared/mail-advanced-runtime.ts";
+import { createFeishuMailActionHandlers } from "../feishu/shared/mail-runtime.ts";
+import { createFeishuMarkdownRuntimeContext } from "../feishu/shared/markdown-feishu-runtime.ts";
+import { createFeishuMarkdownActionHandlers } from "../feishu/shared/markdown-runtime.ts";
+import { createFeishuOkrActionHandlers } from "../feishu/shared/okr-runtime.ts";
+import { createFeishuSheetsAdvancedActionHandlers } from "../feishu/shared/sheets-advanced-runtime.ts";
+import { createFeishuSheetsActionHandlers } from "../feishu/shared/sheets-runtime.ts";
+import { createFeishuSlidesActionHandlers } from "../feishu/shared/slides-runtime.ts";
+import { createFeishuTaskActionHandlers } from "../feishu/shared/task-runtime.ts";
+import { createFeishuVcActionHandlers } from "../feishu/shared/vc-runtime.ts";
+import { createFeishuWhiteboardActionHandlers } from "../feishu/shared/whiteboard-runtime.ts";
+import { createFeishuWikiActionHandlers } from "../feishu/shared/wiki-runtime.ts";
 import {
   createProviderProxyUrl,
   defineProviderExecutors,
+  getProviderActionHandler,
+  mapProviderActionHandlers,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
+  providerFetch,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireCustomCredential,
   toProviderProxyError,
 } from "../provider-runtime.ts";
-import { feishuAppBotProviderScopes } from "./scopes.ts";
+import { feishuAppBotActions, feishuAppBotProviderScopes } from "./actions.ts";
 
 const service = "feishu_app_bot";
 const feishuOpenBaseUrl = "https://open.feishu.cn/open-apis";
@@ -78,11 +106,19 @@ interface FeishuRequestSignal {
 }
 
 type FeishuRequestPhase = "validate" | "execute";
-type FeishuActionHandler = (input: Record<string, unknown>, context: FeishuAppBotActionContext) => Promise<unknown>;
+interface FeishuActionHandler {
+  (input: Record<string, unknown>, context: FeishuAppBotActionContext): Promise<unknown>;
+}
 
 const feishuTenantAccessTokenCache = new Map<string, FeishuTenantAccessTokenCacheEntry>();
 
-export const feishuAppBotActionHandlers: Record<FeishuAppBotActionName, FeishuActionHandler> = {
+export const feishuAppBotActionHandlers: ProviderActionHandlerSubset<"feishu_app_bot", FeishuActionHandler> = {
+  get_app_info(_input, context) {
+    return getAppInfo(context);
+  },
+  get_app_permissions(_input, context) {
+    return getAppPermissions(context);
+  },
   upload_image(input, context) {
     return uploadImage(input, context);
   },
@@ -145,9 +181,27 @@ export const feishuAppBotActionHandlers: Record<FeishuAppBotActionName, FeishuAc
   },
 };
 
+const allFeishuAppBotActionHandlers = mapProviderActionHandlers(
+  service,
+  feishuAppBotActions,
+  (action): FeishuActionHandler =>
+    async (input, context) => {
+      const nativeHandler = getProviderActionHandler(feishuAppBotActionHandlers, action.name);
+      if (nativeHandler) {
+        return nativeHandler(input, context);
+      }
+      const sharedHandlers = await createFeishuAppBotSharedHandlers(context);
+      const sharedHandler = sharedHandlers[action.name];
+      if (!sharedHandler) {
+        throw new ProviderRequestError(400, `unknown feishu_app_bot action: ${action.name}`);
+      }
+      return sharedHandler(input);
+    },
+);
+
 export const executors: ProviderExecutors = defineProviderExecutors<FeishuAppBotActionContext>({
   service,
-  handlers: feishuAppBotActionHandlers,
+  handlers: allFeishuAppBotActionHandlers,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<FeishuAppBotActionContext> {
     const credential = await requireCustomCredential(context, service);
     return {
@@ -159,12 +213,68 @@ export const executors: ProviderExecutors = defineProviderExecutors<FeishuAppBot
   },
 });
 
+async function createFeishuAppBotSharedHandlers(
+  context: FeishuAppBotActionContext,
+): Promise<Record<string, (input: Record<string, unknown>) => Promise<unknown>>> {
+  const accessToken = await fetchTenantAccessToken(context, context.fetcher, "execute", context.signal);
+  const runtimeContext: FeishuActionRuntimeContext = {
+    identity: "tenant",
+    accessToken,
+    fetcher: context.fetcher,
+    transitFiles: context.transitFiles,
+    signal: context.signal,
+  };
+  const request = createFeishuJsonRequest(runtimeContext);
+  return {
+    ...createFeishuContactActionHandlers({ identity: "tenant", request }),
+    ...createFeishuImActionHandlers({ identity: "tenant", request, context: runtimeContext }),
+    ...createFeishuBaseActionHandlers(request),
+    ...createFeishuBaseAdvancedActionHandlers(request),
+    ...createFeishuCalendarActionHandlers(request),
+    ...createFeishuTaskActionHandlers(request),
+    ...createFeishuWikiActionHandlers(request),
+    ...createFeishuDocsActionHandlers(request),
+    ...createFeishuDriveActionHandlers(request),
+    ...createFeishuDriveAdvancedActionHandlers({
+      request,
+      accessToken,
+      fetcher: context.fetcher,
+      transitFiles: context.transitFiles,
+      signal: context.signal,
+    }),
+    ...createFeishuSlidesActionHandlers(request),
+    ...createFeishuWhiteboardActionHandlers(request),
+    ...createFeishuSheetsActionHandlers(request),
+    ...createFeishuSheetsAdvancedActionHandlers(request),
+    ...createFeishuMailActionHandlers(request, context.fetcher),
+    ...createFeishuMailAdvancedActionHandlers(request),
+    ...createFeishuOkrActionHandlers(request),
+    ...createFeishuFileActionHandlers({
+      request,
+      accessToken,
+      fetcher: context.fetcher,
+      transitFiles: context.transitFiles,
+      signal: context.signal,
+    }),
+    ...createFeishuVcActionHandlers({ identity: "tenant", request }),
+    ...createFeishuApplicationActionHandlers(request),
+    ...createFeishuMarkdownActionHandlers(createFeishuMarkdownRuntimeContext({ request, context: runtimeContext })),
+    ...createFeishuDomainMediaActionHandlers({
+      request,
+      accessToken,
+      fetcher: context.fetcher,
+      transitFiles: context.transitFiles,
+      signal: context.signal,
+    }),
+  };
+}
+
 export const proxy: ProviderProxyExecutor = async (input, context) => {
   try {
     const credential = await requireCustomCredential(context, service);
     const accessToken = await fetchTenantAccessToken(
       readFeishuAppBotCredential(credential.values),
-      fetch,
+      providerFetch,
       "execute",
       context.signal,
     );
@@ -187,7 +297,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
         }
       }
 
-      const response = await fetch(url, init);
+      const response = await providerFetch(url, init);
       if (!response.ok) {
         const rawText = await readProviderProxyErrorMessage(response, "");
         let envelope: FeishuApiEnvelope<unknown>;
@@ -228,16 +338,32 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
 export const credentialValidators: CredentialValidators = {
   async customCredential(input, { fetcher, signal }) {
     const credential = readFeishuAppBotCredential(input.values);
-    await fetchTenantAccessToken(credential, fetcher, "validate", signal);
+    const accessToken = await fetchTenantAccessToken(credential, fetcher, "validate", signal);
+    const [appProbe, publishedVersionProbe] = await Promise.all([
+      fetchOptionalAppMetadata(() => fetchFeishuAppInfo(credential.appId, accessToken, fetcher, "validate", signal)),
+      fetchOptionalAppMetadata(() =>
+        fetchFeishuPublishedAppVersion(credential.appId, accessToken, fetcher, "validate", signal),
+      ),
+    ]);
+    const app = appProbe.value;
+    const publishedVersion = publishedVersionProbe.value;
+    const accountLabel =
+      optionalString(app.app_name) ?? optionalString(app.name) ?? optionalString(app.app_id) ?? credential.appId;
 
     return {
       profile: {
         accountId: credential.appId,
-        displayName: credential.appId,
+        displayName: accountLabel,
       },
-      grantedScopes: feishuAppBotProviderScopes,
+      grantedScopes: publishedVersionProbe.available
+        ? readPublishedTenantScopes(publishedVersion)
+        : feishuAppBotProviderScopes,
       metadata: compactObject({
         appId: credential.appId,
+        appName: accountLabel,
+        publishedVersionId: optionalString(publishedVersion.version_id),
+        publishedVersion: optionalString(publishedVersion.version),
+        publishedEvents: readPublishedEvents(publishedVersion),
       }),
     };
   },
@@ -248,6 +374,122 @@ function readFeishuAppBotCredential(input: Record<string, string>): FeishuAppBot
     appId: requiredFeishuString(input.appId, "appId"),
     appSecret: requiredFeishuString(input.appSecret, "appSecret"),
   };
+}
+
+async function fetchOptionalAppMetadata(
+  fetchMetadata: () => Promise<Record<string, unknown>>,
+): Promise<{ available: boolean; value: Record<string, unknown> }> {
+  try {
+    return {
+      available: true,
+      value: await fetchMetadata(),
+    };
+  } catch {
+    return {
+      available: false,
+      value: {},
+    };
+  }
+}
+
+async function getAppInfo(context: FeishuAppBotActionContext): Promise<Record<string, unknown>> {
+  const accessToken = await fetchTenantAccessToken(context, context.fetcher, "execute", context.signal);
+  return {
+    app: await fetchFeishuAppInfo(context.appId, accessToken, context.fetcher, "execute", context.signal),
+  };
+}
+
+async function getAppPermissions(context: FeishuAppBotActionContext): Promise<Record<string, unknown>> {
+  const accessToken = await fetchTenantAccessToken(context, context.fetcher, "execute", context.signal);
+  const version = await fetchFeishuPublishedAppVersion(
+    context.appId,
+    accessToken,
+    context.fetcher,
+    "execute",
+    context.signal,
+  );
+  return {
+    versionId: optionalString(version.version_id) ?? null,
+    version: optionalString(version.version) ?? null,
+    scopes: readPublishedTenantScopes(version),
+    events: readPublishedEvents(version),
+    raw: version,
+  };
+}
+
+async function fetchFeishuAppInfo(
+  appId: string,
+  accessToken: string,
+  fetcher: typeof fetch,
+  phase: FeishuRequestPhase,
+  signal?: AbortSignal,
+): Promise<Record<string, unknown>> {
+  const result = await feishuRequest({
+    method: "GET",
+    path: `/application/v6/applications/${encodeURIComponent(appId)}`,
+    query: [["lang", "zh_cn"]],
+    accessToken,
+    fetcher,
+    phase,
+    signal,
+  });
+  return optionalRecord(optionalRecord(result.data)?.app) ?? {};
+}
+
+async function fetchFeishuPublishedAppVersion(
+  appId: string,
+  accessToken: string,
+  fetcher: typeof fetch,
+  phase: FeishuRequestPhase,
+  signal?: AbortSignal,
+): Promise<Record<string, unknown>> {
+  const result = await feishuRequest({
+    method: "GET",
+    path: `/application/v6/applications/${encodeURIComponent(appId)}/app_versions`,
+    query: [
+      ["lang", "zh_cn"],
+      ["page_size", "20"],
+    ],
+    accessToken,
+    fetcher,
+    phase,
+    signal,
+  });
+  const data = optionalRecord(result.data);
+  const items = Array.isArray(data?.items) ? data.items : [];
+  for (const value of items) {
+    const item = optionalRecord(value);
+    if (item && item.status === 1 && item.publish_time != null && item.publish_time !== "") {
+      return item;
+    }
+  }
+  return {};
+}
+
+function readPublishedTenantScopes(version: Record<string, unknown>): string[] {
+  const scopes = Array.isArray(version.scopes) ? version.scopes : [];
+  const output: string[] = [];
+  for (const value of scopes) {
+    const item = optionalRecord(value);
+    const scope = optionalString(item?.scope);
+    const tokenTypes = Array.isArray(item?.token_types) ? item.token_types : [];
+    if (scope && tokenTypes.includes("tenant")) {
+      output.push(scope);
+    }
+  }
+  return output;
+}
+
+function readPublishedEvents(version: Record<string, unknown>): string[] {
+  const events = Array.isArray(version.event_infos) ? version.event_infos : [];
+  const output: string[] = [];
+  for (const value of events) {
+    const event = optionalString(optionalRecord(value)?.event_type);
+    if (event) {
+      output.push(event);
+    }
+  }
+  return output;
 }
 
 async function uploadImage(
@@ -903,16 +1145,21 @@ async function uploadFeishuMediaTransitFile(input: {
 
     const mimeType = normalizeMimeType(response.headers.get("content-type")) ?? "application/octet-stream";
     const fileName = input.preferredFileName ?? buildFeishuTransitFileName(input.idValue, mimeType);
+    const bytes = await readBoundedResponseBytes(response, {
+      maxBytes: input.context.transitFiles.maxBytes,
+      fieldName: `Feishu ${input.actionName} output`,
+      createError: (message) => new ProviderRequestError(413, message),
+    });
     const upload = await input.context.transitFiles.create(
-      new File([await response.arrayBuffer()], fileName, { type: mimeType }),
+      new File([Uint8Array.from(bytes)], fileName, { type: mimeType }),
     );
 
     return {
       [input.idKey]: input.idValue,
       file: {
+        ...upload,
         name: fileName,
-        mimetype: mimeType,
-        downloadUrl: upload.downloadUrl,
+        mimeType,
       },
       contentType: mimeType,
     };

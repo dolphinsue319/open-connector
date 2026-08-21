@@ -4,7 +4,7 @@ import type {
   ProviderExecutors,
   ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { MixpanelActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { Buffer } from "node:buffer";
 import {
@@ -20,6 +20,7 @@ import {
   defineProviderExecutors,
   isAbortLikeError,
   normalizeProviderProxyHeaders,
+  providerFetch,
   ProviderRequestError,
   providerUserAgent,
   readProviderProxyErrorMessage,
@@ -62,7 +63,7 @@ interface MixpanelRequestInput {
   notFoundAsInvalidInput?: boolean;
 }
 
-export const mixpanelActionHandlers: Record<MixpanelActionName, MixpanelActionHandler> = {
+export const mixpanelActionHandlers: ProviderActionHandlers<"mixpanel", MixpanelActionHandler> = {
   list_saved_cohorts(input, context) {
     return listSavedCohorts(input, context);
   },
@@ -164,7 +165,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await providerFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `mixpanel request failed with HTTP ${response.status}`);

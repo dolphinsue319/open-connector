@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { StatuspalActionName } from "./actions.ts";
 
 import { objectArray, optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
@@ -17,7 +17,7 @@ const statuspalValidationPath = "/hello";
 
 type StatuspalActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const statuspalActionHandlers: Record<StatuspalActionName, StatuspalActionHandler> = {
+export const statuspalActionHandlers: ProviderActionHandlers<"statuspal", StatuspalActionHandler> = {
   get_status_page_status(input, context) {
     return normalizeStatusPageStatus(
       statuspalGetJson(`/status_pages/${readPathSegment(input.subdomain, "subdomain")}/status`, {

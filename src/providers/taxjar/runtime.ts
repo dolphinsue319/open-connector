@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { TaxjarActionName } from "./actions.ts";
 
 import { compactObject, optionalNumber, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import { ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
@@ -11,7 +11,7 @@ type TaxjarActionHandler = (input: Record<string, unknown>, context: ApiKeyProvi
 export const taxjarApiBaseUrl = "https://api.taxjar.com/v2";
 const validationEndpoint = "/categories";
 
-export const taxjarActionHandlers: Record<TaxjarActionName, TaxjarActionHandler> = {
+export const taxjarActionHandlers: ProviderActionHandlers<"taxjar", TaxjarActionHandler> = {
   calculate_sales_tax_for_order(input, context) {
     return taxjarRequest({ path: "/taxes", method: "POST", body: input }, context);
   },

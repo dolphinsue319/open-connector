@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -166,13 +165,7 @@ const balanceOutput = s.looseObject(
   { description: "A balance entry returned by the DeepSeek balance API." },
 );
 
-export type DeepseekActionName =
-  | "list_models"
-  | "get_user_balance"
-  | "create_chat_completion"
-  | "create_anthropic_message";
-
-export const deepseekActions: Array<ProviderActionDefinition<DeepseekActionName>> = [
+export const deepseekActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_models",
     description: "List the available DeepSeek models.",

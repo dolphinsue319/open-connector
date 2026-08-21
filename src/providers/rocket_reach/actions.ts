@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -154,19 +153,7 @@ const searchCompaniesInputSchema: JsonSchema = {
   anyOf: [{ required: ["query"] }, { required: ["name"] }, { required: ["domain"] }, { required: ["id"] }],
 };
 
-export type RocketReachActionName =
-  | "get_account"
-  | "search_people"
-  | "lookup_person"
-  | "lookup_person_and_company"
-  | "check_person_status"
-  | "search_companies"
-  | "lookup_company"
-  | "get_company_size"
-  | "get_company_funding"
-  | "get_company_industries";
-
-export const rocketReachActions: ProviderActionDefinition<RocketReachActionName>[] = [
+export const rocketReachActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description: "Retrieve the authenticated RocketReach account profile.",

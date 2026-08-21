@@ -1,5 +1,5 @@
 import type { CredentialValidators, ExecutionContext, ProviderExecutors } from "../../core/types.ts";
-import type { ApiSportsActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalBoolean, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
@@ -34,7 +34,7 @@ interface ApiSportsActionContext {
 
 type ApiSportsActionHandler = (input: Record<string, unknown>, context: ApiSportsActionContext) => Promise<unknown>;
 
-export const apiSportsActionHandlers: Record<ApiSportsActionName, ApiSportsActionHandler> = {
+export const apiSportsActionHandlers: ProviderActionHandlers<"api_sports", ApiSportsActionHandler> = {
   football_list_leagues(input, context) {
     return listLeagues(input, context);
   },

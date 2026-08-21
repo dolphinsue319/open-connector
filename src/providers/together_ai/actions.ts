@@ -258,5 +258,3 @@ export const togetherAiActions: ActionDefinition[] = [
     outputSchema: embeddingOutputSchema,
   }),
 ];
-
-export type TogetherAiActionName = (typeof togetherAiActions)[number]["name"];

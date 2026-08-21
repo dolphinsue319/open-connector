@@ -265,8 +265,6 @@ export const bolnaActions: ProviderActionDefinition[] = [
   }),
 ];
 
-export type BolnaActionName = (typeof bolnaActions)[number]["name"];
-
-export const bolnaActionByName: ReadonlyMap<BolnaActionName, (typeof bolnaActions)[number]> = new Map(
+export const bolnaActionByName: ReadonlyMap<string, (typeof bolnaActions)[number]> = new Map(
   bolnaActions.map((action) => [action.name, action]),
 );

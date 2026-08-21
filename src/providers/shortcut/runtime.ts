@@ -1,8 +1,9 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ShortcutActionName } from "./actions.ts";
 
 import { compactObject, optionalBoolean, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
-import { ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
+import { providerFetch, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
 
 export const shortcutApiBaseUrl = "https://api.app.shortcut.com/api/v3/";
 const shortcutValidatePath = "member";
@@ -13,7 +14,7 @@ type ShortcutActionHandler = (
   context: { apiKey: string; fetcher: typeof fetch },
 ) => Promise<unknown>;
 
-export const shortcutActionHandlers: Record<ShortcutActionName, ShortcutActionHandler> = {
+export const shortcutActionHandlers: ProviderActionHandlers<"shortcut", ShortcutActionHandler> = {
   list_members(input, context) {
     return listMembers(input, context);
   },
@@ -63,7 +64,7 @@ export const shortcutActionHandlers: Record<ShortcutActionName, ShortcutActionHa
 
 export async function validateShortcutCredential(
   input: { apiKey?: string },
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = providerFetch,
 ): Promise<CredentialValidationResult> {
   const apiKey = readRequiredApiKey(input.apiKey);
   const payload = await shortcutGetJson(shortcutValidatePath, apiKey, fetcher, "validate");

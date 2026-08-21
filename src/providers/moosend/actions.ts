@@ -1,15 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "moosend";
-
-export type MoosendActionName =
-  | "list_mailing_lists"
-  | "list_subscribers"
-  | "get_subscriber_by_email"
-  | "add_subscriber";
 
 const formatSchema = s.literal("json", {
   description: "Moosend response format. Connector actions always request JSON.",
@@ -111,7 +105,7 @@ const singleSubscriberOutputSchema = s.requiredObject("Moosend single subscriber
   Context: subscriberSchema,
 });
 
-export const moosendActions: Array<ProviderActionDefinition<MoosendActionName>> = [
+export const moosendActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_mailing_lists",
     description: "List active mailing lists in the current Moosend account.",

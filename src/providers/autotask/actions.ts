@@ -120,5 +120,3 @@ export const autotaskActions: ActionDefinition[] = [
     outputSchema: entityInformationOutputSchema,
   }),
 ];
-
-export type AutotaskActionName = (typeof autotaskActions)[number]["name"];

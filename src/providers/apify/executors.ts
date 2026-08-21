@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { ApifyActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -21,7 +21,7 @@ type ApifyRequestPhase = "validate" | "execute";
 
 type ApifyActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const apifyActionHandlers: Record<ApifyActionName, ApifyActionHandler> = {
+export const apifyActionHandlers: ProviderActionHandlers<"apify", ApifyActionHandler> = {
   get_current_user(_input, context) {
     return getCurrentUser(context);
   },

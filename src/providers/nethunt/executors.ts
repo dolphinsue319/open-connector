@@ -5,7 +5,7 @@ import type {
   ProviderExecutors,
   ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { NethuntActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { Buffer } from "node:buffer";
 import {
@@ -17,11 +17,12 @@ import {
   requiredString,
 } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   defineProviderExecutors,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireApiKeyCredential,
@@ -30,6 +31,7 @@ import {
 
 const service = "nethunt";
 const nethuntApiBaseUrl = "https://nethunt.com/api/v1/zapier";
+const nethuntFetch = createProviderFetch({ skipDnsValidation: true });
 const nethuntAuthTestPath = "/triggers/auth-test";
 
 type NethuntRequestPhase = "validate" | "execute";
@@ -43,7 +45,7 @@ interface NethuntContext {
 
 type NethuntActionHandler = (input: Record<string, unknown>, context: NethuntContext) => Promise<unknown>;
 
-export const nethuntActionHandlers: Record<NethuntActionName, NethuntActionHandler> = {
+export const nethuntActionHandlers: ProviderActionHandlers<"nethunt", NethuntActionHandler> = {
   async list_readable_folders(_input, context): Promise<unknown> {
     return {
       folders: await nethuntGetJson("/triggers/readable-folder", context, "execute"),
@@ -157,6 +159,7 @@ export const nethuntActionHandlers: Record<NethuntActionName, NethuntActionHandl
 export const executors: ProviderExecutors = defineProviderExecutors<NethuntContext>({
   service,
   handlers: nethuntActionHandlers,
+  skipDnsValidation: true,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<NethuntContext> {
     const credential = await requireApiKeyCredential(context, service);
     return {
@@ -188,7 +191,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await nethuntFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `NetHunt request failed with HTTP ${response.status}`);

@@ -331,5 +331,3 @@ export const openrouterActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type OpenrouterActionName = (typeof openrouterActions)[number]["name"];

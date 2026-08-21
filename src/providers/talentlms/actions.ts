@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -88,23 +88,7 @@ const userWriteFields = {
 };
 const userWriteOptionalFields = ["userType", "timezone", "language", "status", "rawFields"] as const;
 
-export type TalentlmsActionName =
-  | "health_check"
-  | "list_users"
-  | "get_user"
-  | "create_user"
-  | "update_user"
-  | "delete_user"
-  | "list_courses"
-  | "get_course"
-  | "list_groups"
-  | "get_group"
-  | "list_branches"
-  | "get_branch"
-  | "list_categories"
-  | "get_category";
-
-export const talentlmsActions: ProviderActionDefinition<TalentlmsActionName>[] = [
+export const talentlmsActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "health_check",
     description: "Check whether the configured TalentLMS API domain and API key can reach API v2.",

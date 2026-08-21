@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch } from "../provider-runtime.ts";
-import type { NeonActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -32,7 +32,7 @@ interface NeonRequestInput {
   allowNoContent?: boolean;
 }
 
-export const neonActionHandlers: Record<NeonActionName, NeonActionHandler> = {
+export const neonActionHandlers: ProviderActionHandlers<"neon", NeonActionHandler> = {
   get_current_user(_input, context) {
     return getCurrentUser(context);
   },

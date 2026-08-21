@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch } from "../provider-runtime.ts";
-import type { MezmoActionName } from "./actions.ts";
 
 import { optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
@@ -23,7 +23,7 @@ const usageListPaths: Record<"list_app_usages" | "list_host_usages" | "list_tag_
   list_tag_usages: "/v1/usage/tags",
 };
 
-export const mezmoActionHandlers: Record<MezmoActionName, MezmoActionHandler> = {
+export const mezmoActionHandlers: ProviderActionHandlers<"mezmo", MezmoActionHandler> = {
   get_ingestion_status(_input, context) {
     return requestMezmoIngestionStatus(context, "execute");
   },

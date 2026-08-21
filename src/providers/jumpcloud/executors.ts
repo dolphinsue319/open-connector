@@ -4,15 +4,16 @@ import type {
   ProviderExecutors,
   ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { JumpcloudActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
   createProviderProxyUrl,
   defineProviderExecutors,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
+  providerFetch,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireApiKeyCredential,
@@ -50,7 +51,7 @@ interface JumpcloudActionContext {
 
 type JumpcloudActionHandler = (input: Record<string, unknown>, context: JumpcloudActionContext) => Promise<unknown>;
 
-export const jumpcloudActionHandlers: Record<JumpcloudActionName, JumpcloudActionHandler> = {
+export const jumpcloudActionHandlers: ProviderActionHandlers<"jumpcloud", JumpcloudActionHandler> = {
   list_system_users(input, context) {
     return listSystemUsers(input, context);
   },
@@ -108,7 +109,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await providerFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `JumpCloud request failed with HTTP ${response.status}`);

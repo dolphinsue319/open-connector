@@ -1,11 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "tanium";
-
-export type TaniumActionName = "execute_graphql";
 
 const graphqlVariableValueSchema = s.unknown("A JSON value passed as a GraphQL variable.");
 const graphqlVariablesSchema = s.record("GraphQL variables keyed by variable name.", graphqlVariableValueSchema);
@@ -36,7 +34,7 @@ const graphqlResultSchema = s.object(
   { optional: ["data", "errors", "extensions", "message"] },
 );
 
-export const taniumActions: Array<ProviderActionDefinition<TaniumActionName>> = [
+export const taniumActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "execute_graphql",
     description: "Execute a GraphQL document against the connected Tanium Gateway endpoint.",

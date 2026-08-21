@@ -1,8 +1,13 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
-import type { FalAiActionName } from "./actions.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString, stringArray } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "fal_ai";
 const falAiPlatformApiBaseUrl = "https://api.fal.ai";
@@ -40,7 +45,7 @@ interface FalAiSseEvent {
 type FalAiRequestMode = "validate" | "execute";
 type FalAiActionHandler = (input: Record<string, unknown>, context: FalAiActionContext) => Promise<unknown>;
 
-export const falAiActionHandlers: Record<FalAiActionName, FalAiActionHandler> = {
+export const falAiActionHandlers: ProviderActionHandlers<"fal_ai", FalAiActionHandler> = {
   get_models(input, context) {
     return falAiGetModels(input, context);
   },
@@ -506,3 +511,9 @@ async function readFalAiError(response: Response): Promise<{ detail: string | un
     };
   }
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.fal.ai",
+  auth: { type: "api_key_authorization", prefix: "Key " },
+});

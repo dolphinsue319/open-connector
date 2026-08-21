@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -41,9 +41,7 @@ const articleSchema = s.object("Normalized news article returned by Mediastack."
   publishedAt: s.nullableString("Article publication timestamp returned by Mediastack."),
 });
 
-export type MediastackActionName = "search_news_sources" | "search_live_news";
-
-export const mediastackActions: ProviderActionDefinition<MediastackActionName>[] = [
+export const mediastackActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "search_news_sources",
     description: "Search Mediastack news sources with language, country, category, and pagination filters.",

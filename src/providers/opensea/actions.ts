@@ -240,5 +240,3 @@ export const openseaActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type OpenseaActionName = (typeof openseaActions)[number]["name"];

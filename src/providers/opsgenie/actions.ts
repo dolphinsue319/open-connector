@@ -1,5 +1,5 @@
 import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -276,7 +276,7 @@ const actionDefinitions: OpsgenieActionDefinition[] = [
   },
 ];
 
-export const opsgenieActions: ProviderActionDefinition<OpsgenieActionName>[] = actionDefinitions.map((action) =>
+export const opsgenieActions: ActionDefinition[] = actionDefinitions.map((action) =>
   defineProviderAction(service, {
     name: action.name,
     description: action.description,

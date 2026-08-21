@@ -139,5 +139,3 @@ export const kintoneActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type KintoneActionName = (typeof kintoneActions)[number]["name"];

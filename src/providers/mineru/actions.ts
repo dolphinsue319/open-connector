@@ -185,5 +185,3 @@ export const mineruActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type MineruActionName = (typeof mineruActions)[number]["name"];

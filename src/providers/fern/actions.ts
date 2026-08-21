@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -191,7 +191,7 @@ const paginatedTransactionsOutputSchema = s.object(
   { optional: ["nextPageToken"] },
 );
 
-export const fernActions: Array<ProviderActionDefinition<FernActionName>> = [
+export const fernActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_customers",
     description: "List Fern customers with optional organization filtering and cursor pagination.",
@@ -242,12 +242,3 @@ export const fernActions: Array<ProviderActionDefinition<FernActionName>> = [
     outputSchema: transactionSchema,
   }),
 ];
-
-export type FernActionName =
-  | "list_customers"
-  | "get_customer"
-  | "list_payment_accounts"
-  | "get_payment_account"
-  | "get_exchange_rate"
-  | "list_transactions"
-  | "get_transaction";

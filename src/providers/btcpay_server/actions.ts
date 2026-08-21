@@ -193,5 +193,3 @@ export const btcpayServerActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type BtcpayServerActionName = (typeof btcpayServerActions)[number]["name"];

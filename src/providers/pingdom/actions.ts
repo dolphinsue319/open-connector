@@ -106,6 +106,4 @@ export const pingdomActions: ProviderActionDefinition[] = [
     inputSchema: s.object("This Pingdom action does not require input.", {}),
     outputSchema: s.object("The Pingdom credits response.", { credits: creditsSchema }),
   }),
-] satisfies ProviderActionDefinition[];
-
-export type PingdomActionName = (typeof pingdomActions)[number]["name"];
+];

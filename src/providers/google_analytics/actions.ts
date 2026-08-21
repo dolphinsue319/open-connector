@@ -1939,6 +1939,4 @@ export const googleAnalyticsActions: ActionDefinition[] = [
       },
     ),
   }),
-] satisfies ActionDefinition[];
-
-export type GoogleAnalyticsActionName = (typeof googleAnalyticsActions)[number]["name"];
+];

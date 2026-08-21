@@ -5,8 +5,6 @@ import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "bitquery";
 
-export type BitqueryActionName = "run_query";
-
 const graphqlVariablesSchema = s.record(
   "GraphQL variables keyed by variable name.",
   s.unknown("A JSON-serializable GraphQL variable value."),
@@ -40,7 +38,7 @@ const graphqlEnvelopeSchema = s.looseObject(
   { description: "The Bitquery GraphQL response envelope." },
 );
 
-export const bitqueryActions: Array<ActionDefinition & { name: BitqueryActionName }> = [
+export const bitqueryActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "run_query",
     description:

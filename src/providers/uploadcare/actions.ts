@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -205,16 +205,7 @@ const getGroupInfoAction = defineProviderAction(service, {
   ),
 });
 
-export type UploadcareActionName =
-  | "get_project_info"
-  | "list_files"
-  | "get_file_info"
-  | "store_file"
-  | "delete_file"
-  | "list_groups"
-  | "get_group_info";
-
-export const uploadcareActions: Array<ProviderActionDefinition<UploadcareActionName>> = [
+export const uploadcareActions: ActionDefinition[] = [
   getProjectInfoAction,
   listFilesAction,
   getFileInfoAction,

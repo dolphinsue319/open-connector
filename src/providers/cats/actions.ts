@@ -158,8 +158,6 @@ export const catsActions: ProviderActionDefinition[] = [
   }),
 ];
 
-export type CatsActionName = (typeof catsActions)[number]["name"];
-
 export const catsActionByName: Map<string, ProviderActionDefinition> = new Map(
   catsActions.map((action) => [action.name, action] as const),
 );

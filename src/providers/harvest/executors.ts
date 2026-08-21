@@ -5,15 +5,16 @@ import type {
   ProviderProxyExecutor,
   ResolvedCredential,
 } from "../../core/types.ts";
-import type { HarvestActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalBoolean, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   defineProviderExecutors,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   toProviderProxyError,
@@ -23,6 +24,7 @@ import { harvestOAuthScopes } from "./scopes.ts";
 const service = "harvest";
 const harvestApiBaseUrl = "https://api.harvestapp.com";
 const harvestAccountsUrl = "https://id.getharvest.com/api/v2/accounts";
+const harvestFetch = createProviderFetch({ skipDnsValidation: true });
 const harvestValidationPath = "/v2/users/me";
 const harvestRequestTimeoutMs = 30_000;
 
@@ -65,7 +67,7 @@ interface HarvestPagination {
   links?: HarvestLinks;
 }
 
-export const harvestActionHandlers: Record<HarvestActionName, HarvestActionHandler> = {
+export const harvestActionHandlers: ProviderActionHandlers<"harvest", HarvestActionHandler> = {
   get_current_user(_input, context) {
     return getCurrentUser(context);
   },
@@ -116,6 +118,7 @@ export const harvestActionHandlers: Record<HarvestActionName, HarvestActionHandl
 export const executors: ProviderExecutors = defineProviderExecutors<HarvestActionContext>({
   service,
   handlers: harvestActionHandlers,
+  skipDnsValidation: true,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<HarvestActionContext> {
     const credential = await context.getCredential(service);
     if (credential?.authType === "api_key") {
@@ -161,7 +164,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await harvestFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw createHarvestError(response.status, parseHarvestPayload(text), text);
@@ -559,24 +562,17 @@ async function fetchHarvestCurrentAccount(
 }> {
   const accountsPayload = await requestHarvestAccounts(credential.accessToken, fetcher, signal);
   const accountsResponse = requireObjectPayload(accountsPayload, "harvest accounts response");
+  const accountUser = optionalRecord(accountsResponse.user);
   const accounts = readHarvestAccounts(accountsResponse);
+  if (accounts.length === 0) {
+    throw new ProviderRequestError(400, "harvest OAuth credential has no accessible Harvest account");
+  }
   const defaultAccount = selectDefaultHarvestAccount(accounts);
   const accountId = requireHarvestResponseAccountId(defaultAccount.id);
-  const payload = await requestHarvestJson<Record<string, unknown>>({
-    accountId,
-    accessToken: credential.accessToken,
-    path: harvestValidationPath,
-    fetcher,
-    signal,
-    mode: "validate",
-  });
-
-  const user = requireObjectPayload(payload, "harvest current user response");
-  const accountUser = optionalRecord(accountsResponse.user);
-  const userId = String(requireHarvestResponseId(user.id ?? accountUser?.id, "user.id"));
-  const firstName = optionalString(user.first_name) ?? optionalString(accountUser?.first_name);
-  const lastName = optionalString(user.last_name) ?? optionalString(accountUser?.last_name);
-  const email = optionalString(user.email) ?? optionalString(accountUser?.email);
+  const userId = String(requireHarvestResponseId(accountUser?.id, "user.id"));
+  const firstName = optionalString(accountUser?.first_name);
+  const lastName = optionalString(accountUser?.last_name);
+  const email = optionalString(accountUser?.email);
   const accountLabel = [firstName, lastName].filter(Boolean).join(" ").trim() || email || "Harvest User";
 
   return {
@@ -586,12 +582,11 @@ async function fetchHarvestCurrentAccount(
       apiBaseUrl: harvestApiBaseUrl,
       accountId,
       defaultAccountId: accountId,
-      validationEndpoint: harvestValidationPath,
+      validationEndpoint: harvestAccountsUrl,
       userId: Number(userId),
       firstName,
       lastName,
       email,
-      timezone: optionalString(user.timezone),
       accounts: accounts.map((account) =>
         compactObject({
           id: requireHarvestResponseAccountId(account.id),
@@ -697,10 +692,6 @@ function readHarvestAccounts(payload: Record<string, unknown>): Array<Record<str
       const product = optionalString(item.product);
       return product == null || product === "harvest";
     });
-
-  if (accounts.length === 0) {
-    throw new ProviderRequestError(502, "harvest oauth account list is empty");
-  }
 
   return accounts;
 }

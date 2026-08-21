@@ -208,5 +208,3 @@ export const unipileActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type UnipileActionName = (typeof unipileActions)[number]["name"];

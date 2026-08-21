@@ -296,5 +296,3 @@ export const omnisendActions: ProviderActionDefinition[] = [
     outputSchema: segmentOutputSchema,
   }),
 ];
-
-export type OmnisendActionName = (typeof omnisendActions)[number]["name"];

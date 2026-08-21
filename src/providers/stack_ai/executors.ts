@@ -4,10 +4,11 @@ import type {
   ProviderExecutors,
   ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { StackAiActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   createProviderTimeout,
   defineProviderExecutors,
@@ -25,6 +26,8 @@ const service = "stack_ai";
 const stackAiInferenceBaseUrl = "https://stack-inference.com";
 const stackAiRequestTimeoutMs = 30_000;
 
+const stackAiFetch = createProviderFetch({ skipDnsValidation: true });
+
 type StackAiPhase = "validate" | "execute";
 
 interface StackAiContext {
@@ -37,7 +40,7 @@ interface StackAiContext {
 
 type StackAiActionHandler = (input: Record<string, unknown>, context: StackAiContext) => Promise<unknown>;
 
-export const stackAiActionHandlers: Record<StackAiActionName, StackAiActionHandler> = {
+export const stackAiActionHandlers: ProviderActionHandlers<"stack_ai", StackAiActionHandler> = {
   run_flow(input, context) {
     return runStackAiFlow(input, context);
   },
@@ -50,12 +53,13 @@ export const executors: ProviderExecutors = defineProviderExecutors<StackAiConte
   service,
   handlers: stackAiActionHandlers,
   createContext: createStackAiContext,
+  skipDnsValidation: true,
 });
 
 export const proxy: ProviderProxyExecutor = async (input, context) => {
   try {
     const credential = await requireCustomCredential(context, service);
-    const stackAiContext = readStackAiCredential(credential.values, fetch, context.signal);
+    const stackAiContext = readStackAiCredential(credential.values, stackAiFetch, context.signal);
     const baseUrl = new URL(
       buildRunPath(stackAiContext.organizationId, stackAiContext.flowId),
       stackAiInferenceBaseUrl,
@@ -77,7 +81,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await stackAiFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `StackAI request failed with HTTP ${response.status}`);

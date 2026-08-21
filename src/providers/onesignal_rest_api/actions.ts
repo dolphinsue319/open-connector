@@ -219,13 +219,7 @@ const listMessagesOutputSchema = s.object(
   },
 );
 
-export type OnesignalRestApiActionName =
-  | "create_push_notification"
-  | "list_messages"
-  | "get_message"
-  | "cancel_message";
-
-export const onesignalRestApiActions: Array<ActionDefinition & { name: OnesignalRestApiActionName }> = [
+export const onesignalRestApiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_push_notification",
     description: "Create a push notification for the connected OneSignal app using one official targeting method.",

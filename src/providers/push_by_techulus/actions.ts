@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -74,9 +74,7 @@ const successOutputSchema = s.object(
   { required: ["success"], optional: ["message", "responses"] },
 );
 
-export type PushByTechulusActionName = "send_notification" | "send_group_notification";
-
-export const pushByTechulusActions: ProviderActionDefinition<PushByTechulusActionName>[] = [
+export const pushByTechulusActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "send_notification",
     description: "Send a Push by Techulus notification to all devices targeted by the account or team API key.",

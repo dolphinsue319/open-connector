@@ -23,14 +23,9 @@ const allocationStatusSchema: JsonSchema = {
   description: "The Float allocation status value to filter by.",
 };
 const idSchema = (description: string) => s.integer(description, { minimum: 1 });
-const nonEmptyStringSchema = (description: string) =>
-  s.string(description, {
-    minLength: 1,
-    pattern: "\\S",
-  });
 const fieldsSchema = s.array(
   "The Float fields to include in the response.",
-  nonEmptyStringSchema("One Float field name to include in the response."),
+  s.nonWhitespaceString("One Float field name to include in the response."),
   { minItems: 1 },
 );
 
@@ -168,12 +163,12 @@ export const floatActions: ActionDefinition[] = [
         perPage: perPageSchema,
         active: activeSchema,
         departmentId: idSchema("The Float department ID to filter people by."),
-        email: nonEmptyStringSchema("An email address to filter people by exact match."),
+        email: s.nonWhitespaceString("An email address to filter people by exact match."),
         peopleTypeId: idSchema("The Float people type ID to filter by."),
         employeeType: activeSchema,
-        tagName: nonEmptyStringSchema("An exact Float tag name to filter people by."),
-        sort: nonEmptyStringSchema("A Float people field to sort by, prefix with - for descending."),
-        modifiedSince: nonEmptyStringSchema("A Float modified timestamp or Unix timestamp filter."),
+        tagName: s.nonWhitespaceString("An exact Float tag name to filter people by."),
+        sort: s.nonWhitespaceString("A Float people field to sort by, prefix with - for descending."),
+        modifiedSince: s.nonWhitespaceString("A Float modified timestamp or Unix timestamp filter."),
         fields: fieldsSchema,
         expand: s.stringEnum("Use accounts to include linked account data.", ["accounts"]),
       },
@@ -212,9 +207,9 @@ export const floatActions: ActionDefinition[] = [
         perPage: perPageSchema,
         active: activeSchema,
         clientId: idSchema("The Float client ID to filter projects by."),
-        tagName: nonEmptyStringSchema("An exact Float tag name to filter projects by."),
-        sort: nonEmptyStringSchema("A Float projects field to sort by, prefix with - for descending."),
-        modifiedSince: nonEmptyStringSchema("A Float modified timestamp or Unix timestamp filter."),
+        tagName: s.nonWhitespaceString("An exact Float tag name to filter projects by."),
+        sort: s.nonWhitespaceString("A Float projects field to sort by, prefix with - for descending."),
+        modifiedSince: s.nonWhitespaceString("A Float modified timestamp or Unix timestamp filter."),
         fields: fieldsSchema,
       },
       { optional: listProjectsOptionalFields },
@@ -238,12 +233,12 @@ export const floatActions: ActionDefinition[] = [
         phaseId: idSchema("The Float phase ID to filter allocations by."),
         projectTaskId: idSchema("The Float project task ID to filter allocations by."),
         peopleId: idSchema("The Float person ID to filter allocations by."),
-        startDate: nonEmptyStringSchema("The schedule start date in YYYY-MM-DD format."),
-        endDate: nonEmptyStringSchema("The schedule end date in YYYY-MM-DD format."),
+        startDate: s.nonWhitespaceString("The schedule start date in YYYY-MM-DD format."),
+        endDate: s.nonWhitespaceString("The schedule end date in YYYY-MM-DD format."),
         billable: activeSchema,
         status: allocationStatusSchema,
-        tagName: nonEmptyStringSchema("An exact Float tag name to filter allocations by."),
-        modifiedSince: nonEmptyStringSchema("A Float modified timestamp or Unix timestamp filter."),
+        tagName: s.nonWhitespaceString("An exact Float tag name to filter allocations by."),
+        modifiedSince: s.nonWhitespaceString("A Float modified timestamp or Unix timestamp filter."),
         fields: fieldsSchema,
         expand: s.stringEnum("Use task_days to include calculated allocation dates.", ["task_days"]),
       },
@@ -255,5 +250,3 @@ export const floatActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type FloatActionName = "list_accounts" | "list_people" | "list_clients" | "list_projects" | "list_allocations";

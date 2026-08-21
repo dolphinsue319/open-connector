@@ -192,6 +192,4 @@ export const coinmarketcalActions: ActionDefinition[] = [
     }),
     outputSchema: listEventsOutputSchema,
   }),
-] satisfies ActionDefinition[];
-
-export type CoinmarketcalActionName = (typeof coinmarketcalActions)[number]["name"];
+];

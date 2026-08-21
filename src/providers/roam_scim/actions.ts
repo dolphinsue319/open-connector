@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -198,22 +198,7 @@ const deleteResourceOutputSchema = s.actionOutput(
   "The Roam SCIM archive response.",
 );
 
-export type RoamScimActionName =
-  | "get_service_provider_config"
-  | "list_users"
-  | "get_user"
-  | "create_user"
-  | "replace_user"
-  | "set_user_active"
-  | "delete_user"
-  | "list_groups"
-  | "get_group"
-  | "create_group"
-  | "replace_group"
-  | "update_group_members"
-  | "delete_group";
-
-export const roamScimActions: ProviderActionDefinition<RoamScimActionName>[] = [
+export const roamScimActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_service_provider_config",
     description: "Get the Roam SCIM service provider configuration.",

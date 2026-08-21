@@ -236,5 +236,3 @@ export const balldontlieWorldcupActions: ActionDefinition[] = [
     outputDescription: "The team form rows returned by BALLDONTLIE.",
   }),
 ];
-
-export type BalldontlieWorldcupActionName = (typeof balldontlieWorldcupActions)[number]["name"];

@@ -43,5 +43,3 @@ export const aeroleadsActions: ActionDefinition[] = [
     outputSchema: getDetailsFromLinkedinUrlOutputSchema,
   }),
 ];
-
-export type AeroleadsActionName = (typeof aeroleadsActions)[number]["name"];

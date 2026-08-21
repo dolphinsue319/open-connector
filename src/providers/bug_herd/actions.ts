@@ -309,5 +309,3 @@ export const bugHerdActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type BugHerdActionName = (typeof bugHerdActions)[number]["name"];

@@ -104,6 +104,4 @@ export const superSaasActions: ActionDefinition[] = [
     inputSchema: bookingListInputSchema,
     outputSchema: bookingListOutputSchema,
   }),
-] satisfies ActionDefinition[];
-
-export type SuperSaasActionName = (typeof superSaasActions)[number]["name"];
+];

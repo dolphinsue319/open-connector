@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderFetch } from "../provider-runtime.ts";
-import type { BtcpayServerActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -27,7 +27,7 @@ export interface BtcpayServerContext {
   signal?: AbortSignal;
 }
 
-export const btcpayServerActionHandlers: Record<BtcpayServerActionName, BtcpayActionHandler> = {
+export const btcpayServerActionHandlers: ProviderActionHandlers<"btcpay_server", BtcpayActionHandler> = {
   list_stores(_input, context) {
     return listStores(context);
   },

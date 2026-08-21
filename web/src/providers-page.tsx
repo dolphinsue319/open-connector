@@ -1,12 +1,12 @@
 import type {
   AppData,
   AuthDefinition,
-  CredentialField,
+  ConnectionRecord,
   OAuthConfig,
   ProviderConnectionStatus,
   ProviderDefinition,
 } from "./model";
-import type { CSSProperties, FormEvent, ReactNode } from "react";
+import type { CSSProperties, ReactNode, SubmitEvent } from "react";
 
 import { useTranslate } from "@embra/i18n/react";
 import {
@@ -15,8 +15,9 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  CircleSlash2,
   ExternalLink,
-  KeyRound,
+  Plus,
   Search,
   Settings,
   Trash2,
@@ -25,13 +26,28 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { apiDelete, apiPost, apiPut } from "./api";
-import { credentialFieldsFor, filterProviders, resolveProviderConnectionStatus, sortProviders } from "./model";
+import { CredentialInput } from "./credential-input";
+import {
+  credentialFieldsFor,
+  filterProviders,
+  filterProvidersByCategory,
+  providerCategoryCounts,
+  resolveProviderConnectionStatus,
+  sortProviders,
+  usableConnectionsForService,
+} from "./model";
+import {
+  clientConfigFieldsFor,
+  initialClientConfigFieldValues,
+  OAuthAppDialog,
+  splitClientConfigFieldValues,
+} from "./oauth-app-form";
 import { Badge, EmptyState, FormStatus, ProviderIcon, TagList } from "./shared-ui";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 interface ProvidersPageProps {
@@ -41,7 +57,7 @@ interface ProvidersPageProps {
 
 interface ProviderDetailProps {
   provider: ProviderDefinition;
-  connection?: AppData["connections"][number];
+  connections: ConnectionRecord[];
   connectionStatus: ProviderConnectionStatus;
   oauthConfig?: OAuthConfig;
   onRefresh(): void;
@@ -59,21 +75,58 @@ interface ProviderCardProps {
 interface ConnectionFormProps {
   provider: ProviderDefinition;
   auth: AuthDefinition;
+  connectionName: string;
+  connectionNameValid: boolean;
   connection?: AppData["connections"][number];
   oauthConfig?: OAuthConfig;
+  oauthClientMode: OAuthClientMode;
   onRefresh(): void;
   onConfigureOAuthClient(): void;
+  onOAuthClientModeChange(mode: OAuthClientMode): void;
+  onConnectionPendingChange?(connectionName?: string): void;
 }
 
-interface OAuthConfigFormProps {
-  provider: ProviderDefinition;
-  config?: OAuthConfig;
-  onRefresh(): void;
+interface ConnectionManagerProps {
+  connections: ConnectionRecord[];
+  selectedConnectionName?: string;
+  creating: boolean;
+  newConnectionName: string;
+  newConnectionNameError?: "required" | "invalid" | "duplicate";
+  canAdd: boolean;
+  onSelect(connectionName: string): void;
+  onAdd(): void;
+  onCancel(): void;
+  onClearSelection(): void;
+  onNewConnectionNameChange(connectionName: string): void;
+}
+
+type OAuthClientMode = "configured" | "manual";
+
+export interface ManualOAuthClientValues {
+  clientId: string;
+  clientSecret: string;
+  extraValues: Record<string, string>;
+}
+
+export interface OAuthAuthorizationRequestBody {
+  service: string;
+  connectionName: string;
+  clientId?: string;
+  clientSecret?: string;
+  extra?: Record<string, string>;
+  secretExtra?: Record<string, string>;
+}
+
+export interface ManualOAuthAuthorizationInput {
+  auth: Extract<AuthDefinition, { type: "oauth2" }>;
+  values: ManualOAuthClientValues;
 }
 
 type ProviderStatusFilter = "all" | "connected" | "not_connected" | "oauth_needs_config";
 
 const providerPageSize = 48;
+const defaultConnectionName = "default";
+const connectionNamePattern = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
 const oauthRefreshPollingIntervalMs = 1_000;
 const oauthRefreshPollingMaxAttempts = 30;
 const compactNumberFormatter = Intl.NumberFormat(undefined, {
@@ -107,8 +160,9 @@ export function ProvidersPage(props: ProvidersPageProps): ReactNode {
 
   return (
     <ProviderDetail
+      key={routeProvider.service}
       provider={routeProvider}
-      connection={connectionStatus.connection}
+      connections={configurableConnectionsForProvider(props.data.connections, routeProvider.service)}
       connectionStatus={connectionStatus}
       oauthConfig={oauthConfigForProvider(props.data.oauthConfigs, routeProvider.service)}
       onRefresh={props.onRefresh}
@@ -120,7 +174,8 @@ function ProviderBrowser(props: ProviderBrowserProps): ReactNode {
   const t = useTranslate();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProviderStatusFilter>("all");
-  const resetKey = providerBrowserResetKey(query, statusFilter);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const resetKey = providerBrowserResetKey(query, statusFilter, categoryFilter);
   const statusByService = useMemo(
     () =>
       new Map(
@@ -145,7 +200,9 @@ function ProviderBrowser(props: ProviderBrowserProps): ReactNode {
     [credentialConnectionsByService, props.data.providers],
   );
   const searchedProviders = filterProviders(sortedProviders, query);
-  const visibleProviders = filterProvidersByStatus(searchedProviders, statusFilter, statusByService);
+  const categoryFilteredProviders = filterProvidersByCategory(searchedProviders, categoryFilter);
+  const statusFilteredProviders = filterProvidersByStatus(searchedProviders, statusFilter, statusByService);
+  const visibleProviders = filterProvidersByCategory(statusFilteredProviders, categoryFilter);
   const {
     hasMore: hasMoreProviders,
     limit: visibleLimit,
@@ -153,19 +210,31 @@ function ProviderBrowser(props: ProviderBrowserProps): ReactNode {
   } = useProgressiveProviderLimit(visibleProviders.length, resetKey);
   const loadMoreProvidersRef = useIntersectionLoader(hasMoreProviders, loadMoreProviders);
   const renderedProviders = visibleProviders.slice(0, visibleLimit);
-  const filtersActive = query.trim().length > 0 || statusFilter !== "all";
+  const filtersActive = query.trim().length > 0 || statusFilter !== "all" || categoryFilter !== "all";
   const statusCounts = useMemo(
     () =>
       providerStatusOptions.map((option) => ({
         ...option,
-        count: countProvidersForStatus(searchedProviders, option.id, statusByService),
+        count: countProvidersForStatus(categoryFilteredProviders, option.id, statusByService),
       })),
-    [searchedProviders, statusByService],
+    [categoryFilteredProviders, statusByService],
+  );
+  const categoryCounts = useMemo(() => providerCategoryCounts(statusFilteredProviders), [statusFilteredProviders]);
+  const categoryOptions = useMemo(
+    () =>
+      [
+        ...categoryCounts.entries(),
+        ...(categoryFilter !== "all" && !categoryCounts.has(categoryFilter) ? [[categoryFilter, 0] as const] : []),
+      ]
+        .sort((left, right) => left[0].localeCompare(right[0]))
+        .map(([category, count]) => ({ category, count })),
+    [categoryCounts, categoryFilter],
   );
 
   function resetFilters(): void {
     setQuery("");
     setStatusFilter("all");
+    setCategoryFilter("all");
   }
 
   return (
@@ -188,13 +257,18 @@ function ProviderBrowser(props: ProviderBrowserProps): ReactNode {
 
       <ProviderCollectionBar
         counts={statusCounts}
+        categoryOptions={categoryOptions}
+        categoryFilter={categoryFilter}
         filtersActive={filtersActive}
         providerCount={visibleProviders.length}
         selected={statusFilter}
         totalProviderCount={props.data.providers.length}
         onReset={resetFilters}
         onSelect={setStatusFilter}
+        onSelectCategory={setCategoryFilter}
       />
+
+      <p className="provider-brand-notice">{t("providers.brandNotice")}</p>
 
       {visibleProviders.length === 0 ? (
         <div className="provider-empty-row">
@@ -292,12 +366,15 @@ function useIntersectionLoader(enabled: boolean, onLoad: () => void): (node: HTM
 
 function ProviderCollectionBar(props: {
   counts: Array<{ id: ProviderStatusFilter; labelKey: string; count: number }>;
+  categoryOptions: Array<{ category: string; count: number }>;
+  categoryFilter: string;
   filtersActive: boolean;
   providerCount: number;
   selected: ProviderStatusFilter;
   totalProviderCount: number;
   onReset(): void;
   onSelect(value: ProviderStatusFilter): void;
+  onSelectCategory(value: string): void;
 }): ReactNode {
   const t = useTranslate();
 
@@ -314,7 +391,7 @@ function ProviderCollectionBar(props: {
           <ToggleGroupItem
             key={option.id}
             value={option.id}
-            className="h-8 gap-2 rounded-md border px-3 text-sm data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90 data-[state=on]:[&>span:last-child]:text-primary-foreground/70 [&>span:last-child]:text-xs [&>span:last-child]:text-muted-foreground [&>span:last-child]:tabular-nums"
+            className="h-8 gap-2 rounded-md border px-3 text-sm data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90 data-[state=on]:[&>span:last-child]:text-primary-foreground/70 [&>span:last-child]:min-w-8 [&>span:last-child]:text-right [&>span:last-child]:text-xs [&>span:last-child]:text-muted-foreground [&>span:last-child]:tabular-nums"
             disabled={option.count === 0 && option.id !== "all"}
           >
             <span>{t(option.labelKey)}</span>
@@ -322,6 +399,23 @@ function ProviderCollectionBar(props: {
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
+      <Select value={props.categoryFilter} onValueChange={props.onSelectCategory}>
+        <SelectTrigger
+          className="h-8 w-48 rounded-md border px-3 text-sm"
+          size="sm"
+          aria-label={t("providers.categoryFilterLabel")}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="p-1" position="popper" align="start">
+          <SelectItem value="all">{t("providers.categories.all")}</SelectItem>
+          {props.categoryOptions.map((option) => (
+            <SelectItem key={option.category} value={option.category}>
+              {option.category} ({compactProviderCount(option.count)})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <div className="provider-result-meta">
         <span>
           {t("providers.resultCount", {
@@ -343,25 +437,37 @@ function ProviderCollectionBar(props: {
 function ProviderCard(props: ProviderCardProps): ReactNode {
   const t = useTranslate();
   const to = `/providers/${encodeURIComponent(props.provider.service)}`;
-  const actionLabel = props.status.noSetupRequired
+  const locallyAvailable = isProviderLocallyAvailable(props.provider);
+  const actionLabel = !locallyAvailable
     ? t("providers.buttons.details")
-    : props.status.connected
-      ? t("providers.buttons.manageConnection")
-      : props.status.oauthClientRequired
-        ? t("providers.buttons.configureOAuthClient")
-        : t("providers.buttons.connect");
+    : props.status.noSetupRequired
+      ? t("providers.buttons.details")
+      : props.status.connected
+        ? t("providers.buttons.manageConnection")
+        : props.status.oauthClientRequired
+          ? t("providers.buttons.configureOAuthClient")
+          : t("providers.buttons.connect");
 
   return (
     <div className="provider-card" style={providerCardStyle}>
       <Link className="provider-card-main" to={to}>
         <ProviderIcon provider={props.provider} />
-        <span className="provider-card-title-row">
-          <span className="provider-card-title">{props.provider.displayName || props.provider.service}</span>
-          <ProviderStatusBadges status={props.status} compact />
+        <span className="provider-card-info">
+          <span className="provider-card-title-row">
+            <span className="provider-card-title">{props.provider.displayName || props.provider.service}</span>
+            <ProviderStatusBadges status={props.status} locallyAvailable={locallyAvailable} compact />
+          </span>
+          {props.provider.description ? (
+            <span className="provider-card-description">{props.provider.description}</span>
+          ) : null}
         </span>
       </Link>
       <Link
-        className={props.status.connected ? "provider-card-action" : "provider-card-action provider-card-action-muted"}
+        className={
+          locallyAvailable && props.status.connected
+            ? "provider-card-action"
+            : "provider-card-action provider-card-action-muted"
+        }
         to={to}
       >
         <span>{actionLabel}</span>
@@ -373,11 +479,23 @@ function ProviderCard(props: ProviderCardProps): ReactNode {
 
 function ProviderStatusBadges(props: {
   status: ProviderConnectionStatus;
+  locallyAvailable: boolean;
   compact?: boolean;
   includeDisconnected?: boolean;
 }): ReactNode {
   const t = useTranslate();
   const badges: ReactNode[] = [];
+
+  if (!props.locallyAvailable) {
+    return (
+      <span className="provider-status-badges">
+        <Badge tone="warning">
+          {props.compact ? <CircleSlash2 size={12} /> : null}
+          {t("providers.runtimeUnavailableBadge")}
+        </Badge>
+      </span>
+    );
+  }
 
   if (props.status.connected) {
     badges.push(
@@ -386,6 +504,13 @@ function ProviderStatusBadges(props: {
         {t("providers.configuredBadge")}
       </Badge>,
     );
+    if (props.status.connections.length > 1) {
+      badges.push(
+        <Badge key="connection-count">
+          {t("providers.connectionCount", { count: props.status.connections.length })}
+        </Badge>,
+      );
+    }
   } else if (props.status.noSetupRequired) {
     badges.push(
       <Badge key="no-setup">
@@ -429,26 +554,116 @@ function ProviderNotFound(props: { service: string }): ReactNode {
 
 function ProviderDetail(props: ProviderDetailProps): ReactNode {
   const t = useTranslate();
-  const [selectedAuthType, setSelectedAuthType] = useState(() => initialAuthType(props.provider, props.connection));
-  const [oauthClientExpanded, setOAuthClientExpanded] = useState(false);
+  const [selectedConnectionName, setSelectedConnectionName] = useState<string>();
+  const [creatingConnection, setCreatingConnection] = useState(props.connections.length === 0);
+  const [newConnectionName, setNewConnectionName] = useState(
+    props.connections.length === 0 ? defaultConnectionName : "",
+  );
+  const [pendingConnectionName, setPendingConnectionName] = useState<string>();
+  const selectedConnection =
+    !creatingConnection && selectedConnectionName
+      ? connectionByName(props.connections, selectedConnectionName)
+      : undefined;
+  const [selectedAuthType, setSelectedAuthType] = useState(() => initialAuthType(props.provider, selectedConnection));
+  const [oauthAppDialogOpen, setOAuthAppDialogOpen] = useState(false);
+  const [oauthClientMode, setOAuthClientMode] = useState<OAuthClientMode>("configured");
+  const changeOAuthClientMode = useCallback((mode: OAuthClientMode) => setOAuthClientMode(mode), []);
   const selectedAuth = props.provider.auth.find((auth) => auth.type === selectedAuthType) ?? props.provider.auth[0];
   const oauthAuth = props.provider.auth.find((auth) => auth.type === "oauth2");
   const hasMultipleAuthMethods = props.provider.auth.length > 1;
-  const connectionDescription = props.connectionStatus.noSetupRequired
-    ? t("providers.connectionDescriptions.noSetup")
-    : props.connectionStatus.connected
-      ? t("providers.connectionDescriptions.connected", { authType: props.connection?.authType ?? "" })
-      : props.connectionStatus.oauthClientRequired
-        ? t("providers.connectionDescriptions.oauthClientRequired", { name: props.provider.displayName })
-        : t("providers.connectionDescriptions.notConnected", { name: props.provider.displayName });
+  const locallyAvailable = isProviderLocallyAvailable(props.provider);
+  const supportsCredentialConnections = props.provider.auth.some((auth) => shouldShowConnectionActions(auth));
+  const connectionEditorOpen = !supportsCredentialConnections || creatingConnection || selectedConnection != null;
+  const formConnectionName = creatingConnection ? newConnectionName.trim() : (selectedConnectionName ?? "");
+  const newConnectionNameError = creatingConnection
+    ? validateNewConnectionName(newConnectionName, props.connections)
+    : undefined;
+  const connectionDescription = !locallyAvailable
+    ? t("providers.connectionDescriptions.unavailable")
+    : props.connectionStatus.noSetupRequired
+      ? t("providers.connectionDescriptions.noSetup")
+      : creatingConnection
+        ? t("providers.connectionDescriptions.adding")
+        : selectedConnection
+          ? t("providers.connectionDescriptions.connected", {
+              authType: selectedConnection.authType,
+            })
+          : props.connectionStatus.connected
+            ? t("providers.connectionDescriptions.saved", { count: props.connections.length })
+            : props.connectionStatus.oauthClientRequired
+              ? t("providers.connectionDescriptions.oauthClientRequired", { name: props.provider.displayName })
+              : t("providers.connectionDescriptions.notConnected", { name: props.provider.displayName });
 
   useEffect(() => {
-    setSelectedAuthType(initialAuthType(props.provider, props.connection));
-  }, [props.provider.service, props.connection?.authType]);
+    if (creatingConnection && pendingConnectionName) {
+      const createdConnection = connectionByName(props.connections, pendingConnectionName);
+      if (createdConnection) {
+        setSelectedConnectionName(pendingConnectionName);
+        setCreatingConnection(false);
+        setNewConnectionName("");
+        setPendingConnectionName(undefined);
+        setSelectedAuthType(initialAuthType(props.provider, createdConnection));
+        setOAuthClientMode("configured");
+      }
+      return;
+    }
+
+    if (!creatingConnection && selectedConnectionName && !connectionByName(props.connections, selectedConnectionName)) {
+      if (props.connections.length === 0) {
+        setSelectedConnectionName(undefined);
+        setCreatingConnection(true);
+        setNewConnectionName(defaultConnectionName);
+      } else {
+        setSelectedConnectionName(undefined);
+        setSelectedAuthType(initialAuthType(props.provider, undefined));
+        setOAuthClientMode("configured");
+      }
+      return;
+    }
+
+    if (!creatingConnection && !selectedConnectionName && props.connections.length === 0) {
+      setCreatingConnection(true);
+      setNewConnectionName(defaultConnectionName);
+    }
+  }, [creatingConnection, pendingConnectionName, props.connections, props.provider, selectedConnectionName]);
 
   useEffect(() => {
-    setOAuthClientExpanded(false);
-  }, [props.provider.service, props.oauthConfig?.clientId]);
+    setSelectedAuthType(initialAuthType(props.provider, selectedConnection));
+  }, [props.provider.service, selectedConnection?.authType]);
+
+  function selectConnection(connectionName: string): void {
+    const connection = connectionByName(props.connections, connectionName);
+    setSelectedConnectionName(connectionName);
+    setCreatingConnection(false);
+    setNewConnectionName("");
+    setSelectedAuthType(initialAuthType(props.provider, connection));
+    setOAuthClientMode("configured");
+  }
+
+  function startNewConnection(): void {
+    setSelectedConnectionName(undefined);
+    setCreatingConnection(true);
+    setNewConnectionName("");
+    setPendingConnectionName(undefined);
+    setSelectedAuthType(initialAuthType(props.provider, undefined));
+    setOAuthClientMode("configured");
+  }
+
+  function cancelNewConnection(): void {
+    setCreatingConnection(false);
+    setNewConnectionName("");
+    setPendingConnectionName(undefined);
+    setOAuthClientMode("configured");
+  }
+
+  function clearConnectionSelection(): void {
+    setSelectedConnectionName(undefined);
+    setCreatingConnection(false);
+    setNewConnectionName("");
+    setPendingConnectionName(undefined);
+    setSelectedAuthType(initialAuthType(props.provider, undefined));
+    setOAuthClientMode("configured");
+  }
 
   return (
     <div className="provider-detail-page">
@@ -463,7 +678,11 @@ function ProviderDetail(props: ProviderDetailProps): ReactNode {
           <div className="provider-detail-heading-copy">
             <div className="provider-detail-heading-title">
               <h2>{props.provider.displayName}</h2>
-              <ProviderStatusBadges status={props.connectionStatus} includeDisconnected />
+              <ProviderStatusBadges
+                status={props.connectionStatus}
+                locallyAvailable={locallyAvailable}
+                includeDisconnected
+              />
             </div>
             {props.provider.description ? (
               <p className="provider-detail-description">{props.provider.description}</p>
@@ -496,14 +715,34 @@ function ProviderDetail(props: ProviderDetailProps): ReactNode {
               <p>{connectionDescription}</p>
             </div>
           </div>
-          {hasMultipleAuthMethods ? (
+          {supportsCredentialConnections && (locallyAvailable || props.connections.length > 0) ? (
+            <ConnectionManager
+              connections={props.connections}
+              selectedConnectionName={selectedConnectionName}
+              creating={creatingConnection}
+              newConnectionName={newConnectionName}
+              newConnectionNameError={newConnectionNameError}
+              canAdd={locallyAvailable}
+              onSelect={selectConnection}
+              onAdd={startNewConnection}
+              onCancel={cancelNewConnection}
+              onClearSelection={clearConnectionSelection}
+              onNewConnectionNameChange={setNewConnectionName}
+            />
+          ) : null}
+          {connectionEditorOpen && locallyAvailable && hasMultipleAuthMethods ? (
             <ToggleGroup
               className="auth-method-control bg-muted p-[3px]"
               type="single"
               value={selectedAuth?.type}
               spacing={0}
               aria-label={t("providers.connectionMethod")}
-              onValueChange={(value) => (value ? setSelectedAuthType(value as AuthDefinition["type"]) : undefined)}
+              onValueChange={(value) => {
+                if (value) {
+                  setSelectedAuthType(value as AuthDefinition["type"]);
+                  setOAuthClientMode("configured");
+                }
+              }}
             >
               {props.provider.auth.map((auth) => (
                 <ToggleGroupItem
@@ -516,15 +755,27 @@ function ProviderDetail(props: ProviderDetailProps): ReactNode {
               ))}
             </ToggleGroup>
           ) : null}
-          {selectedAuth ? (
+          {!connectionEditorOpen ? null : !locallyAvailable ? (
+            <UnavailableProviderConnection
+              provider={props.provider}
+              connection={selectedConnection}
+              connectionName={formConnectionName}
+              onRefresh={props.onRefresh}
+            />
+          ) : selectedAuth ? (
             <ConnectionForm
-              key={selectedAuth.type}
+              key={`${selectedAuth.type}:${creatingConnection ? "new" : selectedConnectionName}`}
               provider={props.provider}
               auth={selectedAuth}
-              connection={props.connection}
+              connection={selectedConnection}
+              connectionName={formConnectionName}
+              connectionNameValid={!newConnectionNameError}
               oauthConfig={props.oauthConfig}
+              oauthClientMode={oauthClientMode}
               onRefresh={props.onRefresh}
-              onConfigureOAuthClient={() => setOAuthClientExpanded(true)}
+              onConfigureOAuthClient={() => setOAuthAppDialogOpen(true)}
+              onOAuthClientModeChange={changeOAuthClientMode}
+              onConnectionPendingChange={creatingConnection ? setPendingConnectionName : undefined}
             />
           ) : (
             <EmptyState
@@ -532,19 +783,6 @@ function ProviderDetail(props: ProviderDetailProps): ReactNode {
               description={t("providers.noConnectionMethodDescription")}
             />
           )}
-          {oauthAuth && selectedAuth?.type === "oauth2" ? (
-            <div className="provider-inline-oauth-settings">
-              <h3>{t("providers.oauthClient")}</h3>
-              <OAuthClientSettings
-                provider={props.provider}
-                auth={oauthAuth}
-                config={props.oauthConfig}
-                expanded={oauthClientExpanded}
-                onToggle={() => setOAuthClientExpanded((value) => !value)}
-                onRefresh={props.onRefresh}
-              />
-            </div>
-          ) : null}
         </section>
 
         <section className="detail-panel provider-detail-card">
@@ -588,12 +826,22 @@ function ProviderDetail(props: ProviderDetailProps): ReactNode {
           )}
         </section>
       </div>
+      {oauthAuth ? (
+        <OAuthAppDialog
+          open={oauthAppDialogOpen}
+          provider={props.provider}
+          auth={oauthAuth}
+          config={props.oauthConfig}
+          onOpenChange={setOAuthAppDialogOpen}
+          onRefresh={props.onRefresh}
+        />
+      ) : null}
     </div>
   );
 }
 
-export function shouldShowOAuthClientForm(auth: AuthDefinition | undefined, expanded: boolean): boolean {
-  return auth?.type === "oauth2" && expanded;
+export function isProviderLocallyAvailable(provider: ProviderDefinition): boolean {
+  return provider.actions.length === 0 || provider.actions.some((action) => action.execution.locallyExecutable);
 }
 
 export function shouldShowConnectionActions(auth: AuthDefinition): boolean {
@@ -604,8 +852,26 @@ export function shouldShowDisconnectAction(connection: AppData["connections"][nu
   return connection != null;
 }
 
-export function shouldEnableConnectionSubmit(auth: AuthDefinition, oauthConfig: OAuthConfig | undefined): boolean {
-  return auth.type !== "oauth2" || oauthConfig != null;
+export function shouldEnableConnectionSubmit(
+  auth: AuthDefinition,
+  oauthConfig: OAuthConfig | undefined,
+  manualValues?: ManualOAuthClientValues,
+): boolean {
+  if (auth.type !== "oauth2") {
+    return true;
+  }
+  if (!manualValues) {
+    return oauthConfig?.configured ?? false;
+  }
+  if (!manualValues.clientId.trim()) {
+    return false;
+  }
+  if (auth.tokenEndpointAuthMethod !== "none" && !manualValues.clientSecret.trim()) {
+    return false;
+  }
+  return clientConfigFieldsFor(auth).every(
+    (field) => !field.required || Boolean(manualValues.extraValues[field.key]?.trim()),
+  );
 }
 
 export function connectionSubmitLabel(auth: AuthDefinition, connected: boolean, providerName: string): string {
@@ -613,17 +879,6 @@ export function connectionSubmitLabel(auth: AuthDefinition, connected: boolean, 
     return `${connected ? "Reconnect" : "Connect"} ${providerName}`;
   }
   return "Save Connection";
-}
-
-export function oauthClientActionLabel(config: OAuthConfig | undefined): string {
-  return config ? "Edit OAuth Client" : "Configure OAuth Client";
-}
-
-export function shouldClearOAuthClientStatus(input: {
-  providerChanged: boolean;
-  skipNextConfigClear: boolean;
-}): boolean {
-  return input.providerChanged || !input.skipNextConfigClear;
 }
 
 export interface OAuthPopupPlacement {
@@ -688,16 +943,234 @@ function authTypeLabel(authType: string, t: (key: string) => string): string {
   return authType;
 }
 
+export function configurableConnectionsForProvider(
+  connections: ConnectionRecord[],
+  service: string,
+): ConnectionRecord[] {
+  return usableConnectionsForService(connections, service);
+}
+
+export function connectionDisplayLabel(connection: ConnectionRecord): string {
+  const connectionName = connectionNameOf(connection);
+  const profileLabel = [connection.profile?.displayName, connection.profile?.accountId].find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0,
+  );
+  return profileLabel && profileLabel.trim() !== connectionName
+    ? `${connectionName} · ${profileLabel.trim()}`
+    : connectionName;
+}
+
+export function validateNewConnectionName(
+  connectionName: string,
+  connections: ConnectionRecord[],
+): "required" | "invalid" | "duplicate" | undefined {
+  const normalized = connectionName.trim();
+  if (!normalized) return "required";
+  if (!connectionNamePattern.test(normalized)) return "invalid";
+  if (connections.some((connection) => connectionNameOf(connection) === normalized)) return "duplicate";
+  return undefined;
+}
+
+function connectionNameOf(connection: ConnectionRecord): string {
+  return connection.connectionName?.trim() || defaultConnectionName;
+}
+
+function connectionByName(connections: ConnectionRecord[], connectionName: string): ConnectionRecord | undefined {
+  return connections.find((connection) => connectionNameOf(connection) === connectionName);
+}
+
+export function connectionDeletePath(service: string, connectionName: string): string {
+  return `/api/connections/${encodeURIComponent(service)}?connectionName=${encodeURIComponent(connectionName)}`;
+}
+
+export function credentialConnectionRequestBody(
+  authType: "no_auth" | "api_key" | "custom_credential",
+  connectionName: string,
+  values: Record<string, string>,
+): Record<string, unknown> {
+  return authType === "no_auth" ? { authType, connectionName } : { authType, connectionName, values };
+}
+
+export function oauthAuthorizationRequestBody(
+  service: string,
+  connectionName: string,
+  manual?: ManualOAuthAuthorizationInput,
+): OAuthAuthorizationRequestBody {
+  const body: OAuthAuthorizationRequestBody = { service, connectionName };
+  if (manual) {
+    const { extra, secretExtra } = splitClientConfigFieldValues(
+      clientConfigFieldsFor(manual.auth),
+      manual.values.extraValues,
+    );
+    body.clientId = manual.values.clientId;
+    body.clientSecret = manual.values.clientSecret;
+    body.extra = extra;
+    body.secretExtra = secretExtra;
+  }
+  return body;
+}
+
+function ConnectionManager(props: ConnectionManagerProps): ReactNode {
+  const t = useTranslate();
+  const inputId = "provider-connection-name";
+  const errorId = `${inputId}-error`;
+
+  return (
+    <div className="connection-manager">
+      {props.connections.length > 0 ? (
+        <div className="connection-list" aria-label={t("providers.savedConnections")}>
+          {props.connections.map((connection) => {
+            const connectionName = connectionNameOf(connection);
+            const selected = !props.creating && connectionName === props.selectedConnectionName;
+            return (
+              <div key={connection.id ?? `${connection.service}:${connectionName}`} className="connection-list-item">
+                <div className="connection-list-copy">
+                  <div className="connection-list-title">
+                    <strong>{connectionDisplayLabel(connection)}</strong>
+                    {connectionName === defaultConnectionName ? (
+                      <Badge>{t("providers.defaultConnection")}</Badge>
+                    ) : null}
+                  </div>
+                  <small>{authTypeLabel(connection.authType, t)}</small>
+                </div>
+                <Button
+                  variant={selected ? "default" : "outline"}
+                  size="sm"
+                  type="button"
+                  aria-pressed={selected}
+                  disabled={selected}
+                  onClick={() => props.onSelect(connectionName)}
+                >
+                  {t(selected ? "providers.buttons.selected" : "providers.buttons.manageConnection")}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {props.creating ? (
+        <div className="connection-manager-new">
+          <Label className="field" htmlFor={inputId}>
+            <span>{t("providers.connectionName")}</span>
+            <Input
+              id={inputId}
+              maxLength={64}
+              placeholder={t("providers.connectionNamePlaceholder")}
+              required
+              aria-invalid={props.newConnectionNameError != null}
+              aria-describedby={errorId}
+              value={props.newConnectionName}
+              onChange={(event) => props.onNewConnectionNameChange(event.target.value)}
+            />
+            <small id={errorId} className={props.newConnectionNameError ? "field-error" : undefined}>
+              {t(
+                props.newConnectionNameError
+                  ? `providers.connectionNameErrors.${props.newConnectionNameError}`
+                  : "providers.connectionNameDescription",
+              )}
+            </small>
+          </Label>
+          {props.connections.length > 0 ? (
+            <Button variant="outline" type="button" onClick={props.onCancel}>
+              {t("providers.buttons.cancel")}
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="connection-manager-actions">
+          {props.canAdd ? (
+            <Button className="connection-add-button" variant="outline" type="button" onClick={props.onAdd}>
+              <Plus size={16} />
+              {t("providers.buttons.addConnection")}
+            </Button>
+          ) : null}
+          {props.selectedConnectionName ? (
+            <Button variant="ghost" type="button" onClick={props.onClearSelection}>
+              <X size={16} />
+              {t("providers.buttons.clearSelection")}
+            </Button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UnavailableProviderConnection(props: {
+  provider: ProviderDefinition;
+  connection?: AppData["connections"][number];
+  connectionName: string;
+  onRefresh(): void;
+}): ReactNode {
+  const t = useTranslate();
+  const [status, setStatus] = useState<string | null>(null);
+
+  async function disconnect(): Promise<void> {
+    setStatus(t("providers.connectionMessages.disconnecting"));
+    try {
+      await apiDelete(connectionDeletePath(props.provider.service, props.connectionName));
+      setStatus(t("providers.connectionMessages.disconnected"));
+      props.onRefresh();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : t("providers.connectionMessages.disconnectFailed"));
+    }
+  }
+
+  return (
+    <div className="form-grid">
+      <Alert variant="warning">
+        <CircleSlash2 size={16} />
+        <AlertTitle>{t("providers.runtimeUnavailableTitle")}</AlertTitle>
+        <AlertDescription>
+          {t("providers.runtimeUnavailableDescription", { name: props.provider.displayName })}
+        </AlertDescription>
+      </Alert>
+      {props.connection ? (
+        <div className="button-row">
+          <Button variant="outline" type="button" onClick={() => void disconnect()}>
+            <Trash2 size={16} />
+            {t("providers.buttons.disconnect")}
+          </Button>
+        </div>
+      ) : null}
+      {status ? <FormStatus message={status} /> : null}
+    </div>
+  );
+}
+
 function ConnectionForm(props: ConnectionFormProps): ReactNode {
   const t = useTranslate();
   const [values, setValues] = useState<Record<string, string>>({});
+  const [manualClientId, setManualClientId] = useState("");
+  const [manualClientSecret, setManualClientSecret] = useState("");
+  const manualClientConfigFields = useMemo(() => clientConfigFieldsFor(props.auth), [props.auth]);
+  const [manualExtraValues, setManualExtraValues] = useState(() =>
+    initialClientConfigFieldValues(manualClientConfigFields, undefined),
+  );
   const [status, setStatus] = useState<string | null>(null);
   const stopOAuthRefreshPolling = useRef<(() => void) | undefined>(undefined);
   const fields = credentialFieldsFor(props.auth);
   const showActions = shouldShowConnectionActions(props.auth);
   const connected = props.connection != null;
-  const needsOAuthClient = props.auth.type === "oauth2" && !props.oauthConfig;
-  const canSubmit = shouldEnableConnectionSubmit(props.auth, props.oauthConfig);
+  const customOAuthClientAvailable =
+    props.auth.type === "oauth2" && (props.oauthConfig?.customClientAvailable ?? false);
+  const manualValues: ManualOAuthClientValues = {
+    clientId: manualClientId,
+    clientSecret: manualClientSecret,
+    extraValues: manualExtraValues,
+  };
+  const needsOAuthClient =
+    props.auth.type === "oauth2" && props.oauthClientMode === "configured" && !props.oauthConfig?.configured;
+  const canSubmit =
+    props.connectionName.length > 0 &&
+    props.connectionNameValid &&
+    (props.oauthClientMode !== "manual" || customOAuthClientAvailable) &&
+    shouldEnableConnectionSubmit(
+      props.auth,
+      props.oauthConfig,
+      props.oauthClientMode === "manual" ? manualValues : undefined,
+    );
   const submitLabel =
     props.auth.type === "oauth2"
       ? t(connected ? "providers.buttons.reconnectProvider" : "providers.buttons.connectProvider", {
@@ -719,28 +1192,53 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
     }
   }, [props.connection]);
 
-  async function submit(event: FormEvent): Promise<void> {
+  useEffect(() => {
+    if (!customOAuthClientAvailable && props.oauthClientMode === "manual") {
+      props.onOAuthClientModeChange("configured");
+    }
+  }, [customOAuthClientAvailable, props.oauthClientMode, props.onOAuthClientModeChange]);
+
+  async function submit(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (!canSubmit) {
+      if (needsOAuthClient) {
+        setStatus(t("providers.connectionMessages.configureOAuthFirst"));
+      }
+      return;
+    }
+
+    const connectionName = props.connectionName.trim();
     setStatus(
       props.auth.type === "oauth2"
         ? t("providers.connectionMessages.openingOAuth")
         : t("providers.connectionMessages.saving"),
     );
+    props.onConnectionPendingChange?.(connectionName);
     try {
       if (props.auth.type === "no_auth") {
-        await apiPut(`/api/connections/${props.provider.service}`, { authType: "no_auth" });
+        await apiPut(
+          `/api/connections/${props.provider.service}`,
+          credentialConnectionRequestBody("no_auth", connectionName, values),
+        );
       } else if (props.auth.type === "api_key") {
-        await apiPut(`/api/connections/${props.provider.service}`, { authType: "api_key", values });
+        await apiPut(
+          `/api/connections/${props.provider.service}`,
+          credentialConnectionRequestBody("api_key", connectionName, values),
+        );
       } else if (props.auth.type === "custom_credential") {
-        await apiPut(`/api/connections/${props.provider.service}`, { authType: "custom_credential", values });
+        await apiPut(
+          `/api/connections/${props.provider.service}`,
+          credentialConnectionRequestBody("custom_credential", connectionName, values),
+        );
       } else {
-        if (!canSubmit) {
-          setStatus(t("providers.connectionMessages.configureOAuthFirst"));
-          return;
-        }
-        const result = await apiPost<{ authorizationUrl?: string }>(`/api/oauth/authorizations`, {
-          service: props.provider.service,
-        });
+        const result = await apiPost<{ authorizationUrl?: string }>(
+          `/api/oauth/authorizations`,
+          oauthAuthorizationRequestBody(
+            props.provider.service,
+            connectionName,
+            props.oauthClientMode === "manual" ? { auth: props.auth, values: manualValues } : undefined,
+          ),
+        );
         if (result.authorizationUrl) {
           window.open(
             result.authorizationUrl,
@@ -761,6 +1259,7 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
       setStatus(t("providers.connectionMessages.updated"));
       props.onRefresh();
     } catch (error) {
+      props.onConnectionPendingChange?.(undefined);
       setStatus(error instanceof Error ? error.message : t("providers.connectionMessages.failed"));
     }
   }
@@ -768,7 +1267,7 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
   async function disconnect(): Promise<void> {
     setStatus(t("providers.connectionMessages.disconnecting"));
     try {
-      await apiDelete(`/api/connections/${props.provider.service}`);
+      await apiDelete(connectionDeletePath(props.provider.service, props.connectionName));
       setStatus(t("providers.connectionMessages.disconnected"));
       props.onRefresh();
     } catch (error) {
@@ -784,17 +1283,83 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
           <AlertDescription>{t("providers.connectionMessages.noAuth")}</AlertDescription>
         </Alert>
       ) : null}
+      {props.auth.type === "oauth2" && customOAuthClientAvailable ? (
+        <ToggleGroup
+          className="auth-method-control bg-muted p-[3px]"
+          type="single"
+          value={props.oauthClientMode}
+          spacing={0}
+          aria-label={t("providers.oauthAppMode")}
+          onValueChange={(value) => {
+            if (value === "configured" || value === "manual") {
+              props.onOAuthClientModeChange(value);
+              setStatus(null);
+            }
+          }}
+        >
+          <ToggleGroupItem
+            value="configured"
+            className="h-[30px] rounded-md px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-none"
+          >
+            {t("providers.oauthAppModes.configured")}
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="manual"
+            className="h-[30px] rounded-md px-3 text-sm data-[state=on]:bg-background data-[state=on]:shadow-none"
+          >
+            {t("providers.oauthAppModes.manual")}
+          </ToggleGroupItem>
+        </ToggleGroup>
+      ) : null}
       {props.auth.type === "oauth2" ? (
         <Alert variant={needsOAuthClient ? "warning" : "default"}>
           {needsOAuthClient ? <Settings size={16} /> : <ExternalLink size={16} />}
           <AlertDescription>
             {needsOAuthClient
               ? t("providers.connectionMessages.needsOAuthClient", { name: props.provider.displayName })
-              : connected
-                ? t("providers.connectionMessages.connectedOAuth", { name: props.provider.displayName })
-                : t("providers.connectionMessages.connectOAuth", { name: props.provider.displayName })}
+              : props.oauthClientMode === "manual"
+                ? t("providers.connectionMessages.manualOAuthClient", { name: props.provider.displayName })
+                : connected
+                  ? t("providers.connectionMessages.connectedOAuth", { name: props.provider.displayName })
+                  : t("providers.connectionMessages.connectOAuth", { name: props.provider.displayName })}
           </AlertDescription>
         </Alert>
+      ) : null}
+      {props.auth.type === "oauth2" && props.oauthClientMode === "manual" ? (
+        <>
+          {props.oauthConfig?.expectedRedirectUri ? (
+            <Label className="field">
+              <span>{t("providers.oauthClientSettings.callbackUrl")}</span>
+              <Input className="font-mono text-xs" value={props.oauthConfig.expectedRedirectUri} readOnly />
+            </Label>
+          ) : null}
+          <Label className="field">
+            <span>{t("providers.oauthClientSettings.clientId")}</span>
+            <Input value={manualClientId} onChange={(event) => setManualClientId(event.target.value)} required />
+          </Label>
+          <Label className="field">
+            <span>{t("providers.oauthClientSettings.clientSecret")}</span>
+            <Input
+              type="password"
+              value={manualClientSecret}
+              onChange={(event) => setManualClientSecret(event.target.value)}
+              required={props.auth.tokenEndpointAuthMethod !== "none"}
+            />
+          </Label>
+          {manualClientConfigFields.map((field) => (
+            <CredentialInput
+              key={field.key}
+              field={field}
+              value={manualExtraValues[field.key] ?? ""}
+              onChange={(value) =>
+                setManualExtraValues((previous) => ({
+                  ...previous,
+                  [field.key]: value,
+                }))
+              }
+            />
+          ))}
+        </>
       ) : null}
       {fields.map((field) => (
         <CredentialInput
@@ -812,10 +1377,18 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
               {t("providers.buttons.configureOAuthClient")}
             </Button>
           ) : (
-            <Button type="submit" disabled={!canSubmit}>
-              {props.auth.type === "oauth2" ? <ExternalLink size={16} /> : <Check size={16} />}
-              {submitLabel}
-            </Button>
+            <>
+              <Button type="submit" disabled={!canSubmit}>
+                {props.auth.type === "oauth2" ? <ExternalLink size={16} /> : <Check size={16} />}
+                {submitLabel}
+              </Button>
+              {props.auth.type === "oauth2" && props.oauthClientMode === "configured" ? (
+                <Button variant="outline" type="button" onClick={props.onConfigureOAuthClient}>
+                  <Settings size={16} />
+                  {t("providers.buttons.editOAuthClient")}
+                </Button>
+              ) : null}
+            </>
           )}
           {shouldShowDisconnectAction(props.connection) ? (
             <Button variant="outline" type="button" onClick={() => void disconnect()}>
@@ -830,165 +1403,6 @@ function ConnectionForm(props: ConnectionFormProps): ReactNode {
   );
 }
 
-function OAuthClientSettings(props: {
-  provider: ProviderDefinition;
-  auth: AuthDefinition;
-  config?: OAuthConfig;
-  expanded: boolean;
-  onToggle(): void;
-  onRefresh(): void;
-}): ReactNode {
-  const t = useTranslate();
-  const [status, setStatus] = useState<string | null>(null);
-  const previousProviderService = useRef(props.provider.service);
-  const skipNextConfigClear = useRef(false);
-
-  useEffect(() => {
-    const providerChanged = previousProviderService.current !== props.provider.service;
-    previousProviderService.current = props.provider.service;
-    const shouldClear = shouldClearOAuthClientStatus({
-      providerChanged,
-      skipNextConfigClear: skipNextConfigClear.current,
-    });
-    skipNextConfigClear.current = false;
-    if (shouldClear) {
-      setStatus(null);
-    }
-  }, [props.provider.service, props.config?.clientId]);
-
-  async function reset(): Promise<void> {
-    setStatus(t("providers.oauthClientSettings.resetting"));
-    try {
-      await apiDelete(`/api/oauth/configs/${props.provider.service}`);
-      setStatus(t("providers.oauthClientSettings.reset"));
-      skipNextConfigClear.current = true;
-      props.onRefresh();
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("providers.oauthClientSettings.resetFailed"));
-    }
-  }
-
-  return (
-    <div className="oauth-client-settings">
-      <div className="oauth-client-summary">
-        <div className="oauth-client-summary-main">
-          <div className="oauth-client-title">
-            <KeyRound size={16} />
-            <strong>
-              {props.config
-                ? t("providers.oauthClientSettings.configuredTitle")
-                : t("providers.oauthClientSettings.requiredTitle")}
-            </strong>
-            <Badge tone={props.config ? "success" : "warning"}>
-              {props.config ? t("providers.summary.configured") : t("providers.summary.required")}
-            </Badge>
-          </div>
-          <p className={props.config?.clientId ? "oauth-client-id" : "oauth-client-description"}>
-            {props.config?.clientId
-              ? props.config.clientId
-              : t("providers.oauthClientSettings.missingDescription", { name: props.provider.displayName })}
-          </p>
-        </div>
-        <div className="oauth-client-actions">
-          <Button variant="outline" size="sm" type="button" onClick={props.onToggle}>
-            <Settings size={14} />
-            {props.expanded
-              ? t("common.close")
-              : t(props.config ? "providers.buttons.editOAuthClient" : "providers.buttons.configureOAuthClient")}
-          </Button>
-          {props.config ? (
-            <Button variant="outline" size="sm" type="button" onClick={() => void reset()}>
-              <Trash2 size={14} />
-              {t("providers.buttons.resetOAuthClient")}
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      {status ? <FormStatus message={status} /> : null}
-      {shouldShowOAuthClientForm(props.auth, props.expanded) ? (
-        <div className="oauth-client-editor">
-          <OAuthConfigForm provider={props.provider} config={props.config} onRefresh={props.onRefresh} />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function OAuthConfigForm(props: OAuthConfigFormProps): ReactNode {
-  const t = useTranslate();
-  const [clientId, setClientId] = useState(() => props.config?.clientId ?? "");
-  const [clientSecret, setClientSecret] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-
-  useEffect(() => {
-    setClientId(props.config?.clientId ?? "");
-    setClientSecret("");
-    setStatus(null);
-  }, [props.provider.service, props.config?.clientId]);
-
-  async function submit(event: FormEvent): Promise<void> {
-    event.preventDefault();
-    setStatus(t("providers.oauthClientSettings.saving"));
-    try {
-      await apiPut(`/api/oauth/configs/${props.provider.service}`, {
-        clientId,
-        clientSecret,
-        extra: {},
-      });
-      setStatus(t("providers.oauthClientSettings.saved"));
-      props.onRefresh();
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : t("providers.oauthClientSettings.failed"));
-    }
-  }
-
-  return (
-    <form className="form-grid" onSubmit={(event) => void submit(event)}>
-      <Label className="field">
-        <span>{t("providers.oauthClientSettings.clientId")}</span>
-        <Input value={clientId} onChange={(event) => setClientId(event.target.value)} />
-      </Label>
-      <Label className="field">
-        <span>{t("providers.oauthClientSettings.clientSecret")}</span>
-        <Input type="password" value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} />
-        {props.config ? <small>{t("providers.oauthClientSettings.storedSecretHint")}</small> : null}
-      </Label>
-      <div className="button-row">
-        <Button type="submit">
-          <Settings size={16} />
-          {props.config ? t("providers.buttons.updateOAuthClient") : t("providers.buttons.saveOAuthClient")}
-        </Button>
-      </div>
-      {status ? <FormStatus message={status} /> : null}
-    </form>
-  );
-}
-
-function CredentialInput(props: { field: CredentialField; value: string; onChange(value: string): void }): ReactNode {
-  return (
-    <Label className="field">
-      <span>{props.field.label}</span>
-      {props.field.inputType === "textarea" || props.field.inputType === "json" ? (
-        <Textarea
-          className="min-h-24 resize-y font-mono text-xs leading-relaxed"
-          value={props.value}
-          placeholder={props.field.placeholder}
-          onChange={(event) => props.onChange(event.target.value)}
-          spellCheck={false}
-        />
-      ) : (
-        <Input
-          type={props.field.secret ? "password" : "text"}
-          placeholder={props.field.placeholder}
-          value={props.value}
-          onChange={(event) => props.onChange(event.target.value)}
-        />
-      )}
-      {props.field.description ? <small>{props.field.description}</small> : null}
-    </Label>
-  );
-}
-
 function filterProvidersByStatus(
   providers: ProviderDefinition[],
   status: ProviderStatusFilter,
@@ -997,9 +1411,9 @@ function filterProvidersByStatus(
   if (status === "all") return providers;
   return providers.filter((provider) => {
     const providerStatus = statusByService.get(provider.service);
-    if (status === "connected") return providerStatus?.connected === true;
-    if (status === "not_connected") return providerStatus?.connected !== true;
-    return providerStatus?.oauthClientRequired === true;
+    if (status === "connected") return providerStatus?.connected;
+    if (status === "not_connected") return !providerStatus?.connected;
+    return providerStatus?.oauthClientRequired;
   });
 }
 
@@ -1011,8 +1425,8 @@ function countProvidersForStatus(
   return filterProvidersByStatus(providers, status, statusByService).length;
 }
 
-export function providerBrowserResetKey(query: string, status: ProviderStatusFilter): string {
-  return `${query}\u0000${status}`;
+export function providerBrowserResetKey(query: string, status: ProviderStatusFilter, category: string): string {
+  return `${query}\u0000${status}\u0000${category}`;
 }
 
 function compactProviderCount(value: number): string {
@@ -1020,7 +1434,7 @@ function compactProviderCount(value: number): string {
 }
 
 export function oauthConfigForProvider(configs: OAuthConfig[], service: string): OAuthConfig | undefined {
-  return configs.find((config) => config.service === service && config.configured);
+  return configs.find((config) => config.service === service);
 }
 
 const providerStatusOptions: Array<{ id: ProviderStatusFilter; labelKey: string }> = [

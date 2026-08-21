@@ -1,11 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "juniper_mist";
-
-export type JuniperMistActionName = "get_self" | "list_org_sites" | "list_site_devices";
 
 function nonEmptyString(description: string) {
   return s.nonEmptyString(description);
@@ -78,7 +76,7 @@ const siteDeviceSchema = s.object("Juniper Mist site device.", {
 
 const deviceTypeSchema = s.stringEnum("Juniper Mist device type filter.", ["all", "ap", "switch", "gateway"]);
 
-export const juniperMistActions: Array<ProviderActionDefinition<JuniperMistActionName>> = [
+export const juniperMistActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_self",
     description: "Get the authenticated Juniper Mist administrator profile and accessible organizations or sites.",

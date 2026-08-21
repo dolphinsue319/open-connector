@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -217,21 +217,7 @@ const updateTagInputSchema = s.object(
 const subscriberOutputSchema = s.actionOutput({ subscriber: subscriberSchema }, "A Buttondown subscriber result.");
 const tagOutputSchema = s.actionOutput({ tag: tagSchema }, "A Buttondown tag result.");
 
-export type ButtondownActionName =
-  | "get_account"
-  | "list_newsletters"
-  | "list_subscribers"
-  | "get_subscriber"
-  | "create_subscriber"
-  | "update_subscriber"
-  | "delete_subscriber"
-  | "list_tags"
-  | "create_tag"
-  | "get_tag"
-  | "update_tag"
-  | "delete_tag";
-
-export const buttondownActions: ProviderActionDefinition<ButtondownActionName>[] = [
+export const buttondownActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description: "Get the account associated with the Buttondown API key.",

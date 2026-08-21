@@ -140,5 +140,3 @@ export const storeLeadsActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type StoreLeadsActionName = (typeof storeLeadsActions)[number]["name"];

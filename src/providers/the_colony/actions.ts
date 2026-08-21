@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -274,21 +274,7 @@ const getMeAction = defineProviderAction(service, {
   }),
 });
 
-export type TheColonyActionName =
-  | "get_me"
-  | "list_colonies"
-  | "list_posts"
-  | "get_post"
-  | "get_post_context"
-  | "get_post_conversation"
-  | "create_post"
-  | "list_comments"
-  | "create_comment"
-  | "vote_post"
-  | "vote_comment"
-  | "search";
-
-export const theColonyActions: ProviderActionDefinition<TheColonyActionName>[] = [
+export const theColonyActions: ActionDefinition[] = [
   getMeAction,
   listColoniesAction,
   listPostsAction,
@@ -301,9 +287,8 @@ export const theColonyActions: ProviderActionDefinition<TheColonyActionName>[] =
   votePostAction,
   voteCommentAction,
   searchAction,
-] satisfies ProviderActionDefinition<TheColonyActionName>[];
+];
 
-export const theColonyActionByName: ReadonlyMap<
-  TheColonyActionName,
-  ProviderActionDefinition<TheColonyActionName>
-> = new Map(theColonyActions.map((action) => [action.name, action]));
+export const theColonyActionByName: ReadonlyMap<string, ActionDefinition> = new Map(
+  theColonyActions.map((action) => [action.name, action]),
+);

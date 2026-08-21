@@ -1,9 +1,14 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { FluxguardActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "fluxguard";
 const fluxguardApiBaseUrl = "https://api.fluxguard.com";
@@ -20,7 +25,7 @@ interface FluxguardRequestInput {
   phase: FluxguardPhase;
 }
 
-export const fluxguardActionHandlers: Record<FluxguardActionName, FluxguardActionHandler> = {
+export const fluxguardActionHandlers: ProviderActionHandlers<"fluxguard", FluxguardActionHandler> = {
   async get_account(_input, context) {
     const payload = await requestFluxguardJson(context, {
       method: "GET",
@@ -434,3 +439,9 @@ function readFirstString(record: Record<string, unknown>, keys: string[]): strin
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.fluxguard.com",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

@@ -1,27 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "jiminny";
-
-export type JiminnyActionName =
-  | "get_current_organization"
-  | "list_users"
-  | "list_activities"
-  | "get_activity"
-  | "get_transcription"
-  | "get_summary"
-  | "get_action_items"
-  | "list_topic_triggers"
-  | "list_matched_topic_triggers"
-  | "list_questions"
-  | "get_ai_scorecard"
-  | "list_ai_scorecards"
-  | "list_listens"
-  | "list_automated_call_scoring"
-  | "list_comments"
-  | "list_coaching_feedback";
 
 const activityIdSchema = s.uuid("The Jiminny activity UUID to retrieve reporting data for.");
 const dateTimeString = (description: string) => s.nonEmptyString(description);
@@ -252,7 +234,7 @@ const coachingFeedbackOutputSchema = s.object(
   { optional: ["metadata", "failed"] },
 );
 
-export const jiminnyActions: Array<ProviderActionDefinition<JiminnyActionName>> = [
+export const jiminnyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_organization",
     description: "Return the current authenticated Jiminny organization.",

@@ -1,10 +1,10 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { KlangioActionName } from "./actions.ts";
 
 import { optionalRecord, optionalString } from "../../core/cast.ts";
-import { assertPublicHttpUrl } from "../../core/request.ts";
-import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import { assertPublicHttpUrl, readBoundedResponseBytes } from "../../core/request.ts";
+import { providerFetch, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
 
 type KlangioActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 type KlangioJobOutput = "mxml" | "midi" | "pdf" | "gp5" | "json" | "midi_quant";
@@ -27,7 +27,7 @@ export const klangioApiBaseUrl = "https://api.klang.io";
 const klangioValidationJobId = "00000000-0000-0000-0000-000000000000";
 const maxKlangioUploadSourceBytes = 100 * 1024 * 1024;
 
-export const klangioActionHandlers: Record<KlangioActionName, KlangioActionHandler> = {
+export const klangioActionHandlers: ProviderActionHandlers<"klangio", KlangioActionHandler> = {
   async create_transcription_job(input, context) {
     const formData = await createFileFormData(input.file, context);
     for (const output of readStringArray(input.outputs, "outputs")) {
@@ -105,7 +105,7 @@ export const klangioActionHandlers: Record<KlangioActionName, KlangioActionHandl
   },
   download_job_result(input, context) {
     const jobId = readRequiredInputString(input.jobId, "jobId");
-    const resultType = readRequiredInputString(input.resultType, "resultType") as KlangioJobOutput;
+    const resultType = readKlangioJobOutput(input.resultType);
     return downloadKlangioFile({
       path: `/job/${encodeURIComponent(jobId)}/${resultPathSegment(resultType)}`,
       fileName: buildJobResultFileName(jobId, resultType),
@@ -116,7 +116,7 @@ export const klangioActionHandlers: Record<KlangioActionName, KlangioActionHandl
   },
   download_source_separation_audio(input, context) {
     const jobId = readRequiredInputString(input.jobId, "jobId");
-    const stemType = readRequiredInputString(input.stemType, "stemType") as KlangioStemType;
+    const stemType = readKlangioStemType(input.stemType);
     return downloadKlangioFile({
       path: `/job/${encodeURIComponent(jobId)}/audio`,
       query: {
@@ -202,7 +202,7 @@ async function downloadKlangioFile(input: {
   query?: Record<string, string | undefined>;
   fileName: string;
   fallbackMimeType: string;
-  actionName: KlangioActionName;
+  actionName: string;
   context: ApiKeyProviderContext;
 }): Promise<unknown> {
   if (!input.context.transitFiles) {
@@ -220,14 +220,20 @@ async function downloadKlangioFile(input: {
     throw createKlangioError(response, payload);
   }
 
-  const bytes = await response.arrayBuffer();
+  const bytes = await readBoundedResponseBytes(response, {
+    maxBytes: input.context.transitFiles.maxBytes,
+    fieldName: `Klangio ${input.actionName} file`,
+    createError: (message) => new ProviderRequestError(413, message),
+  });
   if (bytes.byteLength === 0) {
     throw new ProviderRequestError(502, `Klangio ${input.actionName} response did not include file bytes`);
   }
 
   const contentType = normalizeMimeType(response.headers.get("content-type")) ?? input.fallbackMimeType;
   const name = appendExtensionIfMissing(input.fileName, extensionForMimeType(contentType));
-  const upload = await input.context.transitFiles.create(new File([bytes], name, { type: contentType }));
+  const upload = await input.context.transitFiles.create(
+    new File([Uint8Array.from(bytes)], name, { type: contentType }),
+  );
 
   return {
     file: {
@@ -252,7 +258,7 @@ async function createFileFormData(value: unknown, context: ApiKeyProviderContext
 
 async function resolveKlangioUploadSource(
   value: unknown,
-  context: Pick<ApiKeyProviderContext, "fetcher" | "signal">,
+  context: Pick<ApiKeyProviderContext, "signal">,
 ): Promise<KlangioUploadSource> {
   const file = requireInputObject(value, "file");
   const fileUrl = optionalString(file.url);
@@ -261,9 +267,11 @@ async function resolveKlangioUploadSource(
       fieldName: "file.url",
       createError: (message) => new ProviderRequestError(400, message),
     });
-    const response = await context.fetcher(url, {
+    const response = await providerFetch(url, {
       method: "GET",
-      redirect: "error",
+      // Workers has no "error" redirect mode; "manual" never follows either, and
+      // the !response.ok check below rejects any 3xx.
+      redirect: "manual",
       signal: context.signal,
     });
 
@@ -313,17 +321,11 @@ async function resolveKlangioUploadSource(
 }
 
 async function readKlangioUploadSourceBytes(response: Response): Promise<Uint8Array> {
-  const contentLength = response.headers.get("content-length");
-  if (contentLength) {
-    const parsedLength = Number.parseInt(contentLength, 10);
-    if (Number.isInteger(parsedLength)) {
-      assertUploadSourceSize(parsedLength);
-    }
-  }
-
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  assertUploadSourceSize(bytes.byteLength);
-  return bytes;
+  return readBoundedResponseBytes(response, {
+    maxBytes: maxKlangioUploadSourceBytes,
+    fieldName: "klangio upload source",
+    createError: (message) => new ProviderRequestError(400, message),
+  });
 }
 
 function assertUploadSourceSize(byteLength: number): void {
@@ -353,7 +355,7 @@ function normalizeKlangioJobResponse(payload: unknown): Record<string, unknown> 
     creationDate: readRequiredResponseString(record.creation_date, "creation_date"),
     deletionDate: readRequiredResponseString(record.deletion_date, "deletion_date"),
     statusEndpointUrl: readRequiredResponseString(record.status_endpoint_url, "status_endpoint_url"),
-    ...(generatedOutputs ? { generatedOutputs } : {}),
+    generatedOutputs,
   };
 }
 
@@ -529,6 +531,36 @@ function readRequiredInputString(value: unknown, fieldName: string): string {
     throw new ProviderRequestError(400, `${fieldName} is required`);
   }
   return text;
+}
+
+function readKlangioJobOutput(value: unknown): KlangioJobOutput {
+  const output = readRequiredInputString(value, "resultType");
+  if (
+    output === "mxml" ||
+    output === "midi" ||
+    output === "pdf" ||
+    output === "gp5" ||
+    output === "json" ||
+    output === "midi_quant"
+  ) {
+    return output;
+  }
+  throw new ProviderRequestError(400, `unsupported resultType: ${output}`);
+}
+
+function readKlangioStemType(value: unknown): KlangioStemType {
+  const stemType = readRequiredInputString(value, "stemType");
+  if (
+    stemType === "vocals" ||
+    stemType === "bass" ||
+    stemType === "drums" ||
+    stemType === "other" ||
+    stemType === "piano" ||
+    stemType === "guitar"
+  ) {
+    return stemType;
+  }
+  throw new ProviderRequestError(400, `unsupported stemType: ${stemType}`);
 }
 
 function readStringArray(value: unknown, fieldName: string): string[] {

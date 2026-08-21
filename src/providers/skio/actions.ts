@@ -161,5 +161,3 @@ export const skioActions: ProviderActionDefinition[] = [
     outputSchema: paginatedOutputSchema("A page of Skio subscriptions.", "One raw Skio subscription object."),
   }),
 ];
-
-export type SkioActionName = (typeof skioActions)[number]["name"];

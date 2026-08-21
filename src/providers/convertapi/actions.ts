@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -54,9 +54,7 @@ const convertedFileSchema = s.object(
   { optional: ["fileName", "fileExt", "fileSize", "fileId", "url", "transitFile"] },
 );
 
-export type ConvertapiActionName = "convert_pdf_to_docx";
-
-export const convertapiActions: Array<ProviderActionDefinition<ConvertapiActionName>> = [
+export const convertapiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "convert_pdf_to_docx",
     description:

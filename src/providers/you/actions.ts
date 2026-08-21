@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -93,9 +93,7 @@ const researchOutputSchema = s.object("The research answer and its supporting so
   raw: rawObjectSchema,
 });
 
-export type YouActionName = "search" | "fetch_contents" | "research" | "finance_research" | "get_account_balance";
-
-export const youActions: ProviderActionDefinition<YouActionName>[] = [
+export const youActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "search",
     description: "Search web and news sources with the You.com Search API.",

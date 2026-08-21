@@ -1,6 +1,6 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { BolnaActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -28,7 +28,7 @@ interface BolnaRequestOptions {
   notFoundAsInvalidInput?: boolean;
 }
 
-export const bolnaActionHandlers: Record<BolnaActionName, BolnaActionHandler> = {
+export const bolnaActionHandlers: ProviderActionHandlers<"bolna", BolnaActionHandler> = {
   get_user_info(_input, context) {
     return getBolnaUserInfo(context, "execute");
   },

@@ -186,6 +186,4 @@ export const placekeyActions: ProviderActionDefinition[] = [
       geocode: geocodeSchema,
     }),
   }),
-] satisfies ProviderActionDefinition[];
-
-export type PlacekeyActionName = (typeof placekeyActions)[number]["name"];
+];

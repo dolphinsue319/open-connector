@@ -380,5 +380,3 @@ export const mixpanelActions: ActionDefinition[] = actions.map((action) =>
     followUpActions: action.followUpActions,
   }),
 );
-
-export type MixpanelActionName = (typeof mixpanelActions)[number]["name"];

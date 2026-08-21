@@ -1,9 +1,19 @@
-import type { CredentialValidationResult, CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type {
+  CredentialValidationResult,
+  CredentialValidators,
+  ProviderExecutors,
+  ProviderProxyExecutor,
+} from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { RenderformActionName } from "./actions.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "renderform";
 const renderformDocsBaseUrl = "https://renderform.io";
@@ -19,7 +29,7 @@ const screenshotPath = "/api/v1/screenshots";
 type RenderformPhase = "validate" | "execute";
 type RenderformActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const renderformActionHandlers: Record<RenderformActionName, RenderformActionHandler> = {
+export const renderformActionHandlers: ProviderActionHandlers<"renderform", RenderformActionHandler> = {
   get_usage(_input, context) {
     return executeGetUsage(context);
   },
@@ -542,3 +552,9 @@ function readBooleanWithDefault(value: unknown, defaultValue: boolean): boolean 
 function inputError(message: string): ProviderRequestError {
   return new ProviderRequestError(400, message);
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://get.renderform.io",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

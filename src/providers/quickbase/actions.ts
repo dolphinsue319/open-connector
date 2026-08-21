@@ -193,5 +193,3 @@ export const quickbaseActions: ProviderActionDefinition[] = [
     outputSchema: deleteRecordsOutputSchema,
   }),
 ];
-
-export type QuickbaseActionName = (typeof quickbaseActions)[number]["name"];

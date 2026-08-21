@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -47,15 +47,7 @@ const productFields = {
   directCost: s.number("Direct cost of the product."),
 };
 
-export type SalesmateActionName =
-  | "create_company"
-  | "get_company"
-  | "create_product"
-  | "delete_product"
-  | "list_modules"
-  | "get_active_users";
-
-export const salesmateActions: ProviderActionDefinition<SalesmateActionName>[] = [
+export const salesmateActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_company",
     description: "Create a company record in Salesmate CRM.",

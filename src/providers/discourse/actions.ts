@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -194,16 +194,7 @@ const createPostOutputSchema = s.object("A Discourse created post response.", {
   raw: s.looseObject("The raw Discourse created post payload."),
 });
 
-export type DiscourseActionName =
-  | "list_latest_topics"
-  | "list_categories"
-  | "list_category_topics"
-  | "get_topic"
-  | "search"
-  | "create_topic"
-  | "create_post";
-
-export const discourseActions: ProviderActionDefinition<DiscourseActionName>[] = [
+export const discourseActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_latest_topics",
     description: "List the latest topics visible to the authenticated Discourse API user.",

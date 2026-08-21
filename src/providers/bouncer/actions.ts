@@ -389,5 +389,3 @@ export const bouncerActions: ProviderActionDefinition[] = [
     outputSchema: deleteToxicityListJobOutputSchema,
   }),
 ];
-
-export type BouncerActionName = (typeof bouncerActions)[number]["name"];

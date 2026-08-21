@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -73,15 +73,7 @@ const partialAddressSchema = s.object(
 
 const rawObjectSchema = s.looseObject("The raw object returned by ShipEngine.");
 
-export type ShipengineActionName =
-  | "validate_addresses"
-  | "parse_address"
-  | "list_carriers"
-  | "get_rate"
-  | "calculate_rates"
-  | "estimate_rates";
-
-export const shipengineActions: ProviderActionDefinition<ShipengineActionName>[] = [
+export const shipengineActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "validate_addresses",
     description: "Validate one or more mailing addresses with ShipEngine and return deliverability details.",

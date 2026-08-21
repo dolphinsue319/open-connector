@@ -226,5 +226,3 @@ export const browserlessActions: ProviderActionDefinition[] = [
     outputSchema: fileOutputSchema,
   }),
 ];
-
-export type BrowserlessActionName = (typeof browserlessActions)[number]["name"];

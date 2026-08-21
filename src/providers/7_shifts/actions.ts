@@ -264,8 +264,6 @@ export const sevenShiftsActions: ProviderActionDefinition[] = [
   listUsersAction,
 ];
 
-export type SevenShiftsActionName = (typeof sevenShiftsActions)[number]["name"];
-
 export const sevenShiftsActionByName: ReadonlyMap<string, ProviderActionDefinition> = new Map(
   sevenShiftsActions.map((action) => [action.name, action] as const),
 );

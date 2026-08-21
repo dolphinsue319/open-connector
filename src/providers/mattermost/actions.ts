@@ -111,5 +111,3 @@ export const mattermostActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type MattermostActionName = (typeof mattermostActions)[number]["name"];

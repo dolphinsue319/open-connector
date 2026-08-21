@@ -2,7 +2,7 @@
 
 <img src="../assets/openconnector-readme-banner.png" alt="OpenConnector - Connect Once. Use Everywhere." width="100%" />
 
-[English](../README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [Русский](README.ru.md) | [Français](README.fr.md)
+[English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md) | [Français](README.fr.md)
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](../LICENSE.txt)
 ![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-339933)
@@ -15,9 +15,27 @@
 
 </div>
 
-OpenConnector は AI Agent 向けのオープンソース connector gateway であり、Composio の代替です。
+OpenConnector は AI Agent 向けのオープンソース connector gateway であり、Pipedream/Composio の代替です。
 ユーザーのアプリアカウントを一度接続すれば、1,000+ の provider と 10,000+ の事前定義済み Action を含む共有
 catalog を Agent とアプリケーションに公開できます。
+
+<table>
+  <tr>
+    <td width="33.33%" align="center"><img src="../assets/deployment-options/oomol.svg" alt="OOMOL" width="140"></td>
+    <td width="33.33%" align="center"><img src="../assets/deployment-options/cloudflare.svg" alt="Cloudflare" width="140"></td>
+    <td width="33.33%" align="center"><img src="../assets/deployment-options/self-hosted.svg" alt="セルフホスト" width="140"></td>
+  </tr>
+  <tr>
+    <td width="33.33%" valign="top">マネージド OAuth と hosted runtime をすぐに利用できます。デプロイや OAuth app の設定は不要です。</td>
+    <td width="33.33%" valign="top">Cloudflare アカウントで Workers、D1、R2、Static Assets を使用します。デプロイと OAuth app は自身で管理します。</td>
+    <td width="33.33%" valign="top">Docker または Node.js を使い、ローカル環境や自分の infrastructure で実行します。storage と OAuth app は自身で管理します。</td>
+  </tr>
+  <tr>
+    <td width="33.33%" align="center">🚀 <a href="https://oomol.com/docs/connector-saas/"><strong>OOMOL Hosted</strong></a></td>
+    <td width="33.33%" align="center"><a href="cloudflare.md"><strong>Cloudflare にデプロイ</strong></a></td>
+    <td width="33.33%" align="center"><a href="https://oomol.com/docs/openconnector-self-hosting/"><strong>セルフホスト</strong></a></td>
+  </tr>
+</table>
 
 アプリコードには [Connector SDK](https://github.com/oomol-lab/connector-sdk)、ローカル
 Agent の relay には [oo CLI](https://github.com/oomol-lab/oo-cli)、Agent host には
@@ -119,6 +137,11 @@ OpenConnector を Cloudflare の Workers、D1、R2、Web Console で起動する
 
 ## クイックスタート
 
+> [!NOTE]
+> 以下では self-hosted runtime を起動します。OAuth provider を使うには、各 provider で登録した
+> OAuth client credential が必要です。独自の OAuth app を設定せずに、対応 provider をユーザーが
+> 直接認可できるようにするには、[OOMOL hosted connectors](https://oomol.com/apps) を利用してください。
+
 公開イメージから Docker Compose で runtime を起動します。
 
 ```bash
@@ -191,25 +214,24 @@ Fly app 作成、volume、secret、deployment、custom domain、scaling につ�
 ## Docker イメージ（GHCR）
 
 事前ビルドされた Docker イメージで OpenConnector を実行できます（GitHub Packages / GHCR）：
-`ghcr.io/oomol-lab/open-connector`。最新 release は `latest`、production では `v1.0.0` のように version を固定、
+`ghcr.io/oomol-lab/open-connector`。最新 release は `latest`、production では release version を固定、
 最新の `main` build は `tip` を使います。
 
 イメージの tag、pull、実行については [docker-ghcr.md（英語）](docker-ghcr.md) を参照してください。
 
-## 先に接続せず直接使う場合
+## Wanta で desktop Agent を構築する
 
-上記の path は、connector を自分たちの product、runtime、または enterprise infrastructure に統合する
-team 向けです。SaaS connection の体験をまず試したい場合や、日々の業務でそのまま使いたい場合は、先に
-OpenConnector を deploy したり、SDK、CLI、MCP、HTTP API を統合したりする必要はありません。
+OpenConnector と [Wanta](https://github.com/oomol-lab/wanta) は、OOMOL の open-source ecosystem で
+AI Agent を支える二つのプロジェクトです。OpenConnector は Gmail、Slack、Notion などの外部サービスを
+Agent に接続します。Wanta は OpenCode で動作する完全な desktop Agent application で、OpenConnector
+を通じて接続済み SaaS サービスを利用します。
 
-[Wanta](https://wanta.ai/) は、同じ 1,000+ SaaS/provider coverage を使う desktop product entry point です。
-account を接続すれば、自然言語で connected tool を検索、整理、生成、同期できます。
+- **ローカル実行：** Wanta account を作成せず、自分の OpenAI-compatible model を使用できます。
+- **独自開発：** Wanta を fork し、prompts、tools、interface、models、branding をカスタマイズできます。
+- **Hosted services：** 任意の [hosted experience](https://wanta.ai/) では、managed models、OAuth
+  connections、team workspaces を利用できます。
 
-| やりたいこと                           | Wanta が提供するもの                                                                                           |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 1,000+ SaaS connection を直接試す      | runtime の deploy や SDK/CLI integration なしで、同じ SaaS/provider coverage を利用できます。                  |
-| 日々の業務で Agent を使う              | email、chat、docs、data、project、support、developer tool、marketing tool を自然言語で横断できます。           |
-| 接続済み capability を team で共有する | connection と access scope を一度設定すれば、teammate は setup なしで使え、key、token、credential は隠れます。 |
+Issue と pull request による貢献を歓迎します。
 
 ## ドキュメント
 
@@ -269,3 +291,27 @@ provider metadata や asset を提供する場合は、提出できる権利を�
 
 issue と pull request は、焦点が合い、敬意があり、実行可能な内容にしてください。この project への参加には
 [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) が適用されます。
+
+## OpenConnector を応援する
+
+OpenConnector が役に立ったら、⭐ を付けていただくことで、より多くの開発者にこのプロジェクトを知ってもらえます。
+
+<div align="center">
+
+<img src="../assets/star-open-connector.gif" alt="GitHub で OpenConnector に Star を付ける方法" width="760" />
+
+</div>
+
+## コントリビューター
+
+OpenConnector の開発にご協力いただいたすべての皆さまに感謝します。参加方法については
+[コントリビューションガイド](../CONTRIBUTING.md) をご覧ください。
+
+[![OpenConnector コントリビューター](https://contrib.rocks/image?repo=oomol-lab/open-connector)](https://github.com/oomol-lab/open-connector/graphs/contributors)
+
+## Star 履歴
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/star-history/star-history-dark.svg">
+  <img alt="Star 履歴" src="../assets/star-history/star-history-light.svg">
+</picture>

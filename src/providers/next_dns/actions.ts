@@ -229,13 +229,4 @@ export const nextDnsActions: ActionDefinition[] = [
       analyticsItemSchema,
     ),
   }),
-] satisfies ActionDefinition[];
-
-export type NextDnsActionName =
-  | "list_profiles"
-  | "get_profile"
-  | "get_logs"
-  | "get_analytics_domains"
-  | "get_analytics_devices"
-  | "get_analytics_status"
-  | "get_analytics_reasons";
+];

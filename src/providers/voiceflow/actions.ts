@@ -1,11 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "voiceflow";
-
-export type VoiceflowActionName = "start_session" | "interact" | "query_knowledge_base" | "list_environments";
 
 const environmentSchema = s.looseObject("A Voiceflow project environment.", {
   id: s.string("The Voiceflow environment ID."),
@@ -19,7 +17,7 @@ const environmentSchema = s.looseObject("A Voiceflow project environment.", {
   raw: s.looseObject("The raw Voiceflow environment payload."),
 });
 
-export const voiceflowActions: ProviderActionDefinition<VoiceflowActionName>[] = [
+export const voiceflowActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "start_session",
     description:

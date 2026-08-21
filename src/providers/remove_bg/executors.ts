@@ -1,6 +1,6 @@
-import type { CredentialValidationResult, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidationResult, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { RemoveBgActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -10,7 +10,8 @@ import {
   optionalRecord,
   optionalString,
 } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, ProviderRequestError } from "../provider-runtime.ts";
+import { readBoundedResponseBytes } from "../../core/request.ts";
+import { defineApiKeyProviderExecutors, defineProviderProxy, ProviderRequestError } from "../provider-runtime.ts";
 
 const service = "remove_bg";
 const removeBgApiBaseUrl = "https://api.remove.bg/v1.0";
@@ -21,7 +22,7 @@ const removeBgSupportedResultMimeTypes = new Set(["image/png", "image/jpeg", "im
 
 type RemoveBgActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const removeBgActionHandlers: Record<RemoveBgActionName, RemoveBgActionHandler> = {
+export const removeBgActionHandlers: ProviderActionHandlers<"remove_bg", RemoveBgActionHandler> = {
   remove_background(input, context) {
     return removeBgRemoveBackground(input, context);
   },
@@ -125,10 +126,22 @@ async function removeBgRemoveBackground(
   let payload: unknown;
   let bytes: Uint8Array;
   if (normalizedContentType === "application/json") {
-    payload = await response.json();
+    const jsonBytes = await readBoundedResponseBytes(response, {
+      maxBytes: Math.ceil((context.transitFiles.maxBytes * 4) / 3) + 1024 * 1024,
+      fieldName: "remove.bg JSON result",
+      createError: (message) => new ProviderRequestError(413, message),
+    });
+    payload = JSON.parse(new TextDecoder().decode(jsonBytes)) as unknown;
     bytes = Buffer.from(extractRemoveBgResultBase64(payload), "base64");
   } else {
-    bytes = new Uint8Array(await response.arrayBuffer());
+    bytes = await readBoundedResponseBytes(response, {
+      maxBytes: context.transitFiles.maxBytes,
+      fieldName: "remove.bg result",
+      createError: (message) => new ProviderRequestError(413, message),
+    });
+  }
+  if (bytes.byteLength > context.transitFiles.maxBytes) {
+    throw new ProviderRequestError(413, `remove.bg result exceeds ${context.transitFiles.maxBytes} bytes`);
   }
   if (bytes.byteLength === 0) {
     throw new ProviderRequestError(502, "remove.bg response did not include result bytes");
@@ -456,3 +469,9 @@ function pickNonEmptyString(input: Record<string, unknown>, ...keys: string[]): 
   }
   return undefined;
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.remove.bg/v1.0",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

@@ -1,14 +1,15 @@
 import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { FraudlabsproActionName } from "./actions.ts";
 
 import { optionalNumber, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   defineApiKeyProviderExecutors,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyResponse,
   requireApiKeyCredential,
   toProviderProxyError,
@@ -16,6 +17,7 @@ import {
 
 const service = "fraudlabspro";
 const fraudlabsproApiBaseUrl = "https://api.fraudlabspro.com/v2";
+const fraudlabsproFetch = createProviderFetch({ skipDnsValidation: true });
 
 type FraudlabsproRequestMethod = "GET" | "POST";
 type FraudlabsproRequestValue = string | number | undefined;
@@ -25,7 +27,7 @@ type FraudlabsproActionHandler = (
   context: FraudlabsproActionContext,
 ) => Promise<unknown>;
 
-export const fraudlabsproActionHandlers: Record<FraudlabsproActionName, FraudlabsproActionHandler> = {
+export const fraudlabsproActionHandlers: ProviderActionHandlers<"fraudlabspro", FraudlabsproActionHandler> = {
   async screen_order(input, context) {
     return fraudlabsproRequest(
       context.apiKey,
@@ -83,7 +85,9 @@ export const fraudlabsproActionHandlers: Record<FraudlabsproActionName, Fraudlab
   },
 };
 
-export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, fraudlabsproActionHandlers);
+export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, fraudlabsproActionHandlers, {
+  skipDnsValidation: true,
+});
 
 export const proxy: ProviderProxyExecutor = async (input, context) => {
   try {
@@ -116,7 +120,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       });
     }
 
-    const response = await fetch(url, init);
+    const response = await fraudlabsproFetch(url, init);
     if (!response.ok) {
       throw buildFraudlabsproError(response.status, await readFraudlabsproPayload(response), "execute");
     }

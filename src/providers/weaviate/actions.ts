@@ -142,5 +142,3 @@ export const weaviateActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type WeaviateActionName = (typeof weaviateActions)[number]["name"];

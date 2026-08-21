@@ -256,5 +256,3 @@ export const activecampaignActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type ActivecampaignActionName = (typeof activecampaignActions)[number]["name"];

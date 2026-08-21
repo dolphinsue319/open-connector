@@ -1,16 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "open_hands";
-
-export type OpenHandsActionName =
-  | "start_conversation"
-  | "get_start_task"
-  | "get_conversation"
-  | "list_conversations"
-  | "send_message";
 
 const trimmedString = (description: string) => s.string(description, { minLength: 1 });
 const nullableTrimmedString = (description: string) => s.nullable(trimmedString(description));
@@ -109,7 +102,7 @@ const conversationLifecycle = {
   statusActionId: "open_hands.get_start_task",
 };
 
-export const openHandsActions: ProviderActionDefinition<OpenHandsActionName>[] = [
+export const openHandsActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "start_conversation",
     description: "Start an OpenHands Cloud conversation for a repository task.",

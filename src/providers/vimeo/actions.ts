@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -145,34 +145,7 @@ const folderVideosInputSchema = s.object(
   { optional: ["userId", "query", "sort", "direction", "includeSubfolders", "page", "perPage"] },
 );
 
-export type VimeoActionName =
-  | "get_current_user"
-  | "list_user_videos"
-  | "get_video"
-  | "update_video"
-  | "delete_video"
-  | "upload_video_from_url"
-  | "replace_video_from_url"
-  | "get_video_download_links"
-  | "download_video_file"
-  | "list_video_tags"
-  | "add_video_tags"
-  | "delete_video_tag"
-  | "list_showcases"
-  | "get_showcase"
-  | "list_showcase_videos"
-  | "add_video_to_showcase"
-  | "remove_video_from_showcase"
-  | "list_folders"
-  | "create_folder"
-  | "get_folder"
-  | "update_folder"
-  | "delete_folder"
-  | "list_folder_videos"
-  | "add_video_to_folder"
-  | "remove_video_from_folder";
-
-export const vimeoActions: ProviderActionDefinition<VimeoActionName>[] = [
+export const vimeoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the authenticated Vimeo user profile.",

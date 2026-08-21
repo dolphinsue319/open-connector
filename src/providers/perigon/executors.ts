@@ -1,9 +1,14 @@
-import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { PerigonActionName } from "./actions.ts";
 
 import { optionalInteger, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
-import { defineApiKeyProviderExecutors, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import {
+  defineApiKeyProviderExecutors,
+  defineProviderProxy,
+  ProviderRequestError,
+  providerUserAgent,
+} from "../provider-runtime.ts";
 
 const service = "perigon";
 const perigonBaseUrl = "https://api.perigon.io";
@@ -165,7 +170,7 @@ const summarizeTrimmedBodyKeys = new Set(["model"]);
 const vectorNewsTrimmedBodyKeys = new Set(["prompt", "pubDateFrom", "pubDateTo"]);
 const vectorWikipediaTrimmedBodyKeys = new Set(["prompt", "wikiRevisionFrom", "wikiRevisionTo"]);
 
-export const perigonActionHandlers: Record<PerigonActionName, PerigonActionHandler> = {
+export const perigonActionHandlers: ProviderActionHandlers<"perigon", PerigonActionHandler> = {
   async search_articles(input, context) {
     return normalizeListResponse(
       await requestPerigonJson(
@@ -576,3 +581,9 @@ function readNullableInteger(value: unknown): number | null {
 function requestInputError(message: string): ProviderRequestError {
   return new ProviderRequestError(400, message);
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.perigon.io",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

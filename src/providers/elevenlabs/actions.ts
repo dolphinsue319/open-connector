@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -409,23 +409,7 @@ const characterAlignmentSchema = s.object("Character-level timing information fo
   ),
 });
 
-export type ElevenlabsActionName =
-  | "get_user_info"
-  | "get_user_subscription_info"
-  | "get_models"
-  | "get_voices"
-  | "get_voice"
-  | "search_voices"
-  | "get_voice_settings"
-  | "get_generated_items"
-  | "get_history_item_by_id"
-  | "text_to_speech"
-  | "text_to_speech_with_timestamps"
-  | "create_sound_effect"
-  | "get_audio_from_history_item"
-  | "delete_history_item";
-
-export const elevenlabsActions: ProviderActionDefinition<ElevenlabsActionName>[] = [
+export const elevenlabsActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_user_info",
     description: "Get the current ElevenLabs user profile together with the embedded subscription snapshot.",

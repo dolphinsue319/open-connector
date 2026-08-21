@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -57,9 +57,7 @@ const transitionStateSchema = s.object("The Vestaboard transition settings.", {
   transitionSpeed: transitionSpeedSchema,
 });
 
-export type VestaboardActionName = "get_current_message" | "send_message" | "get_transition" | "set_transition";
-
-export const vestaboardActions: ProviderActionDefinition<VestaboardActionName>[] = [
+export const vestaboardActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_message",
     description: "Read the current message displayed by Vestaboard Cloud API.",

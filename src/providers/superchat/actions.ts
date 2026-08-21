@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -18,7 +18,7 @@ export type SuperchatActionName =
   | "send_email_message"
   | "send_whatsapp_template_message";
 
-function action(name: SuperchatActionName, description: string): ProviderActionDefinition<SuperchatActionName> {
+function action(name: SuperchatActionName, description: string): ActionDefinition {
   return defineProviderAction(service, {
     name,
     description,
@@ -27,7 +27,7 @@ function action(name: SuperchatActionName, description: string): ProviderActionD
   });
 }
 
-export const superchatActions: ProviderActionDefinition<SuperchatActionName>[] = [
+export const superchatActions: ActionDefinition[] = [
   action("get_me", "Get the authenticated Superchat user and workspace."),
   action("list_channels", "List Superchat channels."),
   action("get_channel", "Get a Superchat channel by ID."),

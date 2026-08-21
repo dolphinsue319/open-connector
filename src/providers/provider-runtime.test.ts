@@ -1,452 +1,490 @@
-import type { ExecutionContext, ResolvedCredential, TransitFileRead, TransitFileWriter } from "../core/types.ts";
+import type { ExecutionContext, ResolvedCredential } from "../core/types.ts";
+import type { ProviderActionHandlers, ProviderActionSources } from "./provider-runtime.ts";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { isPrivateNetworkAccessAllowed, setPrivateNetworkAccessAllowed } from "../core/request.ts";
 import {
-  credentialProviderProxyBaseUrl,
+  createProviderTimeout,
   createProviderProxyUrl,
+  defineOAuthProviderExecutors,
+  defineProviderExecutors,
   defineProviderProxy,
-  defineBearerProviderProxy,
-  normalizeProviderProxyHeaders,
-  normalizeProviderProxyQuery,
-  ProviderRequestError,
-  readProviderProxyResponse,
-  uploadProviderUrlToTransitFile,
+  mapProviderActionSources,
+  providerFetch,
+  readProviderJson,
+  toProviderExecutionError,
 } from "./provider-runtime.ts";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  setPrivateNetworkAccessAllowed(false);
 });
 
-describe("provider runtime file helpers", () => {
-  it("bounds provider URL downloads before creating transit files", async () => {
-    const transitFiles = new MemoryTransitFiles(4);
-
-    await expect(
-      uploadProviderUrlToTransitFile(
-        {
-          url: "https://provider.example/report.txt",
-          name: "report.txt",
-          source: "example",
-        },
-        {
-          fetcher: async () => new Response("12345"),
-          transitFiles,
-        },
-      ),
-    ).rejects.toMatchObject({
-      status: 413,
-      message: "report.txt exceeds 4 bytes",
-    });
-    expect(transitFiles.createdFiles).toHaveLength(0);
-  });
-
-  it("stores bounded provider URL downloads", async () => {
-    const transitFiles = new MemoryTransitFiles(32);
-
-    const upload = await uploadProviderUrlToTransitFile(
-      {
-        url: "https://provider.example/report.txt",
-        name: "report.txt",
-        source: "example",
-      },
-      {
-        fetcher: async () => new Response("hello", { headers: { "content-type": "text/plain" } }),
-        transitFiles,
-      },
-    );
-
-    expect(upload).toMatchObject({
-      fileId: "file-1",
-      name: "report.txt",
-      mimeType: "text/plain",
-      sizeBytes: 5,
-    });
-    await expect(transitFiles.createdFiles[0]?.text()).resolves.toBe("hello");
-  });
-});
-
-describe("provider proxy helpers", () => {
-  it("builds provider-owned URLs from relative endpoints and scalar query values", () => {
-    const url = createProviderProxyUrl("https://api.example.com/v1", "/items", {
-      limit: 10,
-      includeArchived: false,
-      empty: "",
-      nested: { rejected: true },
-    });
-
-    expect(url.toString()).toBe("https://api.example.com/v1/items?limit=10&includeArchived=false&empty=");
-  });
-
-  it("rejects absolute, protocol-relative, and parent-traversal endpoints", () => {
-    expect(() => createProviderProxyUrl("https://api.example.com", "https://evil.test/a")).toThrow(
-      ProviderRequestError,
-    );
-    expect(() => createProviderProxyUrl("https://api.example.com", "//evil.test/a")).toThrow(ProviderRequestError);
-    expect(() => createProviderProxyUrl("https://api.example.com/v1", "/../admin")).toThrow(ProviderRequestError);
-    expect(() => createProviderProxyUrl("https://api.example.com/v1", "/%2e%2e/admin")).toThrow(ProviderRequestError);
-  });
-
-  it("normalizes caller headers without forwarding hop-by-hop or auth headers", () => {
-    const headers = normalizeProviderProxyHeaders({
-      accept: "application/json",
-      authorization: "Bearer caller-token",
-      host: "evil.test",
-      "x-trace-id": " trace-1 ",
-      ignored: 123,
-    });
-
-    expect(Object.fromEntries(headers.entries())).toEqual({
-      accept: "application/json",
-      "x-trace-id": "trace-1",
-    });
-  });
-
-  it("normalizes scalar query values", () => {
-    expect(
-      normalizeProviderProxyQuery({
-        page: 2,
-        exact: true,
-        search: "oomol",
-        nested: { value: "ignored" },
-      }),
-    ).toEqual({
-      page: "2",
-      exact: "true",
-      search: "oomol",
-    });
-  });
-
-  it("reads JSON proxy responses and preserves response headers", async () => {
-    const response = new Response(JSON.stringify({ ok: true }), {
-      status: 201,
-      headers: { "content-type": "application/json", "x-request-id": "req_1" },
-    });
-
-    await expect(readProviderProxyResponse(response)).resolves.toEqual({
-      status: 201,
-      headers: {
-        "content-type": "application/json",
-        "x-request-id": "req_1",
-      },
-      data: { ok: true },
-    });
-  });
-
-  it("reads binary proxy responses as bounded base64 payloads", async () => {
-    const response = new Response(Uint8Array.from([0, 1, 2, 255]), {
-      status: 200,
-      headers: { "content-type": "application/octet-stream" },
-    });
-
-    await expect(readProviderProxyResponse(response, { maxBytes: 4 })).resolves.toEqual({
-      status: 200,
-      headers: {
-        "content-type": "application/octet-stream",
-      },
-      bodyEncoding: "base64",
-      data: "AAEC/w==",
-    });
-  });
-
-  it("rejects proxy responses over the configured byte limit", async () => {
-    const response = new Response("12345", {
-      headers: { "content-type": "text/plain" },
-    });
-
-    await expect(readProviderProxyResponse(response, { maxBytes: 4 })).rejects.toMatchObject({
-      status: 413,
-      message: "proxy response exceeds 4 bytes",
-    });
-  });
-
-  it("executes bearer proxy requests with runtime credentials", async () => {
-    const fetcher = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
-        new Response(JSON.stringify({ id: "item_1" }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
-    );
-    vi.stubGlobal("fetch", fetcher);
-
-    const credential: ResolvedCredential = {
-      authType: "api_key",
-      apiKey: "provider-token",
-      values: { apiKey: "provider-token" },
-      profile: { accountId: "acct_1", displayName: "Example", grantedScopes: [] },
-      metadata: {},
-    };
-    const context: ExecutionContext = {
-      getCredential: async () => credential,
-    };
-
-    const proxy = defineBearerProviderProxy({
-      service: "example",
-      baseUrl: "https://api.example.com/v1",
-    });
-    const result = await proxy(
-      {
-        endpoint: "/items",
-        method: "POST",
-        headers: { accept: "application/json" },
-        body: { name: "example" },
-      },
-      context,
-    );
-
-    expect(result).toEqual({
-      ok: true,
-      response: {
-        status: 200,
-        headers: { "content-type": "application/json" },
-        data: { id: "item_1" },
-      },
-    });
-    expect(fetcher).toHaveBeenCalledWith(
-      new URL("https://api.example.com/v1/items"),
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ name: "example" }),
-      }),
-    );
-    const init = fetcher.mock.calls[0]![1] as RequestInit;
-    expect(Object.fromEntries((init.headers as Headers).entries())).toMatchObject({
-      accept: "application/json",
-      authorization: "Bearer provider-token",
-      "content-type": "application/json",
-      "user-agent": "oomol-connect/0.1",
-    });
-  });
-
-  it("bounds provider proxy error response bodies", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (): Promise<Response> => new Response("x".repeat(20 * 1024 * 1024 + 1), { status: 500 })),
-    );
-
-    const proxy = defineProviderProxy({
-      service: "example",
-      baseUrl: "https://api.example.com",
-      auth: { type: "none" },
-    });
-
-    await expect(
-      proxy(
-        {
-          endpoint: "/items",
-          method: "GET",
-        },
-        {
-          getCredential: async () => undefined,
-        },
-      ),
-    ).resolves.toMatchObject({
+describe("toProviderExecutionError", () => {
+  it("maps unknown exceptions to a generic internal error", () => {
+    expect(toProviderExecutionError(new Error("secret provider response"), "Provider request failed.")).toEqual({
       ok: false,
       error: {
-        code: "invalid_input",
-        message: "proxy error response exceeds 20971520 bytes",
-        details: {
-          status: 413,
-        },
+        code: "internal_error",
+        message: "Provider request failed.",
       },
     });
-  });
-
-  it("injects API key credentials into proxy request headers", async () => {
-    const fetcher = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
-    );
-    vi.stubGlobal("fetch", fetcher);
-
-    const proxy = defineProviderProxy({
-      service: "example",
-      baseUrl: "https://api.example.com",
-      auth: { type: "api_key_header", name: "x-api-key" },
-    });
-    const result = await proxy(
-      {
-        endpoint: "/items",
-        method: "GET",
-        headers: { authorization: "Bearer caller-token" },
-      },
-      {
-        getCredential: async () => ({
-          authType: "api_key",
-          apiKey: "provider-key",
-          values: { apiKey: "provider-key" },
-          profile: { accountId: "acct_1", displayName: "Example", grantedScopes: [] },
-          metadata: {},
-        }),
-      },
-    );
-
-    expect(result.ok).toBe(true);
-    const init = fetcher.mock.calls[0]![1] as RequestInit;
-    expect(Object.fromEntries((init.headers as Headers).entries())).toMatchObject({
-      "user-agent": "oomol-connect/0.1",
-      "x-api-key": "provider-key",
-    });
-    expect((init.headers as Headers).has("authorization")).toBe(false);
-  });
-
-  it("injects API key credentials into proxy request query parameters", async () => {
-    const fetcher = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => new Response("{}", { status: 200 }),
-    );
-    vi.stubGlobal("fetch", fetcher);
-
-    const proxy = defineProviderProxy({
-      service: "example",
-      baseUrl: "https://api.example.com/v1",
-      auth: { type: "api_key_query", name: "api_key" },
-    });
-    await proxy(
-      {
-        endpoint: "/items",
-        method: "GET",
-        query: {
-          api_key: "caller-key",
-          page: 2,
-        },
-      },
-      {
-        getCredential: async () => ({
-          authType: "api_key",
-          apiKey: "provider-key",
-          values: { apiKey: "provider-key" },
-          profile: { accountId: "acct_1", displayName: "Example", grantedScopes: [] },
-          metadata: {},
-        }),
-      },
-    );
-
-    const url = fetcher.mock.calls[0]![0] as URL;
-    expect(url.origin + url.pathname).toBe("https://api.example.com/v1/items");
-    expect(url.searchParams.get("page")).toBe("2");
-    expect(url.searchParams.get("api_key")).toBe("provider-key");
-  });
-
-  it("injects API key credentials into proxy Basic authorization headers", async () => {
-    const fetcher = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => new Response("{}", { status: 200 }),
-    );
-    vi.stubGlobal("fetch", fetcher);
-
-    const proxy = defineProviderProxy({
-      service: "example",
-      baseUrl: "https://api.example.com",
-      auth: { type: "api_key_basic", suffix: ":" },
-    });
-    await proxy(
-      {
-        endpoint: "/items",
-        method: "GET",
-      },
-      {
-        getCredential: async () => ({
-          authType: "api_key",
-          apiKey: "provider-key",
-          values: { apiKey: "provider-key" },
-          profile: { accountId: "acct_1", displayName: "Example", grantedScopes: [] },
-          metadata: {},
-        }),
-      },
-    );
-
-    const init = fetcher.mock.calls[0]![1] as RequestInit;
-    expect((init.headers as Headers).get("authorization")).toBe("Basic cHJvdmlkZXIta2V5Og==");
-  });
-
-  it("resolves proxy base URLs from credential metadata", async () => {
-    const fetcher = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => new Response("{}", { status: 200 }),
-    );
-    vi.stubGlobal("fetch", fetcher);
-
-    const proxy = defineProviderProxy({
-      service: "example",
-      baseUrl: credentialProviderProxyBaseUrl("apiBaseUrl"),
-      auth: { type: "api_key_header", name: "x-api-key" },
-    });
-    await proxy(
-      {
-        endpoint: "/items",
-        method: "GET",
-      },
-      {
-        getCredential: async () => ({
-          authType: "api_key",
-          apiKey: "provider-key",
-          values: { apiKey: "provider-key" },
-          profile: { accountId: "acct_1", displayName: "Example", grantedScopes: [] },
-          metadata: { apiBaseUrl: "https://tenant.example.com/api" },
-        }),
-      },
-    );
-
-    expect(fetcher).toHaveBeenCalledWith(new URL("https://tenant.example.com/api/items"), expect.any(Object));
-  });
-
-  it("executes no-auth proxy requests without resolving credentials", async () => {
-    const fetcher = vi.fn(async (): Promise<Response> => new Response("ok", { status: 200 }));
-    vi.stubGlobal("fetch", fetcher);
-    const getCredential = vi.fn();
-
-    const proxy = defineProviderProxy({
-      service: "example",
-      baseUrl: "https://api.example.com",
-      auth: { type: "none" },
-    });
-    const result = await proxy(
-      {
-        endpoint: "/status",
-        method: "GET",
-      },
-      { getCredential },
-    );
-
-    expect(result).toMatchObject({ ok: true });
-    expect(getCredential).not.toHaveBeenCalled();
   });
 });
 
-class MemoryTransitFiles implements TransitFileWriter {
-  readonly createdFiles: File[] = [];
-  readonly maxBytes: number;
+describe("readProviderJson", () => {
+  it("includes bounded non-ok response text in provider errors", async () => {
+    await expect(readProviderJson(new Response('{"error":"nope"}', { status: 400 }), "provider")).rejects.toMatchObject(
+      {
+        status: 400,
+        message: '{"error":"nope"}',
+      },
+    );
+  });
 
-  constructor(maxBytes: number) {
-    this.maxBytes = maxBytes;
-  }
+  it("does not read unbounded non-ok response bodies", async () => {
+    await expect(
+      readProviderJson(new Response("x".repeat(65 * 1024), { status: 500 }), "provider"),
+    ).rejects.toMatchObject({
+      status: 500,
+      message: "provider request failed",
+    });
+  });
+});
 
-  async create(file: File): Promise<{
-    fileId: string;
-    downloadUrl: string;
-    sizeBytes: number;
-    name: string;
-    mimeType: string;
-  }> {
-    if (file.size > this.maxBytes) {
-      throw new ProviderRequestError(413, "file too large");
-    }
-    this.createdFiles.push(file);
-    return {
-      fileId: `file-${this.createdFiles.length}`,
-      downloadUrl: `http://localhost/files/${this.createdFiles.length}`,
-      sizeBytes: file.size,
-      name: file.name,
-      mimeType: file.type,
+describe("defineProviderExecutors", () => {
+  it("uses a provider-specific error mapper when configured", async () => {
+    const executors = defineProviderExecutors({
+      service: "test_service",
+      handlers: {
+        async probe() {
+          throw new Error("provider-specific failure");
+        },
+      },
+      createContext: () => ({}),
+      mapError: () => ({
+        ok: false,
+        error: {
+          code: "rate_limited",
+          message: "provider quota exhausted",
+        },
+      }),
+    });
+
+    await expect(executors["test_service.probe"]!({}, executionContext)).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "rate_limited",
+        message: "provider quota exhausted",
+      },
+    });
+  });
+
+  it("passes provider-owned OAuth secret state to handlers", async () => {
+    const executors = defineOAuthProviderExecutors("test_service", {
+      async probe(_input, context) {
+        return context.providerSecret;
+      },
+    });
+    const context: ExecutionContext = {
+      getCredential: async () => ({
+        authType: "oauth2",
+        accessToken: "access-token",
+        tokenType: "Bearer",
+        providerSecret: { userGrant: { accessToken: "user-access" } },
+        profile: { accountId: "acct", displayName: "Test", grantedScopes: [] },
+        metadata: {},
+      }),
     };
-  }
 
-  read(_fileId: string): Promise<TransitFileRead> {
-    throw new Error("not implemented");
-  }
+    await expect(executors["test_service.probe"]!({}, context)).resolves.toMatchObject({
+      ok: true,
+      output: { userGrant: { accessToken: "user-access" } },
+    });
+  });
+});
 
-  async delete(_fileId: string): Promise<boolean> {
-    return false;
-  }
+describe("provider action contracts", () => {
+  it("maps every configured action to a handler", async () => {
+    const sources: ProviderActionSources<"mqtt", number> = {
+      publish_message: 1,
+      receive_messages: 2,
+    };
+    const handlers: ProviderActionHandlers<"mqtt", () => Promise<number>> = mapProviderActionSources(
+      "mqtt",
+      sources,
+      (_name, value) => async () => value,
+    );
+
+    await expect(handlers.publish_message()).resolves.toBe(1);
+    await expect(handlers.receive_messages()).resolves.toBe(2);
+  });
+});
+
+describe("createProviderTimeout", () => {
+  it("inherits an already-aborted parent signal", () => {
+    const parent = new AbortController();
+    parent.abort(new Error("cancelled"));
+
+    const timeout = createProviderTimeout(parent.signal, 60_000);
+    try {
+      expect(timeout.signal.aborted).toBe(true);
+      expect(timeout.signal.reason).toBe(parent.signal.reason);
+      expect(timeout.didTimeout()).toBe(false);
+    } finally {
+      timeout.cleanup();
+    }
+  });
+});
+
+describe("createProviderProxyUrl", () => {
+  it("rejects endpoints that can escape the provider origin", () => {
+    for (const endpoint of [
+      "/https://evil.example/steal",
+      "/https:///evil.example/",
+      "/http://169.254.169.254/latest/meta-data/",
+      "/http:/169.254.169.254/",
+    ]) {
+      expect(() => createProviderProxyUrl("https://api.example.com/v1/", endpoint)).toThrow(
+        "endpoint must be a relative path",
+      );
+    }
+  });
+
+  it("joins normal endpoints below an API path prefix", () => {
+    expect(createProviderProxyUrl("https://api.example.com/v1/", "/items").toString()).toBe(
+      "https://api.example.com/v1/items",
+    );
+  });
+});
+
+const apiKeyCredential: ResolvedCredential = {
+  authType: "api_key",
+  apiKey: "test-key",
+  values: {},
+  profile: { accountId: "acct", displayName: "Test", grantedScopes: [] },
+  metadata: {},
+};
+
+const executionContext: ExecutionContext = {
+  getCredential: async () => apiKeyCredential,
+};
+
+function stubFetchSequence(responses: Response[]): Array<{ url: string; init: RequestInit | undefined }> {
+  const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({ url: input instanceof Request ? input.url : String(input), init });
+    const response = responses.shift();
+    if (!response) {
+      throw new Error("unexpected extra request");
+    }
+    return response;
+  });
+  return calls;
 }
+
+describe("provider egress SSRF guard", () => {
+  it("does not fetch when a proxy endpoint escapes its provider origin", async () => {
+    const calls = stubFetchSequence([]);
+    const proxy = defineProviderProxy({
+      service: "test_service",
+      baseUrl: "https://api.example.com/v1/",
+      auth: { type: "bearer" },
+    });
+
+    const result = await proxy({ method: "GET", endpoint: "/https://evil.example/steal" }, executionContext);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected failure");
+    expect(result.error.message).toBe("endpoint must be a relative path");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("keeps Z-API-style path rewrites on the provider origin", async () => {
+    const calls = stubFetchSequence([new Response(JSON.stringify({ ok: true }), { status: 200 })]);
+    const origins: string[] = [];
+    const proxy = defineProviderProxy({
+      service: "test_service",
+      baseUrl: "https://api.example.com/v1/",
+      auth: { type: "bearer" },
+      customizeRequest({ url }) {
+        origins.push(url.origin);
+        url.pathname = `/instances/instance/token/token${url.pathname}`;
+      },
+    });
+
+    await expect(proxy({ method: "GET", endpoint: "/items" }, executionContext)).resolves.toMatchObject({ ok: true });
+
+    expect(origins).toEqual(["https://api.example.com"]);
+    expect(calls[0]?.url).toBe("https://api.example.com/instances/instance/token/token/v1/items");
+  });
+
+  it("does not fetch when customizeRequest rewrites the URL off the provider origin", async () => {
+    const calls = stubFetchSequence([]);
+    const proxy = defineProviderProxy({
+      service: "test_service",
+      baseUrl: "https://api.example.com/v1/",
+      auth: { type: "bearer" },
+      customizeRequest({ url }) {
+        url.hostname = "evil.example";
+      },
+    });
+
+    const result = await proxy({ method: "GET", endpoint: "/items" }, executionContext);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected failure");
+    expect(result.error.message).toBe("endpoint must stay on the provider origin");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("allows customizeRequest to select an exact code-controlled origin", async () => {
+    const calls = stubFetchSequence([new Response(JSON.stringify({ ok: true }), { status: 200 })]);
+    const proxy = defineProviderProxy({
+      service: "test_service",
+      baseUrl: "https://api.example.com/v1/",
+      auth: { type: "bearer" },
+      allowedOrigins: ["https://eu.api.example.com"],
+      customizeRequest({ url }) {
+        url.hostname = "eu.api.example.com";
+      },
+    });
+
+    const result = await proxy({ method: "GET", endpoint: "/items" }, executionContext);
+
+    expect(result.ok).toBe(true);
+    expect(calls[0]?.url).toBe("https://eu.api.example.com/v1/items");
+  });
+
+  it("strips the configured proxy API key header from cross-origin redirects", async () => {
+    const calls = stubFetchSequence([
+      new Response(null, { status: 302, headers: { location: "https://cdn.example.net/items" } }),
+      new Response(JSON.stringify({ ok: true }), { status: 200 }),
+    ]);
+    const proxy = defineProviderProxy({
+      service: "test_service",
+      baseUrl: "https://api.example.com",
+      auth: { type: "api_key_header", name: "X-Provider-Credential" },
+    });
+
+    const result = await proxy({ method: "GET", endpoint: "/items" }, executionContext);
+
+    expect(result.ok).toBe(true);
+    expect(new Headers(calls[0]?.init?.headers).get("x-provider-credential")).toBe("test-key");
+    expect(new Headers(calls[1]?.init?.headers).has("x-provider-credential")).toBe(false);
+  });
+
+  it("rejects origin-escaping endpoints even when DNS validation is skipped", async () => {
+    const calls = stubFetchSequence([]);
+    const proxy = defineProviderProxy({
+      service: "test_service",
+      baseUrl: "https://api.example.com/v1/",
+      auth: { type: "bearer" },
+      skipDnsValidation: true,
+    });
+
+    const result = await proxy({ method: "GET", endpoint: "/https://evil.example/steal" }, executionContext);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected failure");
+    expect(result.error.message).toBe("endpoint must be a relative path");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("blocks proxy responses redirecting to metadata targets", async () => {
+    const calls = stubFetchSequence([
+      new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data/" } }),
+    ]);
+    const proxy = defineProviderProxy({
+      service: "test_service",
+      baseUrl: "https://api.example.com",
+      auth: { type: "bearer" },
+    });
+
+    const result = await proxy({ method: "GET", endpoint: "/items" }, executionContext);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected failure");
+    expect(result.error.message).toContain("redirect location");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("follows public proxy redirects", async () => {
+    const calls = stubFetchSequence([
+      new Response(null, { status: 302, headers: { location: "https://cdn.example.net/items" } }),
+      new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } }),
+    ]);
+    const proxy = defineProviderProxy({
+      service: "test_service",
+      baseUrl: "https://api.example.com",
+      auth: { type: "bearer" },
+    });
+
+    const result = await proxy({ method: "GET", endpoint: "/items" }, executionContext);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected success");
+    expect(result.response.data).toEqual({ ok: true });
+    expect(calls.map((call) => call.url)).toEqual(["https://api.example.com/items", "https://cdn.example.net/items"]);
+  });
+
+  it("gives executor contexts a fetcher that blocks redirects to loopback targets", async () => {
+    const calls = stubFetchSequence([
+      new Response(null, { status: 302, headers: { location: "http://127.0.0.1:8080/admin" } }),
+    ]);
+    const executors = defineProviderExecutors<{ fetcher: typeof fetch }>({
+      service: "test_service",
+      handlers: {
+        async probe(_input, context) {
+          const response = await context.fetcher("https://api.example.com/resource");
+          return { status: response.status };
+        },
+      },
+      createContext: (_context, fetcher) => ({ fetcher }),
+    });
+
+    const result = await executors["test_service.probe"]!({}, executionContext);
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toContain("redirect location");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("keeps caller manual-redirect handling intact through providerFetch", async () => {
+    const calls = stubFetchSequence([new Response(null, { status: 302, headers: { location: "http://127.0.0.1/" } })]);
+
+    const response = await providerFetch("https://api.example.com/report", { redirect: "manual" });
+
+    expect(response.status).toBe(302);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("blocks private targets for executors that do not opt in", async () => {
+    const calls = stubFetchSequence([new Response("{}", { status: 200 })]);
+    const executors = defineProviderExecutors<{ fetcher: typeof fetch }>({
+      service: "test_service",
+      handlers: {
+        async probe(_input, context) {
+          return { status: (await context.fetcher("http://10.0.0.5:8123/api/")).status };
+        },
+      },
+      createContext: (_context, fetcher) => ({ fetcher }),
+    });
+    setPrivateNetworkAccessAllowed(true);
+
+    const result = await executors["test_service.probe"]!({}, executionContext);
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toContain("must not target private or reserved IP addresses");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("reaches private targets for opted-in executors once the deployment enables the flag", async () => {
+    const calls = stubFetchSequence([new Response("{}", { status: 200 })]);
+    const executors = defineProviderExecutors<{ fetcher: typeof fetch }>({
+      service: "test_service",
+      handlers: {
+        async probe(_input, context) {
+          return { status: (await context.fetcher("http://10.0.0.5:8123/api/")).status };
+        },
+      },
+      createContext: (_context, fetcher) => ({ fetcher }),
+      allowPrivateNetwork: isPrivateNetworkAccessAllowed,
+    });
+    setPrivateNetworkAccessAllowed(true);
+
+    const result = await executors["test_service.probe"]!({}, executionContext);
+
+    expect(result.ok).toBe(true);
+    expect(calls.map((call) => call.url)).toEqual(["http://10.0.0.5:8123/api/"]);
+  });
+
+  it("keeps the opt-in gated on the deployment flag and never unblocks loopback", async () => {
+    const executors = defineProviderExecutors<{ fetcher: typeof fetch }>({
+      service: "test_service",
+      handlers: {
+        async probe(_input, context) {
+          return { status: (await context.fetcher(_input.url as string)).status };
+        },
+      },
+      createContext: (_context, fetcher) => ({ fetcher }),
+      allowPrivateNetwork: isPrivateNetworkAccessAllowed,
+    });
+
+    const calls = stubFetchSequence([]);
+    const disabled = await executors["test_service.probe"]!({ url: "http://10.0.0.5:8123/api/" }, executionContext);
+    setPrivateNetworkAccessAllowed(true);
+    const loopback = await executors["test_service.probe"]!({ url: "http://127.0.0.1:8123/api/" }, executionContext);
+
+    expect(disabled.ok).toBe(false);
+    expect(loopback.ok).toBe(false);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("provider runtime fetch", () => {
+  it("maps transport failures to provider errors without exposing the native message", async () => {
+    vi.stubGlobal("fetch", async () => {
+      throw new TypeError("getaddrinfo ENOTFOUND secret.internal");
+    });
+    const executors = defineProviderExecutors<{ fetcher: typeof fetch }>({
+      service: "test_service",
+      handlers: {
+        async probe(_input, context) {
+          await context.fetcher("https://api.example.com/resource");
+          return {};
+        },
+      },
+      createContext: (_context, fetcher) => ({ fetcher }),
+    });
+
+    const result = await executors["test_service.probe"]!({}, executionContext);
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: "provider_error",
+        message: expect.stringContaining("provider network request failed"),
+        details: { status: 502 },
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("secret.internal");
+  });
+
+  it("does not forward the provider context as the native fetch receiver", async () => {
+    let nativeFetchThis: unknown = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(function (this: unknown) {
+        nativeFetchThis = this;
+        if (this !== undefined) {
+          throw new TypeError("Illegal invocation: function called with incorrect `this` reference");
+        }
+        return Promise.resolve(Response.json({ ok: true }));
+      }),
+    );
+    const executors = defineProviderExecutors<{ fetcher: typeof fetch }>({
+      service: "receiver_test",
+      handlers: {
+        async request(_input, context) {
+          const response = await context.fetcher("https://example.com/action");
+          return response.json();
+        },
+      },
+      createContext(_context, fetcher) {
+        return { fetcher };
+      },
+    });
+    const receiverContext: ExecutionContext = {
+      async getCredential() {
+        return undefined;
+      },
+    };
+
+    await expect(executors["receiver_test.request"]!({}, receiverContext)).resolves.toEqual({
+      ok: true,
+      output: { ok: true },
+    });
+    expect(nativeFetchThis).toBeUndefined();
+  });
+});

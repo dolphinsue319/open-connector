@@ -238,5 +238,3 @@ export const tripadvisorActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type TripadvisorActionName = (typeof tripadvisorActions)[number]["name"];

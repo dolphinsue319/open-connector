@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -296,13 +295,12 @@ const actionDefinitions: PagerDutyActionDefinition[] = [
   },
 ] satisfies PagerDutyActionDefinition[];
 
-export const pagerDutyActions: Array<ProviderActionDefinition<PagerDutyActionName>> = actionDefinitions.map(
-  (definition) =>
-    defineProviderAction(service, {
-      name: definition.name,
-      description: definition.description,
-      requiredScopes: [],
-      inputSchema: definition.inputSchema,
-      outputSchema: definition.outputSchema,
-    }),
+export const pagerDutyActions: ActionDefinition[] = actionDefinitions.map((definition) =>
+  defineProviderAction(service, {
+    name: definition.name,
+    description: definition.description,
+    requiredScopes: [],
+    inputSchema: definition.inputSchema,
+    outputSchema: definition.outputSchema,
+  }),
 );

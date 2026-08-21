@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -146,9 +146,7 @@ const addressesOutputSchema = s.object(
   { required: ["meta", "addresses"] },
 );
 
-export type RadarActionName = "forward_geocode" | "reverse_geocode" | "ip_geocode" | "autocomplete" | "search_places";
-
-export const radarActions: ProviderActionDefinition<RadarActionName>[] = [
+export const radarActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "forward_geocode",
     description: "Convert a complete address into coordinates with Radar.",

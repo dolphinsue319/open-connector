@@ -167,9 +167,7 @@ export const blandAiActions: readonly ProviderActionDefinition[] = [
       voice: voiceSchema,
     }),
   }),
-] as const satisfies readonly ProviderActionDefinition[];
-
-export type BlandAiActionName = (typeof blandAiActions)[number]["name"];
+];
 
 export const blandAiActionByName: ReadonlyMap<string, ProviderActionDefinition> = new Map(
   blandAiActions.map((action) => [action.name, action] as const),

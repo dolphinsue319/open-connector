@@ -1,18 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "momentum_io";
-
-export type MomentumIoActionName =
-  | "list_users"
-  | "list_meetings"
-  | "list_signal_prompts"
-  | "list_signal_executions"
-  | "list_signal_definitions"
-  | "list_signal_v2_executions";
 
 const pageNumberSchema = s.integer("The page number to retrieve, using 1-based indexing.", {
   minimum: 1,
@@ -173,7 +164,7 @@ const listMeetingsInputSchema: JsonSchema = {
   },
 };
 
-export const momentumIoActions: Array<ProviderActionDefinition<MomentumIoActionName>> = [
+export const momentumIoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_users",
     description: "List Momentum organization users with optional pagination and filters.",

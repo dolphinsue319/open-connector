@@ -201,6 +201,4 @@ export const chatbotkitActions: ActionDefinition[] = [
     ),
     idOnlyOutput,
   ),
-] satisfies ActionDefinition[];
-
-export type ChatbotkitActionName = (typeof chatbotkitActions)[number]["name"];
+];

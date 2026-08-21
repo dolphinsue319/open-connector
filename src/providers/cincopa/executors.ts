@@ -1,5 +1,5 @@
 import type { CredentialValidators, ProviderExecutors } from "../../core/types.ts";
-import type { CincopaActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import {
   compactObject,
@@ -23,8 +23,8 @@ interface CincopaContext {
   signal?: AbortSignal;
 }
 
-export const cincopaActionHandlers: Record<
-  CincopaActionName,
+export const cincopaActionHandlers: ProviderActionHandlers<
+  "cincopa",
   (input: Record<string, unknown>, context: CincopaContext) => Promise<unknown>
 > = {
   async list_galleries(input, context) {

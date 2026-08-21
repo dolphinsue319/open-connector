@@ -643,5 +643,3 @@ export const trelloActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type TrelloActionName = (typeof trelloActions)[number]["name"];

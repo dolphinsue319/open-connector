@@ -1,13 +1,14 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { AmplitudeActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { Buffer } from "node:buffer";
 import { compactObject, optionalInteger, optionalRecord, requiredString } from "../../core/cast.ts";
 import {
   createProviderTimeout,
   isAbortLikeError,
-  providerUserAgent,
+  providerFetch,
   ProviderRequestError,
+  providerUserAgent,
 } from "../provider-runtime.ts";
 
 export const amplitudeApiBaseUrl = "https://amplitude.com";
@@ -38,7 +39,7 @@ interface AmplitudeQuery {
   [key: string]: string | number | undefined;
 }
 
-export const amplitudeActionHandlers: Record<AmplitudeActionName, AmplitudeActionHandler> = {
+export const amplitudeActionHandlers: ProviderActionHandlers<"amplitude", AmplitudeActionHandler> = {
   async list_events(_input, context) {
     const payload = await requestAmplitudeJson({
       ...resolveAmplitudeActionContext(_input, context),
@@ -94,7 +95,7 @@ export const amplitudeActionHandlers: Record<AmplitudeActionName, AmplitudeActio
 
 export async function validateAmplitudeCredential(
   input: { apiKey: string; values: Record<string, string> },
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = providerFetch,
   signal?: AbortSignal,
 ): Promise<CredentialValidationResult> {
   const secretKey = requireAmplitudeSecretKey(input.apiKey);

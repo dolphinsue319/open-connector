@@ -281,5 +281,3 @@ export const attentionActions: ActionDefinition[] = [
     outputSchema: askAttentionOutputSchema,
   }),
 ];
-
-export type AttentionActionName = (typeof attentionActions)[number]["name"];

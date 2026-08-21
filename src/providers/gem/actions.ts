@@ -1,20 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "gem";
-
-export type GemActionName =
-  | "list_users"
-  | "list_candidates"
-  | "get_candidate"
-  | "list_projects"
-  | "get_project"
-  | "list_project_candidates"
-  | "list_sequences"
-  | "get_sequence"
-  | "list_custom_fields";
 
 const objectIdSchema = (description: string) => s.nonEmptyString(description);
 const unixTimestampSchema = (description: string) => s.positiveInteger(description);
@@ -53,7 +42,7 @@ const createdRangeProperties = {
 };
 const createdRangeOptional = ["created_after", "created_before", "sort"] as const;
 
-export const gemActions: Array<ProviderActionDefinition<GemActionName>> = [
+export const gemActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_users",
     description: "List Gem users visible to the current API key.",

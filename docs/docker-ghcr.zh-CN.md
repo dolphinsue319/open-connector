@@ -11,14 +11,14 @@ ghcr.io/oomol-lab/open-connector
 
 ## 选择标签（Tag）
 
-| 标签          | 指向                             | 适用场景                               |
-| ------------- | -------------------------------- | -------------------------------------- |
-| `latest`      | 最新发布的 release               | 想要当前的稳定 runtime                 |
-| `v1.0.0`      | 某个具体 release（不可变）       | 部署到生产环境，需要固定、可复现的构建 |
-| `tip`         | `main` 上的最新 commit           | 想体验尚未发布的改动                   |
-| `<short-sha>` | 某个具体 `main` commit（不可变） | 想固定到某个确切的预发布构建           |
+| 标签                | 指向                             | 适用场景                               |
+| ------------------- | -------------------------------- | -------------------------------------- |
+| `latest`            | 最新发布的 release               | 想要当前的稳定 runtime                 |
+| `<release-version>` | 某个具体 release（不可变）       | 部署到生产环境，需要固定、可复现的构建 |
+| `tip`               | `main` 上的最新 commit           | 想体验尚未发布的改动                   |
+| `<short-sha>`       | 某个具体 `main` commit（不可变） | 想固定到某个确切的预发布构建           |
 
-生产环境请固定到某个 release 版本，例如 `v1.0.0`。
+生产环境请固定到某个具体的 release 版本，不要使用 `latest`。
 
 ## 拉取
 
@@ -41,8 +41,9 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u <github-username> --password-stdi
 
 镜像监听 `3000` 端口，绑定到 `0.0.0.0`，并把运行时数据存放在 `/app/data`。
 
-先生成运行时 secret 并妥善保存。`OOMOL_CONNECT_ENCRYPTION_KEY` 用于加密存储的凭据和 OAuth client secret；一旦
-丢失，`/app/data` 里加密的数据将无法恢复。`OOMOL_CONNECT_ADMIN_TOKEN` 用于 admin API 和控制台的鉴权。
+先生成运行时 secret 并妥善保存。`OOMOL_CONNECT_ENCRYPTION_KEY` 用于加密存储的凭据、OAuth client 配置和已完成的
+幂等 Action 响应；一旦丢失，`/app/data` 里加密的数据将无法恢复。`OOMOL_CONNECT_ADMIN_TOKEN` 用于 admin API 和
+控制台的鉴权。
 
 ```bash
 # 运行前请把两个值保存到密码管理器或 secrets vault。
@@ -65,6 +66,25 @@ docker run -d \
 
 完整环境变量参考见 [configuration.md](configuration.md)，连接 provider 见 [credentials.md](credentials.md)。
 
+### PostgreSQL Migration
+
+使用 PostgreSQL 时，请在服务器首次启动前，以及启动包含待执行 migration 的新镜像版本前，显式运行镜像的
+`migrate` 命令。Migration 应使用即将部署的同一个镜像标签：
+
+```bash
+OPEN_CONNECTOR_VERSION="<release-version>"
+
+docker run --rm \
+  -e OOMOL_CONNECT_DATABASE_URL="postgresql://migration_user:password@db.example.com:5432/open_connector?sslmode=verify-full" \
+  "ghcr.io/oomol-lab/open-connector:${OPEN_CONNECTOR_VERSION}" \
+  migrate
+```
+
+将 `<release-version>` 替换为实际部署的 release tag。Migration 镜像和服务器镜像必须使用同一个 tag。
+
+该命令应用 migration 后便会退出，不会启动 HTTP 服务器。不给镜像传命令时仍然默认启动服务器；服务器只检查
+schema 是否就绪，不会执行 PostgreSQL DDL。
+
 ### Docker Compose
 
 仓库自带一个 [`docker-compose.yml`](../docker-compose.yml)，直接运行这个发布镜像。在仓库目录下，先 export
@@ -72,6 +92,12 @@ docker run -d \
 
 ```bash
 docker compose up
+```
+
+导出 `OOMOL_CONNECT_DATABASE_URL` 后，可以通过一次性 Compose 命令执行 PostgreSQL migration：
+
+```bash
+docker compose run --rm connector migrate
 ```
 
 想改为从源码构建而不是拉取：

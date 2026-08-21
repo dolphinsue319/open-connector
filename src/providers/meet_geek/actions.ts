@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -114,17 +114,7 @@ const teamsOutputSchema = s.object("MeetGeek teams response.", {
   viewAccess: s.array("Teams where the API key can view meetings.", looseRecordSchema),
 });
 
-export type MeetGeekActionName =
-  | "list_meetings"
-  | "list_team_meetings"
-  | "get_meeting"
-  | "get_summary"
-  | "get_transcript"
-  | "get_highlights"
-  | "get_insights"
-  | "list_teams";
-
-export const meetGeekActions: ProviderActionDefinition<MeetGeekActionName>[] = [
+export const meetGeekActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_meetings",
     description: "List paginated past meetings from MeetGeek.",

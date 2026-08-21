@@ -598,5 +598,3 @@ export const apiSportsActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type ApiSportsActionName = (typeof apiSportsActions)[number]["name"];

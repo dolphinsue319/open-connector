@@ -114,5 +114,3 @@ export const tallyActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type TallyActionName = (typeof tallyActions)[number]["name"];

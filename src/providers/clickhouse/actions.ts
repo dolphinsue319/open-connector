@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -210,7 +210,7 @@ export type ClickhouseActionName =
   | "get_table_schema"
   | "get_database_schema";
 
-export const clickhouseActions: ProviderActionDefinition<ClickhouseActionName>[] = [
+export const clickhouseActions: ActionDefinition[] = [
   executeQueryAction,
   listDatabasesAction,
   listTablesAction,

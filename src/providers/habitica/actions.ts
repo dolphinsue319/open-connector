@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -159,20 +159,7 @@ const updateTaskInputSchema = {
     .map((key) => ({ required: [key] })),
 };
 
-export type HabiticaActionName =
-  | "get_user_profile"
-  | "list_my_tasks"
-  | "get_task"
-  | "create_task"
-  | "update_task"
-  | "delete_task"
-  | "score_task"
-  | "list_tags"
-  | "create_tag"
-  | "update_tag"
-  | "delete_tag";
-
-export const habiticaActions: Array<ProviderActionDefinition<HabiticaActionName>> = [
+export const habiticaActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_user_profile",
     description: "Get the authenticated Habitica user's profile with optional userFields filtering.",

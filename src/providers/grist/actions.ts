@@ -1,19 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "grist";
-
-export type GristActionName =
-  | "list_workspaces"
-  | "get_document"
-  | "list_tables"
-  | "list_columns"
-  | "list_records"
-  | "add_records"
-  | "update_records"
-  | "delete_records";
 
 const looseObjectSchema = s.looseObject("A raw Grist object.");
 const unknownRecordSchema = s.record("Column IDs mapped to cell values.", s.unknown("A Grist cell value."));
@@ -115,7 +105,7 @@ const docTableInputSchema = (
     { optional },
   );
 
-export const gristActions: ProviderActionDefinition<GristActionName>[] = [
+export const gristActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_workspaces",
     description:

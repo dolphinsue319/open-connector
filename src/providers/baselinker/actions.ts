@@ -207,7 +207,7 @@ const listInventoryProductsInputSchema = s.object(
   },
 );
 
-export const baseLinkerActions: Array<ActionDefinition & { name: BaseLinkerActionName }> = [
+export const baseLinkerActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_order_statuses",
     description: "List order statuses configured in the BaseLinker order manager.",

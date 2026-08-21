@@ -220,5 +220,3 @@ export const aimfoxActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AimfoxActionName = (typeof aimfoxActions)[number]["name"];

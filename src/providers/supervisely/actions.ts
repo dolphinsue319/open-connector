@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -14,7 +14,7 @@ export type SuperviselyActionName =
   | "list_datasets"
   | "get_dataset";
 
-function action(name: SuperviselyActionName, description: string): ProviderActionDefinition<SuperviselyActionName> {
+function action(name: SuperviselyActionName, description: string): ActionDefinition {
   return defineProviderAction(service, {
     name,
     description,
@@ -23,7 +23,7 @@ function action(name: SuperviselyActionName, description: string): ProviderActio
   });
 }
 
-export const superviselyActions: ProviderActionDefinition<SuperviselyActionName>[] = [
+export const superviselyActions: ActionDefinition[] = [
   action("get_current_user", "Get the Supervisely user associated with the configured API token."),
   action("list_teams", "List Supervisely teams accessible to the configured API token."),
   action("list_workspaces", "List Supervisely workspaces for a team."),

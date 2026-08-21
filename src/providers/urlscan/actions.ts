@@ -94,5 +94,3 @@ export const urlscanActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type UrlscanActionName = (typeof urlscanActions)[number]["name"];

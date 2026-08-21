@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -19,9 +19,7 @@ const tinyurlListItem = s.object(
   { optional: ["url"] },
 );
 
-export type TinyurlActionName = "create_short_url" | "list_urls";
-
-export const tinyurlActions: Array<ProviderActionDefinition<TinyurlActionName>> = [
+export const tinyurlActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_short_url",
     description: "Create a TinyURL short link for a destination URL.",

@@ -1,20 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "fly";
-
-export type FlyActionName =
-  | "list_apps"
-  | "get_app"
-  | "list_machines"
-  | "create_machine"
-  | "get_machine"
-  | "start_machine"
-  | "stop_machine"
-  | "restart_machine"
-  | "wait_for_machine";
 
 const unixSignalValues = ["SIGHUP", "SIGINT", "SIGQUIT", "SIGKILL", "SIGUSR1", "SIGUSR2", "SIGTERM"];
 const waitStateValues = ["started", "stopped", "suspended", "destroyed", "failed", "settled"];
@@ -202,7 +191,7 @@ const waitForMachineOutputSchema = s.looseObject("Result returned after waiting 
   version: s.string("The Machine version observed by Fly."),
 });
 
-export const flyActions: Array<ProviderActionDefinition<FlyActionName>> = [
+export const flyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_apps",
     description: "List Fly Apps for an organization through the Machines API.",

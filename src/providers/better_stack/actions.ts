@@ -438,5 +438,3 @@ export const betterStackActions: ActionDefinition[] = [
     ),
   }),
 ];
-
-export type BetterStackActionName = (typeof betterStackActions)[number]["name"];

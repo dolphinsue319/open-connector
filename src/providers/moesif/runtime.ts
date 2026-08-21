@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderRuntimeHandler } from "../provider-runtime.ts";
-import type { MoesifActionName } from "./actions.ts";
 
 import {
   compactObject,
@@ -14,8 +14,9 @@ import { queryParams } from "../../core/request.ts";
 import {
   createProviderTimeout,
   isAbortLikeError,
-  providerUserAgent,
+  providerFetch,
   ProviderRequestError,
+  providerUserAgent,
 } from "../provider-runtime.ts";
 
 export const moesifApiBaseUrl = "https://api.moesif.com/v1";
@@ -62,7 +63,7 @@ interface NormalizedWorkspace {
   raw: Record<string, unknown>;
 }
 
-export const moesifActionHandlers: Record<MoesifActionName, MoesifActionHandler> = {
+export const moesifActionHandlers: ProviderActionHandlers<"moesif", MoesifActionHandler> = {
   async list_apps(input, context) {
     const payload = await requestMoesifJson({
       path: buildOrganizationPath(input.organizationId, "apps"),
@@ -141,7 +142,7 @@ export const moesifActionHandlers: Record<MoesifActionName, MoesifActionHandler>
 
 export async function validateMoesifCredential(
   apiKey: string,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = providerFetch,
   signal?: AbortSignal,
 ): Promise<CredentialValidationResult> {
   const payload = await requestMoesifJson({

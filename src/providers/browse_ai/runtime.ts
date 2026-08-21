@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch } from "../provider-runtime.ts";
-import type { BrowseAiActionName } from "./actions.ts";
 
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
@@ -97,7 +97,7 @@ interface BrowseAiRequestInput {
   notFoundAsInvalidInput?: boolean;
 }
 
-export const browseAiActionHandlers: Record<BrowseAiActionName, BrowseAiActionHandler> = {
+export const browseAiActionHandlers: ProviderActionHandlers<"browse_ai", BrowseAiActionHandler> = {
   async list_robots(_input, context) {
     const payload = await requestBrowseAiJson({
       apiKey: context.apiKey,

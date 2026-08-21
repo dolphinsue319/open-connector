@@ -381,6 +381,4 @@ export const brexActions: ProviderActionDefinition[] = [
       "Brex budget output.",
     ),
   }),
-] satisfies ProviderActionDefinition[];
-
-export type BrexActionName = (typeof brexActions)[number]["name"];
+];

@@ -123,5 +123,3 @@ export const apiflashActions: ActionDefinition[] = [
     outputSchema: metadataOutputSchema,
   }),
 ];
-
-export type ApiflashActionName = (typeof apiflashActions)[number]["name"];

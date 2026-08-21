@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -123,17 +123,7 @@ const bookingSchema = s.object("A normalized Headout booking.", {
   raw: s.unknownObject("The raw Headout booking object."),
 });
 
-export type HeadoutActionName =
-  | "list_cities"
-  | "list_categories_by_city"
-  | "list_products_by_city"
-  | "list_products_by_category"
-  | "get_product"
-  | "list_inventory_by_variant"
-  | "list_bookings"
-  | "get_booking";
-
-export const headoutActions: Array<ProviderActionDefinition<HeadoutActionName>> = [
+export const headoutActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_cities",
     description: "List active Headout cities.",

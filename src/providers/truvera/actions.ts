@@ -311,5 +311,3 @@ export const truveraActions: ActionDefinition[] = [
     outputSchema: jobSchema,
   }),
 ];
-
-export type TruveraActionName = (typeof truveraActions)[number]["name"];

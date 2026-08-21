@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -65,9 +65,7 @@ const queryRowsSchema = s.array(
   s.array("A raw Census response row.", s.nullable(s.string("One Census response cell."))),
 );
 
-export type CensusBureauActionName = "list_datasets" | "list_variables" | "list_groups" | "get_group" | "query_dataset";
-
-export const censusBureauActions: Array<ProviderActionDefinition<CensusBureauActionName>> = [
+export const censusBureauActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_datasets",
     description: "List Census Data API datasets with optional client-side search, vintage, and pagination filters.",

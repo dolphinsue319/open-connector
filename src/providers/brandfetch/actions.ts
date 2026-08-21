@@ -1,11 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "brandfetch";
-
-export type BrandfetchActionName = "get_brand" | "get_transaction_info";
 
 const brandfetchFormatSchema = s.object(
   "One asset format returned by Brandfetch.",
@@ -106,7 +104,7 @@ const brandfetchBrandSchema = s.object(
   },
 );
 
-export const brandfetchActions: ProviderActionDefinition<BrandfetchActionName>[] = [
+export const brandfetchActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_brand",
     description: "Fetch a Brandfetch brand profile from a domain, Brand ID, ISIN, or stock ticker identifier.",

@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -111,20 +110,7 @@ const successOutputSchema = s.object(
   { required: ["success"] },
 );
 
-export type MailchimpActionName =
-  | "list_lists"
-  | "get_list"
-  | "list_members"
-  | "get_member"
-  | "upsert_member"
-  | "update_member"
-  | "archive_member"
-  | "delete_member_permanently"
-  | "list_member_tags"
-  | "update_member_tags"
-  | "list_merge_fields";
-
-export const mailchimpActions: ProviderActionDefinition<MailchimpActionName>[] = [
+export const mailchimpActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_lists",
     description: "List Mailchimp audiences/lists visible to the current API key.",

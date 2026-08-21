@@ -1,17 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "firstbase";
-
-export type FirstbaseActionName =
-  | "list_inventory"
-  | "get_inventory"
-  | "list_catalog_skus"
-  | "get_catalog_sku"
-  | "list_brands"
-  | "list_categories";
 
 const pageSchema = s.positiveInteger("The 1-based page number to request.");
 const sizeSchema = s.positiveInteger("The number of results to return in a page.");
@@ -196,7 +188,7 @@ const pageFields = {
   totalPages: s.integer("Total number of pages returned by Firstbase."),
 };
 
-export const firstbaseActions: Array<ProviderActionDefinition<FirstbaseActionName>> = [
+export const firstbaseActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_inventory",
     description: "List inventory items owned by the authenticated Firstbase organization.",

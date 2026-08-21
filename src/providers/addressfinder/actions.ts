@@ -273,5 +273,3 @@ export const addressfinderActions: ActionDefinition[] = [
     outputSchema: verificationOutputSchema("New Zealand address"),
   }),
 ];
-
-export type AddressfinderActionName = (typeof addressfinderActions)[number]["name"];

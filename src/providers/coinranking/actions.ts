@@ -154,6 +154,4 @@ export const coinrankingActions: ActionDefinition[] = [
       stats: s.looseObject("Global market statistics returned by Coinranking."),
     }),
   }),
-] satisfies ActionDefinition[];
-
-export type CoinrankingActionName = (typeof coinrankingActions)[number]["name"];
+];

@@ -528,5 +528,3 @@ export const excelActions: ActionDefinition[] = [
     outputSchema: success,
   }),
 ];
-
-export type ExcelActionName = (typeof excelActions)[number]["name"];

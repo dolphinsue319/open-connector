@@ -1,18 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "zipcodebase";
-
-export type ZipcodebaseActionName =
-  | "get_status"
-  | "search_postal_codes"
-  | "calculate_distance"
-  | "list_postal_codes_within_radius"
-  | "match_postal_codes_by_distance"
-  | "list_postal_codes_by_city"
-  | "list_postal_codes_by_state";
 
 const postalCodeSchema = s.nonEmptyString("The postal code to query.");
 const postalCodesSchema = s.array(
@@ -51,7 +42,7 @@ const distanceRecordSchema = s.looseObject("A distance result returned by Zipcod
   distance: s.number("The distance from the origin postal code."),
 });
 
-export const zipcodebaseActions: ProviderActionDefinition<ZipcodebaseActionName>[] = [
+export const zipcodebaseActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_status",
     description: "Return Zipcodebase account status and remaining request credits.",

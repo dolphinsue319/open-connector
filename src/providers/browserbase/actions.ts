@@ -278,5 +278,3 @@ export const browserbaseActions: ProviderActionDefinition[] = [
     ),
   }),
 ];
-
-export type BrowserbaseActionName = (typeof browserbaseActions)[number]["name"];

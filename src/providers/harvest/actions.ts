@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -251,24 +250,7 @@ const timeEntryMutationInputSchema = s.actionInput(
   "Input parameters for mutating a Harvest time entry by ID.",
 );
 
-export type HarvestActionName =
-  | "get_current_user"
-  | "list_clients"
-  | "get_client"
-  | "list_projects"
-  | "get_project"
-  | "list_tasks"
-  | "get_task"
-  | "list_project_task_assignments"
-  | "list_time_entries"
-  | "get_time_entry"
-  | "create_time_entry"
-  | "update_time_entry"
-  | "restart_time_entry"
-  | "stop_time_entry"
-  | "delete_time_entry";
-
-export const harvestActions: Array<ProviderActionDefinition<HarvestActionName>> = [
+export const harvestActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
     description: "Get the current authenticated Harvest user.",

@@ -176,6 +176,4 @@ export const cohereActions: ActionDefinition[] = [
     inputSchema: rerankInputSchema,
     outputSchema: rerankOutputSchema,
   }),
-] satisfies ActionDefinition[];
-
-export type CohereActionName = (typeof cohereActions)[number]["name"];
+];

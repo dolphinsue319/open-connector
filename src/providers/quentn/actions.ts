@@ -372,5 +372,3 @@ export const quentnActions: ActionDefinition[] = [
     outputSchema: successOutputSchema,
   }),
 ];
-
-export type QuentnActionName = (typeof quentnActions)[number]["name"];

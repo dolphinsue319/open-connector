@@ -163,8 +163,6 @@ export const discordbotActions: ActionDefinition[] = [
   }),
 ];
 
-export type DiscordbotActionName = (typeof discordbotActions)[number]["name"];
-
 function applicationInputSchema(description: string) {
   return s.requiredObject(description, { application_id: snowflakeSchema });
 }

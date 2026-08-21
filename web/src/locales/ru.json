@@ -32,6 +32,7 @@
     "label": "Язык",
     "en": "English",
     "zh-CN": "简体中文",
+    "zh-TW": "繁體中文",
     "ja": "日本語",
     "ru": "Русский",
     "fr": "Français"
@@ -39,6 +40,7 @@
   "nav": {
     "overview": "Обзор",
     "providers": "Провайдеры",
+    "oauthApps": "OAuth Apps",
     "actions": "Действия",
     "runs": "Запуски",
     "access": "API Key",
@@ -65,6 +67,10 @@
       "providers": {
         "title": "Провайдеры",
         "subtitle": "Подключайте провайдеры и проверяйте их возможности."
+      },
+      "oauthApps": {
+        "title": "OAuth Apps",
+        "subtitle": "Управляйте OAuth App по умолчанию для каждого провайдера."
       },
       "actions": {
         "title": "Действия",
@@ -120,6 +126,7 @@
   },
   "providers": {
     "catalogTitle": "Провайдеры",
+    "brandNotice": "Названия, логотипы и товарные знаки третьих лиц принадлежат их соответствующим владельцам и отображаются только для идентификации провайдеров. Проект не претендует на права на них. Пользователи, распространяющие или коммерциализирующие проект, обязаны самостоятельно изучить применимые правила использования бренда и получить необходимые для их целей разрешения.",
     "searchPlaceholder": "Искать провайдеры",
     "statusFilterLabel": "Статус провайдера",
     "filters": {
@@ -147,6 +154,9 @@
     "noSetupBadge": "Без настройки",
     "unconfiguredBadge": "Не подключено",
     "oauthClientRequiredBadge": "Требуется OAuth client",
+    "runtimeUnavailableBadge": "Недоступно",
+    "runtimeUnavailableTitle": "Недоступно в текущей среде выполнения",
+    "runtimeUnavailableDescription": "{{name}} остаётся в каталоге для справки, но подключения и действия недоступны в текущей среде выполнения.",
     "summary": {
       "actions": "Действия",
       "auth": "Auth",
@@ -156,16 +166,34 @@
       "notUsed": "Не используется"
     },
     "connection": "Подключение",
+    "connectionCount": "Подключений: {{count}}",
+    "savedConnections": "Сохраненные подключения",
+    "defaultConnection": "По умолчанию",
+    "connectionName": "Имя подключения",
+    "connectionNamePlaceholder": "например, work",
+    "connectionNameDescription": "Используйте это имя для выбора аккаунта при запуске действий.",
+    "connectionNameErrors": {
+      "required": "Введите имя подключения.",
+      "invalid": "Начните с буквы или цифры и используйте не более 64 букв, цифр, знаков подчеркивания или дефисов.",
+      "duplicate": "Это имя уже используется. Выберите это подключение, чтобы обновить его."
+    },
     "connectionMethod": "Способ подключения",
+    "oauthAppMode": "Приложение OAuth",
+    "oauthAppModes": {
+      "configured": "App по умолчанию",
+      "manual": "Своя App"
+    },
     "connectionDescriptions": {
       "noSetup": "Этот провайдер может работать без локальных учетных данных.",
+      "adding": "Настройте новое именованное подключение.",
       "connected": "Локальные учетные данные настроены через {{authType}}.",
+      "saved": "Сохранено подключений: {{count}}. Выберите подключение для управления или добавьте новое.",
       "oauthClientRequired": "{{name}} требует локальный OAuth client перед запуском OAuth.",
-      "notConnected": "Настройте локальные учетные данные перед запуском действий {{name}}, которым они нужны."
+      "notConnected": "Настройте локальные учетные данные перед запуском действий {{name}}, которым они нужны.",
+      "unavailable": "Подключения нельзя настроить в текущей среде выполнения."
     },
     "noConnectionMethodTitle": "Нет способа подключения",
     "noConnectionMethodDescription": "Этому провайдеру не нужны локальные учетные данные.",
-    "oauthClient": "OAuth Client",
     "scopes": "Scopes",
     "scopesDescription": "Scopes, которые запрашивают локальные действия этого провайдера.",
     "actions": "Действия",
@@ -181,6 +209,7 @@
     "connectionMessages": {
       "noAuth": "Этот провайдер работает без локальных учетных данных.",
       "needsOAuthClient": "{{name}} требует локальный OAuth client перед подключением.",
+      "manualOAuthClient": "Подключить {{name}} через собственное приложение OAuth.",
       "connectedOAuth": "{{name}} подключен через OAuth.",
       "connectOAuth": "Подключите {{name}} через OAuth authorization flow.",
       "saving": "Сохранение подключения...",
@@ -194,23 +223,25 @@
       "disconnectFailed": "Не удалось отключиться."
     },
     "buttons": {
-      "configureOAuthClient": "Настроить OAuth Client",
-      "editOAuthClient": "Изменить OAuth Client",
+      "configureOAuthClient": "Настроить App по умолчанию",
+      "editOAuthClient": "Изменить App по умолчанию",
       "saveConnection": "Сохранить подключение",
+      "addConnection": "Добавить подключение",
+      "cancel": "Отмена",
+      "clearSelection": "Снять выбор",
+      "selected": "Выбрано",
       "connect": "Подключить",
       "details": "Детали",
       "manageConnection": "Управлять",
       "connectProvider": "Подключить {{name}}",
       "reconnectProvider": "Переподключить {{name}}",
       "disconnect": "Отключить",
-      "saveOAuthClient": "Сохранить OAuth Client",
-      "updateOAuthClient": "Обновить OAuth Client",
-      "resetOAuthClient": "Сбросить OAuth Client"
+      "saveOAuthClient": "Сохранить App по умолчанию",
+      "updateOAuthClient": "Обновить App по умолчанию",
+      "resetOAuthClient": "Сбросить App по умолчанию"
     },
     "oauthClientSettings": {
-      "configuredTitle": "OAuth client настроен",
-      "requiredTitle": "Требуется OAuth client",
-      "missingDescription": "{{name}} требует локальный OAuth client перед подключением.",
+      "callbackUrl": "Callback URL",
       "clientId": "Client ID",
       "clientSecret": "Client Secret",
       "storedSecretHint": "Сохраненный secret не отображается. Введите его снова при сохранении изменений.",
@@ -224,9 +255,33 @@
     "execution": {
       "executable": "Выполняемое",
       "catalogOnly": "Только каталог"
+    },
+    "categoryFilterLabel": "Категория",
+    "categories": {
+      "all": "Все категории"
+    }
+  },
+  "oauthApps": {
+    "title": "OAuth Apps по умолчанию",
+    "description": "Управляйте OAuth App, используемой по умолчанию для каждого провайдера.",
+    "searchPlaceholder": "Поиск провайдеров",
+    "configured": "Настроено",
+    "notConfigured": "Не настроено",
+    "configure": "Настроить",
+    "edit": "Изменить",
+    "emptyTitle": "Нет OAuth-провайдеров",
+    "emptyDescription": "В текущем каталоге нет провайдеров с поддержкой OAuth.",
+    "noResultsTitle": "Провайдеры не найдены",
+    "noResultsDescription": "Попробуйте другой запрос.",
+    "dialog": {
+      "configureTitle": "Настроить OAuth App для {{name}}",
+      "editTitle": "Изменить OAuth App для {{name}}"
     }
   },
   "actions": {
+    "connection": "Подключение",
+    "selectConnection": "Выберите подключение",
+    "connectionRequired": "Выберите подключение для выполнения этого действия.",
     "searchPlaceholder": "Искать действия по имени, ID или провайдеру",
     "provider": "Провайдер",
     "allProviders": "Все провайдеры",
@@ -255,28 +310,189 @@
     "run": "Запустить",
     "running": "Выполняется",
     "runningAction": "Выполнение действия...",
-    "actionFailed": "Действие завершилось ошибкой."
+    "actionFailed": "Действие завершилось ошибкой.",
+    "loadingDetails": "Загрузка сведений о действии..."
   },
   "runs": {
     "noRunsTitle": "Запусков пока нет",
     "noRunsDescription": "Запустите действие, чтобы увидеть недавнюю историю выполнения.",
+    "action": "Действие",
+    "actionPlaceholder": "Фильтр по ID действия",
+    "applyActionFilter": "Применить фильтр действия",
     "service": "Сервис",
     "allServices": "Все сервисы",
+    "caller": "Вызывающий",
+    "allCallers": "Все вызывающие",
+    "status": "Статус",
+    "allStatuses": "Все статусы",
+    "copyExecutionId": "Копировать ID выполнения",
+    "expandResult": "Развернуть результат",
+    "collapseResult": "Свернуть результат",
     "loadMore": "Загрузить еще",
     "loadMoreFailed": "Не удалось загрузить больше запусков.",
+    "policyAllowed": "policy разрешает",
+    "policyBlocked": "policy блокирует",
+    "runtimeToken": "runtime token",
     "table": {
       "action": "Действие",
-      "caller": "Вызывающий",
+      "context": "Контекст",
       "status": "Статус",
-      "started": "Начато",
-      "duration": "Длительность",
+      "timing": "Время",
       "input": "Ввод",
-      "error": "Ошибка"
+      "result": "Результат"
     }
   },
   "access": {
     "title": "Runtime Tokens",
-    "description": "Выдавайте bearer tokens для клиентов /v1 и MCP. Новые tokens показываются один раз.",
+    "description": "Аутентификация клиентов /v1 и MCP.",
+    "policy": {
+      "title": "Access Policy",
+      "description": "Ограничивайте actions и provider proxy requests.",
+      "rulesHint": "Block rules имеют приоритет. Непустые allowlists пересекаются между deployment, runtime и token layers. По одному rule в строке.",
+      "deployment": "Deployment policy (только чтение)",
+      "runtime": "Runtime policy",
+      "allowedActions": "Разрешенные actions",
+      "blockedActions": "Заблокированные actions",
+      "allowedProxies": "Разрешенные proxies",
+      "blockedProxies": "Заблокированные proxies",
+      "save": "Сохранить policy",
+      "saving": "Сохранение policy...",
+      "saved": "Policy сохранена.",
+      "saveFailed": "Не удалось сохранить policy.",
+      "unrestricted": "Нет ограничений для token",
+      "edit": "Изменить policy",
+      "editToken": "Изменить token policy",
+      "baseline": {
+        "title": "Текущая runtime-база",
+        "healthy": "Policy сохраняет доступные возможности",
+        "actionsBlocked": "Все actions каталога заблокированы",
+        "proxiesBlocked": "Все текущие providers заблокированы proxy policy",
+        "allBlocked": "Все actions каталога и текущие providers заблокированы",
+        "actions": "Actions каталога",
+        "proxies": "Текущие providers",
+        "layers": "Настроенные rules",
+        "allowedCount": "Разрешено {{allowed}} / {{total}}",
+        "catalogHint": "Расчет по текущему каталогу actions",
+        "providersHint": "Providers, разрешенные proxy policy",
+        "layerCount": "Deployment {{deployment}} · Runtime {{runtime}}",
+        "blockPriority": "Block rules имеют приоритет"
+      },
+      "tester": {
+        "title": "Проверка разрешений",
+        "description": "Проверьте action или provider по той же многоуровневой policy, что используется при выполнении.",
+        "resourceLabel": "Тип разрешения",
+        "action": "Action",
+        "proxy": "Provider proxy",
+        "tokenLabel": "Runtime token",
+        "noToken": "Без token layer",
+        "inputLabel": "ID action или provider",
+        "actionPlaceholder": "github.create_issue",
+        "proxyPlaceholder": "github",
+        "test": "Проверить",
+        "allowed": "Разрешено",
+        "blocked": "Заблокировано",
+        "trace": "Цепочка решения"
+      },
+      "sources": {
+        "deployment": "Ограничение deployment",
+        "runtime": "Runtime policy",
+        "token": "Token policy"
+      },
+      "outcomes": {
+        "unrestricted": "Без дополнительных ограничений",
+        "allow_match": "Совпадение с allow rule",
+        "allow_miss": "Не входит в allow rules",
+        "block_match": "Совпадение с block rule"
+      },
+      "deploymentSummary": {
+        "title": "Ограничения deployment",
+        "none": "Нет rules"
+      },
+      "runtimeSummary": {
+        "title": "Runtime policy",
+        "updated": "Последнее обновление {{date}}",
+        "edit": "Изменить policy"
+      },
+      "summary": {
+        "unrestricted": "Без дополнительных ограничений",
+        "restricted": "Allow rules: {{count}}",
+        "withBlocked": "{{allow}} · Всегда блокировать: {{count}}"
+      },
+      "layerSummary": "Actions: {{action}} · Proxies: {{proxy}}",
+      "tokenSummary": "Action allow rules: {{allowed}} · Action block rules: {{blocked}} · Proxy grants: {{proxies}} · Дополнительно ограничено runtime-базой",
+      "connectionsUnrestricted": "Все подключения",
+      "connectionsRestricted": "Подключения: {{names}}",
+      "editor": {
+        "title": "Изменить runtime policy",
+        "description": "Перед сохранением изменения проверяются вместе с ограничениями deployment.",
+        "resourceLabel": "Ресурс policy",
+        "actionsTab": "Разрешения actions",
+        "proxiesTab": "Provider proxy",
+        "unsaved": "Есть несохраненные изменения",
+        "noChanges": "Нет несохраненных изменений",
+        "allowMode": "Разрешенная область",
+        "unrestricted": "Без дополнительных ограничений",
+        "restricted": "Разрешать только rules ниже",
+        "actionUnrestrictedHint": "Наследовать область actions из ограничений deployment.",
+        "proxyUnrestrictedHint": "Наследовать область providers из ограничений deployment.",
+        "actionRestrictedHint": "Каждый action должен совпадать хотя бы с одним runtime allow rule.",
+        "proxyRestrictedHint": "Каждый proxy должен совпадать хотя бы с одним runtime allow rule.",
+        "allowedList": "Allow rules",
+        "blockedList": "Всегда блокировать",
+        "actionAllowedHint": "Используйте точный action ID, provider.* или *.",
+        "actionBlockedHint": "Block имеет приоритет, даже если action разрешен в другом месте.",
+        "proxyAllowedHint": "Используйте provider ID или *.",
+        "proxyBlockedHint": "Заблокированные providers не могут получать proxy requests.",
+        "ruleCount": "Rules: {{count}}",
+        "actionAllowedInput": "Найти или ввести разрешенный action rule",
+        "actionBlockedInput": "Найти или ввести заблокированный action rule",
+        "proxyAllowedInput": "Найти или ввести разрешенный provider",
+        "proxyBlockedInput": "Найти или ввести заблокированный provider",
+        "advanced": "Расширенное текстовое редактирование",
+        "advancedHint": "Введите по одному raw rule в строке. Пустые allow rules не добавляют ограничений.",
+        "allowedRaw": "Raw allow rules",
+        "blockedRaw": "Raw block rules",
+        "ruleRequired": "Введите rule перед добавлением.",
+        "ruleTooLong": "Rule не должна превышать 256 UTF-8 bytes.",
+        "ruleInvalid": "Используйте *, provider.*, точный provider.action или точный provider ID для proxy rules.",
+        "ruleDuplicate": "Эта rule уже есть в списке.",
+        "tooManyRules": "Список может содержать не более 128 rules.",
+        "addRule": "Добавить rule",
+        "unknownRule": "Нет в текущем каталоге",
+        "allow": "Разрешить",
+        "block": "Блокировать",
+        "removeRule": "Удалить {{rule}}",
+        "noRules": "В этом списке нет rules.",
+        "actionAllowRequired": "Добавьте action allow rule или выберите отсутствие дополнительных ограничений.",
+        "proxyAllowRequired": "Добавьте provider allow rule или выберите отсутствие дополнительных ограничений.",
+        "connectionsTitle": "Доступ к connections",
+        "connectionsUnrestrictedHint": "Этот token может использовать любое сохраненное connection, включая default, если в запросе нет имени.",
+        "connectionsRestrictedHint": "Этот token может использовать только выбранные connections провайдеров.",
+        "connectionsList": "Разрешенные connections",
+        "connectionsRequired": "Выберите хотя бы одно connection или отсутствие дополнительных ограничений.",
+        "tooManyConnections": "Список connections не может содержать больше 128 connections.",
+        "connectionCount": "{{count}} connections",
+        "noConnections": "В этом списке нет connections.",
+        "connectionsDefaultHint": "Выберите default connection провайдера, чтобы разрешить его HTTP, MCP или proxy запросы без имени.",
+        "discard": "Отменить изменения",
+        "preview": "Предпросмотр влияния"
+      },
+      "impact": {
+        "title": "Влияние черновика",
+        "description": "Расчет использует несохраненные runtime rules.",
+        "actionsBlocked": "Этот черновик блокирует все actions текущего каталога.",
+        "proxiesBlocked": "Этот черновик блокирует proxy requests для всех текущих providers.",
+        "allBlocked": "Этот черновик блокирует все actions каталога и proxy requests для всех текущих providers."
+      },
+      "confirm": {
+        "title": "Сохранить policy, блокирующую все возможности?",
+        "actions": "Эта policy блокирует все actions текущего каталога до следующего изменения.",
+        "proxies": "Эта policy блокирует proxy requests для всех текущих providers до следующего изменения.",
+        "all": "Эта policy блокирует все actions каталога и proxy requests для всех текущих providers до следующего изменения.",
+        "save": "Сохранить блокирующую policy",
+        "keepEditing": "Продолжить редактирование"
+      }
+    },
     "name": "Имя",
     "namePlaceholder": "Локальный MCP client",
     "createToken": "Создать token",
@@ -294,11 +510,12 @@
     "copiedToken": "Скопировано",
     "copyRuntimeToken": "Копировать runtime token",
     "copiedRuntimeToken": "Runtime token скопирован",
-    "noTokensTitle": "Runtime tokens пока нет",
-    "noTokensDescription": "Создайте token перед подключением MCP client или локального script. Token показывается один раз.",
+    "noTokensTitle": "Нет tokens",
+    "noTokensDescription": "Создайте token для доступа к /v1 или MCP.",
     "table": {
       "name": "Имя",
       "status": "Статус",
+      "policy": "Policy",
       "created": "Создан",
       "lastUsed": "Последнее использование"
     },

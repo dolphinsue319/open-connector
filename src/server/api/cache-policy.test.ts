@@ -2,16 +2,21 @@ import { describe, expect, it } from "vitest";
 import { getResponseCachePolicy } from "./cache-policy.ts";
 
 describe("getResponseCachePolicy", () => {
-  it("returns public cache headers only for successful catalog reads", () => {
+  it("returns public cache headers only for successful or 304 catalog reads", () => {
     expect(getResponseCachePolicy("GET", "/v1/actions/example.echo", 200)).toEqual({
       cacheControl: "public, max-age=0, must-revalidate",
       cloudflareCdnCacheControl: "public, max-age=31536000, stale-while-revalidate=86400",
-      vary: "Authorization, Cookie",
+      vary: "Authorization, Cookie, Accept-Encoding",
     });
     expect(getResponseCachePolicy("HEAD", "/api/providers/example", 204)).toEqual({
       cacheControl: "public, max-age=0, must-revalidate",
       cloudflareCdnCacheControl: "public, max-age=31536000, stale-while-revalidate=86400",
-      vary: "Authorization, Cookie",
+      vary: "Authorization, Cookie, Accept-Encoding",
+    });
+    expect(getResponseCachePolicy("GET", "/api/providers", 304)).toEqual({
+      cacheControl: "public, max-age=0, must-revalidate",
+      cloudflareCdnCacheControl: "public, max-age=31536000, stale-while-revalidate=86400",
+      vary: "Authorization, Cookie, Accept-Encoding",
     });
   });
 

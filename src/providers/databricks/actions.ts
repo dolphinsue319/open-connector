@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -24,7 +23,7 @@ function action(
   description: string,
   inputSchema: JsonSchema,
   outputSchema: JsonSchema,
-): ProviderActionDefinition<DatabricksActionName> {
+): ActionDefinition {
   return defineProviderAction(service, { name, description, inputSchema, outputSchema });
 }
 
@@ -66,7 +65,7 @@ export type DatabricksActionName =
   | "put_secret"
   | "delete_secret";
 
-export const databricksActions: Array<ProviderActionDefinition<DatabricksActionName>> = [
+export const databricksActions: ActionDefinition[] = [
   action(
     "get_current_user",
     "Get the current Databricks workspace principal profile.",

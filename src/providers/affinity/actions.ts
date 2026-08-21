@@ -668,6 +668,4 @@ export const affinityActions: ActionDefinition[] = [
     inputSchema: savedViewListEntriesInputSchema,
     outputSchema: listEntriesOutputSchema,
   }),
-] satisfies ActionDefinition[];
-
-export type AffinityActionName = (typeof affinityActions)[number]["name"];
+];

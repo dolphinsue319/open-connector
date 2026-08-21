@@ -1,23 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "griptape";
-
-export type GriptapeActionName =
-  | "list_organizations"
-  | "get_organization"
-  | "list_assistants"
-  | "create_assistant"
-  | "get_assistant"
-  | "update_assistant"
-  | "delete_assistant"
-  | "list_assistant_runs"
-  | "create_assistant_run"
-  | "get_assistant_run"
-  | "cancel_assistant_run"
-  | "list_assistant_events";
 
 const rawObjectSchema = s.looseObject("A raw Griptape Cloud object.");
 const rawValueSchema = s.unknown("A raw Griptape Cloud JSON value.");
@@ -130,7 +116,7 @@ const assistantRunInputProperties = {
   additional_tool_ids: idArraySchema("Additional tool IDs for this run."),
 };
 
-export const griptapeActions: ProviderActionDefinition<GriptapeActionName>[] = [
+export const griptapeActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_organizations",
     description: "List Griptape Cloud organizations accessible to the API key.",

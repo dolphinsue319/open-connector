@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch } from "../provider-runtime.ts";
-import type { MaintainxActionName } from "./actions.ts";
 
 import { compactObject, optionalBoolean, optionalInteger, optionalString } from "../../core/cast.ts";
 import {
@@ -32,7 +32,7 @@ interface MaintainxRequestOptions {
   signal?: AbortSignal;
 }
 
-export const maintainxActionHandlers: Record<MaintainxActionName, MaintainxActionHandler> = {
+export const maintainxActionHandlers: ProviderActionHandlers<"maintainx", MaintainxActionHandler> = {
   list_work_orders(input, context) {
     return requestMaintainxJson({
       ...context,

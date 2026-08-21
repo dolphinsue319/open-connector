@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -106,19 +106,7 @@ function resourceOutputSchema(resourceName: string) {
   );
 }
 
-export type AircallActionName =
-  | "list_users"
-  | "get_user"
-  | "list_teams"
-  | "get_team"
-  | "list_numbers"
-  | "get_number"
-  | "list_contacts"
-  | "get_contact"
-  | "list_calls"
-  | "get_call";
-
-export const aircallActions: ProviderActionDefinition<AircallActionName>[] = [
+export const aircallActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_users",
     description: "List Aircall users with the current V2 Users API.",

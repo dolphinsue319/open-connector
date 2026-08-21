@@ -130,5 +130,3 @@ export const ashbyActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AshbyActionName = (typeof ashbyActions)[number]["name"];

@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -32,16 +32,7 @@ const supportedLanguage = s.object("One language supported by Tisane.", {
   raw: rawObject,
 });
 
-export type TisaneActionName =
-  | "analyze_text"
-  | "detect_language"
-  | "list_supported_languages"
-  | "extract_text"
-  | "calculate_similarity"
-  | "transform_text"
-  | "compare_entities";
-
-export const tisaneActions: Array<ProviderActionDefinition<TisaneActionName>> = [
+export const tisaneActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "analyze_text",
     description:

@@ -164,5 +164,3 @@ export const checklyActions: ProviderActionDefinition[] = [
     | "get_check_result"
   >
 >;
-
-export type ChecklyActionName = (typeof checklyActions)[number]["name"];

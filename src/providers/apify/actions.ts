@@ -139,5 +139,3 @@ export const apifyActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type ApifyActionName = (typeof apifyActions)[number]["name"];

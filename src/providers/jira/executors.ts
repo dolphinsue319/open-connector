@@ -4,7 +4,7 @@ import type {
   ProviderExecutors,
   ProviderProxyExecutor,
 } from "../../core/types.ts";
-import type { JiraActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import {
   compactObject,
@@ -13,12 +13,13 @@ import {
   optionalRecord as asOptionalObject,
   optionalString as asOptionalString,
 } from "../../core/cast.ts";
+import { assertPublicHttpUrl, isPrivateNetworkAccessAllowed } from "../../core/request.ts";
 import {
+  createProviderFetch,
   ProviderRequestError,
   defineProviderExecutors,
   defineProviderProxy,
   providerUserAgent,
-  requireOAuthCredential,
 } from "../provider-runtime.ts";
 
 type JiraAccessibleResource = {
@@ -32,6 +33,9 @@ type JiraAccessibleResource = {
 type JiraCurrentUserPayload = {
   accountId?: unknown;
   accountType?: unknown;
+  // Jira Server/Data Center /myself returns key/name instead of a Cloud accountId.
+  key?: unknown;
+  name?: unknown;
   displayName?: unknown;
   emailAddress?: unknown;
   active?: unknown;
@@ -43,6 +47,8 @@ type JiraActionContext = {
   accessToken: string;
   fetcher: typeof fetch;
   providerMetadata?: Record<string, unknown>;
+  deployment: "cloud" | "server";
+  signal?: AbortSignal;
 };
 
 type JiraActionHandler = (input: Record<string, unknown>, context: JiraActionContext) => Promise<unknown>;
@@ -56,6 +62,7 @@ type JiraRequestInput = {
   query?: Record<string, string | undefined>;
   body?: Record<string, unknown>;
   notFoundAsInvalidInput?: boolean;
+  signal?: AbortSignal;
 };
 
 const jiraApiOrigin = "https://api.atlassian.com";
@@ -77,7 +84,7 @@ const defaultIssueFieldIds = [
   "duedate",
 ];
 
-export const jiraActionHandlers: Record<JiraActionName, JiraActionHandler> = {
+export const jiraActionHandlers: ProviderActionHandlers<"jira", JiraActionHandler> = {
   list_projects(input, context) {
     return listProjects(input, context);
   },
@@ -104,6 +111,7 @@ export const jiraActionHandlers: Record<JiraActionName, JiraActionHandler> = {
 async function fetchJiraCurrentAccount(
   accessToken: string,
   fetcher: typeof fetch,
+  signal?: AbortSignal,
 ): Promise<{
   profile: {
     accountId: string;
@@ -114,6 +122,7 @@ async function fetchJiraCurrentAccount(
 }> {
   const accessibleResourcesResponse = await fetcher(jiraAccessibleResourcesUrl, {
     headers: buildAuthorizationHeaders(accessToken),
+    signal,
   });
   const accessibleResourcesPayload = await readJsonValue(accessibleResourcesResponse);
   if (!accessibleResourcesResponse.ok) {
@@ -132,22 +141,10 @@ async function fetchJiraCurrentAccount(
   const siteAvatarUrl = asOptionalString(primaryResource.avatarUrl);
   const resourceScopes = readScopeArray(primaryResource.scopes);
 
-  const currentUser = await jiraJsonRequest<JiraCurrentUserPayload>({
-    accessToken,
-    fetcher,
-    providerMetadata: { cloudId },
-    path: jiraCurrentUserPath,
-  });
-
-  const accountId = requireNonEmptyString(currentUser.accountId, "jira accountId");
-  const displayName = asOptionalString(currentUser.displayName);
-  const emailAddress = asOptionalString(currentUser.emailAddress);
-  const accountLabel = displayName ?? emailAddress ?? accountId;
-
   return {
     profile: {
-      accountId: `jira:${cloudId}:${accountId}`,
-      displayName: `${accountLabel} (${siteName})`,
+      accountId: `jira:${cloudId}`,
+      displayName: siteName,
     },
     grantedScopes: mapJiraGrantedScopes(resourceScopes),
     metadata: compactObject({
@@ -158,12 +155,51 @@ async function fetchJiraCurrentAccount(
       resourceScopes,
       resourceCount: resources.length,
       apiBaseUrl: buildJiraApiBaseUrl(cloudId),
-      validationEndpoint: jiraCurrentUserPath,
-      accountId,
+      validationEndpoint: "/oauth/token/accessible-resources",
+    }),
+  };
+}
+
+async function fetchJiraServerCurrentAccount(
+  accessToken: string,
+  apiBaseUrl: string,
+  fetcher: typeof fetch,
+  signal?: AbortSignal,
+): Promise<{
+  profile: {
+    accountId: string;
+    displayName: string;
+  };
+  grantedScopes: string[];
+  metadata: Record<string, unknown>;
+}> {
+  const currentUser = await jiraJsonRequest<JiraCurrentUserPayload>({
+    accessToken,
+    fetcher,
+    providerMetadata: { apiBaseUrl },
+    path: jiraCurrentUserPath,
+    signal,
+  });
+  const accountKey =
+    asOptionalString(currentUser.accountId) ?? asOptionalString(currentUser.key) ?? asOptionalString(currentUser.name);
+  if (!accountKey) {
+    throw new ProviderRequestError(502, "jira current user response is missing an account identifier");
+  }
+
+  const displayName =
+    asOptionalString(currentUser.displayName) ?? asOptionalString(currentUser.emailAddress) ?? accountKey;
+  return {
+    profile: {
+      accountId: buildJiraServerAccountId(apiBaseUrl, accountKey),
       displayName,
-      emailAddress,
-      accountType: asOptionalString(currentUser.accountType),
-      active: optionalBoolean(currentUser.active),
+    },
+    grantedScopes: [],
+    metadata: compactObject({
+      apiBaseUrl,
+      validationEndpoint: jiraCurrentUserPath,
+      accountId: accountKey,
+      displayName: asOptionalString(currentUser.displayName),
+      emailAddress: asOptionalString(currentUser.emailAddress),
       timeZone: asOptionalString(currentUser.timeZone),
     }),
   };
@@ -188,29 +224,69 @@ export const executors: ProviderExecutors = defineProviderExecutors<JiraActionCo
   service: "jira",
   handlers: jiraActionHandlers,
   async createContext(context: ExecutionContext, fetcher: typeof fetch): Promise<JiraActionContext> {
-    const credential = await requireOAuthCredential(context, "jira");
-    return {
-      accessToken: credential.accessToken,
-      fetcher,
-      providerMetadata: credential.metadata,
-    };
+    const credential = await context.getCredential("jira");
+    if (credential?.authType === "oauth2") {
+      return {
+        accessToken: credential.accessToken,
+        fetcher,
+        providerMetadata: credential.metadata,
+        deployment: "cloud",
+        signal: context.signal,
+      };
+    }
+    if (credential?.authType === "custom_credential") {
+      return {
+        accessToken: requirePersonalAccessToken(credential.values),
+        fetcher,
+        providerMetadata: {
+          ...credential.metadata,
+          apiBaseUrl: resolveJiraServerApiBaseUrl(credential.values, credential.metadata),
+        },
+        deployment: "server",
+        signal: context.signal,
+      };
+    }
+    throw new ProviderRequestError(401, "Configure Jira OAuth or Data Center personal access token credentials first.");
   },
+  allowPrivateNetwork: isPrivateNetworkAccessAllowed,
 });
 
 export const proxy: ProviderProxyExecutor = defineProviderProxy({
   service: "jira",
   baseUrl: async (context) => {
-    const credential = await requireOAuthCredential(context, "jira");
-    return resolveJiraApiBaseUrl(credential.metadata);
+    const credential = await context.getCredential("jira");
+    if (credential?.authType === "oauth2") {
+      return resolveJiraApiBaseUrl(credential.metadata);
+    }
+    if (credential?.authType === "custom_credential") {
+      return resolveJiraServerApiBaseUrl(credential.values, credential.metadata);
+    }
+    throw new ProviderRequestError(401, "Configure Jira OAuth or Data Center personal access token credentials first.");
   },
-  auth: {
-    type: "oauth_bearer",
+  auth: { type: "none" },
+  async customizeRequest({ context, headers }) {
+    const credential = await context.getCredential("jira");
+    if (credential?.authType === "oauth2") {
+      headers.set("authorization", `${credential.tokenType} ${credential.accessToken}`);
+      return;
+    }
+    if (credential?.authType === "custom_credential") {
+      headers.set("authorization", `Bearer ${requirePersonalAccessToken(credential.values)}`);
+      return;
+    }
+    throw new ProviderRequestError(401, "Configure Jira OAuth or Data Center personal access token credentials first.");
   },
+  allowPrivateNetwork: isPrivateNetworkAccessAllowed,
 });
 
 export const credentialValidators: CredentialValidators = {
-  async oauth2(input, { fetcher }) {
-    return fetchJiraCurrentAccount(input.accessToken, fetcher);
+  async oauth2(input, { fetcher, signal }) {
+    return fetchJiraCurrentAccount(input.accessToken, fetcher, signal);
+  },
+  async customCredential(input, { fetcher, signal }) {
+    const apiBaseUrl = normalizeJiraServerApiBaseUrl(input.values.baseUrl);
+    const guardedFetcher = createProviderFetch({ fetch: fetcher, allowPrivateNetwork: isPrivateNetworkAccessAllowed });
+    return fetchJiraServerCurrentAccount(requirePersonalAccessToken(input.values), apiBaseUrl, guardedFetcher, signal);
   },
 };
 
@@ -218,6 +294,29 @@ async function listProjects(input: Record<string, unknown>, context: JiraActionC
   const limit = asOptionalInteger(input.limit) ?? 50;
   const startAt = parseNumericCursor(input.cursor);
   const expand = joinOptionalList(readStringArray(input.expand));
+
+  if (context.deployment === "server") {
+    // Jira Data Center has no paginated /project/search, so we fetch the full /project list and
+    // page in memory. Each page re-fetches rather than caching: the stateless runtime exposes no
+    // per-context cache, and a credential-keyed module cache would trade this for staleness and
+    // unbounded per-instance memory — not worth it for typical DC project counts.
+    const payload = await jiraJsonValueRequest({
+      accessToken: context.accessToken,
+      fetcher: context.fetcher,
+      providerMetadata: context.providerMetadata,
+      path: "/project",
+      query: compactQuery({ expand }),
+      signal: context.signal,
+    });
+    const projects = readRecordArray(payload).map((project) => normalizeProject(project));
+    const page = projects.slice(startAt, startAt + limit);
+    return {
+      projects: page,
+      pagination: {
+        nextCursor: startAt + page.length < projects.length ? String(startAt + page.length) : null,
+      },
+    };
+  }
 
   const payload = await jiraJsonRequest<Record<string, unknown>>({
     accessToken: context.accessToken,
@@ -229,6 +328,7 @@ async function listProjects(input: Record<string, unknown>, context: JiraActionC
       startAt: String(startAt),
       expand,
     }),
+    signal: context.signal,
   });
 
   const values = readRecordArray(payload.values).map((project) => normalizeProject(project));
@@ -237,7 +337,7 @@ async function listProjects(input: Record<string, unknown>, context: JiraActionC
   return {
     projects: values,
     pagination: {
-      nextCursor: resolveNumericNextCursor(startAt, values.length, total),
+      nextCursor: resolveNumericNextCursor(startAt, values.length, total, optionalBoolean(payload.isLast)),
     },
   };
 }
@@ -253,6 +353,7 @@ async function getProject(input: Record<string, unknown>, context: JiraActionCon
     path: `/project/${encodeURIComponent(projectIdOrKey)}`,
     query: compactQuery({ expand }),
     notFoundAsInvalidInput: true,
+    signal: context.signal,
   });
 
   return {
@@ -261,25 +362,36 @@ async function getProject(input: Record<string, unknown>, context: JiraActionCon
 }
 
 async function searchIssues(input: Record<string, unknown>, context: JiraActionContext) {
+  const isServer = context.deployment === "server";
   const payload = await jiraJsonRequest<Record<string, unknown>>({
     accessToken: context.accessToken,
     fetcher: context.fetcher,
     providerMetadata: context.providerMetadata,
-    path: "/search/jql",
+    path: isServer ? "/search" : "/search/jql",
     method: "POST",
     body: compactObject({
       jql: requireString(input.jql, "jql"),
       maxResults: asOptionalInteger(input.limit) ?? 50,
-      nextPageToken: asOptionalString(input.cursor),
       fields: mergeUniqueFieldIds(defaultIssueFieldIds, readStringArray(input.includeFields)),
-      expand: joinOptionalList(readStringArray(input.expand)),
+      // Jira Server/DC POST /rest/api/2/search binds a SearchRequestBean whose `expand` is a
+      // List<String>; the Cloud enhanced POST /rest/api/3/search/jql takes it as a comma string.
+      ...(isServer
+        ? { startAt: parseNumericCursor(input.cursor), expand: optionalStringList(readStringArray(input.expand)) }
+        : { nextPageToken: asOptionalString(input.cursor), expand: joinOptionalList(readStringArray(input.expand)) }),
     }),
+    signal: context.signal,
   });
 
   return {
     issues: readRecordArray(payload.issues).map((issue) => normalizeIssue(issue)),
     pagination: {
-      nextCursor: asOptionalString(payload.nextPageToken) ?? null,
+      nextCursor: isServer
+        ? resolveNumericNextCursor(
+            parseNumericCursor(input.cursor),
+            readRecordArray(payload.issues).length,
+            asOptionalInteger(payload.total),
+          )
+        : (asOptionalString(payload.nextPageToken) ?? null),
     },
   };
 }
@@ -297,6 +409,7 @@ async function getIssue(input: Record<string, unknown>, context: JiraActionConte
       expand: joinOptionalList(readStringArray(input.expand)),
     }),
     notFoundAsInvalidInput: true,
+    signal: context.signal,
   });
 
   return {
@@ -312,8 +425,9 @@ async function createIssue(input: Record<string, unknown>, context: JiraActionCo
     path: "/issue",
     method: "POST",
     body: {
-      fields: buildCreateIssueFields(input),
+      fields: buildCreateIssueFields(input, context.deployment),
     },
+    signal: context.signal,
   });
 
   const createdIssueIdOrKey =
@@ -321,7 +435,7 @@ async function createIssue(input: Record<string, unknown>, context: JiraActionCo
     asOptionalString(createPayload.id) ??
     requireNonEmptyString(createPayload.self, "jira created issue self");
 
-  const issueLookupPath = createdIssueIdOrKey.startsWith("https://")
+  const issueLookupPath = isAbsoluteUrl(createdIssueIdOrKey)
     ? createdIssueIdOrKey
     : `/issue/${encodeURIComponent(createdIssueIdOrKey)}`;
 
@@ -333,6 +447,7 @@ async function createIssue(input: Record<string, unknown>, context: JiraActionCo
     query: {
       fields: joinOptionalList(defaultIssueFieldIds),
     },
+    signal: context.signal,
   });
 
   return {
@@ -356,6 +471,7 @@ async function listIssueComments(input: Record<string, unknown>, context: JiraAc
       expand: joinOptionalList(readStringArray(input.expand)),
     }),
     notFoundAsInvalidInput: true,
+    signal: context.signal,
   });
 
   const comments = readRecordArray(payload.comments).map((comment) => normalizeComment(comment));
@@ -381,9 +497,10 @@ async function addComment(input: Record<string, unknown>, context: JiraActionCon
     path: `/issue/${encodeURIComponent(issueIdOrKey)}/comment`,
     method: "POST",
     body: {
-      body: rawBody !== undefined ? normalizeLooseRecord(rawBody, "body") : textToAdfDocument(textBody ?? ""),
+      body: buildCommentBody(rawBody, textBody, context.deployment),
     },
     notFoundAsInvalidInput: true,
+    signal: context.signal,
   });
 
   return {
@@ -391,9 +508,30 @@ async function addComment(input: Record<string, unknown>, context: JiraActionCon
   };
 }
 
+function buildCommentBody(rawBody: unknown, textBody: string | undefined, deployment: JiraActionContext["deployment"]) {
+  if (deployment === "server") {
+    const text = rawBody !== undefined ? adfToPlainText(normalizeLooseRecord(rawBody, "body")) : (textBody ?? "");
+    if (!text) {
+      throw new ProviderRequestError(400, "comment body or bodyText is required");
+    }
+    return text;
+  }
+  if (rawBody !== undefined) {
+    return normalizeLooseRecord(rawBody, "body");
+  } else if (textBody) {
+    return textToAdfDocument(textBody);
+  } else {
+    throw new ProviderRequestError(400, "comment body or bodyText is required");
+  }
+}
+
 async function jiraJsonRequest<T>(input: JiraRequestInput) {
+  return readJsonObject<T>(await jiraJsonValueRequest(input), "jira response payload");
+}
+
+async function jiraJsonValueRequest(input: JiraRequestInput): Promise<unknown> {
   const response = await jiraRequest(input);
-  return readJsonObject<T>(await readJsonValue(response), "jira response payload");
+  return readJsonValue(response);
 }
 
 async function jiraRequest(input: JiraRequestInput) {
@@ -411,6 +549,7 @@ async function jiraRequest(input: JiraRequestInput) {
     method,
     headers,
     ...(input.body ? { body: JSON.stringify(input.body) } : {}),
+    signal: input.signal,
   });
 
   if (!response.ok) {
@@ -434,12 +573,12 @@ function buildJiraUrl(
   pathOrUrl: string,
   query?: Record<string, string | undefined>,
 ) {
-  const target = isAbsoluteUrl(pathOrUrl)
-    ? new URL(pathOrUrl)
-    : new URL(trimLeadingSlash(pathOrUrl), `${resolveJiraApiBaseUrl(providerMetadata)}/`);
+  const apiBaseUrl = resolveJiraApiBaseUrl(providerMetadata);
+  const target = isAbsoluteUrl(pathOrUrl) ? new URL(pathOrUrl) : new URL(trimLeadingSlash(pathOrUrl), `${apiBaseUrl}/`);
+  const apiBase = new URL(apiBaseUrl);
 
-  if (target.origin !== jiraApiOrigin) {
-    throw new ProviderRequestError(400, `jira requests must target ${jiraApiOrigin}`);
+  if (target.origin !== apiBase.origin || !target.pathname.startsWith(`${apiBase.pathname}/`)) {
+    throw new ProviderRequestError(400, `jira requests must target ${apiBaseUrl}`);
   }
 
   for (const [key, value] of Object.entries(query ?? {})) {
@@ -453,6 +592,10 @@ function buildJiraUrl(
 }
 
 function resolveJiraApiBaseUrl(providerMetadata: Record<string, unknown> | undefined) {
+  const apiBaseUrl = asOptionalString(providerMetadata?.apiBaseUrl);
+  if (apiBaseUrl) {
+    return apiBaseUrl;
+  }
   const cloudId = asOptionalString(providerMetadata?.cloudId);
   if (!cloudId) {
     throw new ProviderRequestError(502, "jira provider metadata is missing cloudId");
@@ -462,6 +605,59 @@ function resolveJiraApiBaseUrl(providerMetadata: Record<string, unknown> | undef
 
 function buildJiraApiBaseUrl(cloudId: string) {
   return `${jiraApiOrigin}/ex/jira/${encodeURIComponent(cloudId)}/rest/api/3`;
+}
+
+/**
+ * Normalize a user-supplied Jira Data Center / Server instance URL into its REST API v2 base.
+ *
+ * Enforces the provider's egress contract: the URL must be a public http(s) target
+ * ({@link assertPublicHttpUrl}; private networks only when `allowPrivateNetwork` is set, and
+ * loopback/reserved/cloud-metadata stay blocked), must not embed credentials, and has its query
+ * and fragment stripped. A trailing `/rest/api/{2,3,latest}` is normalized to the `/rest/api/2`
+ * suffix this provider speaks, so a pasted API URL is not double-appended.
+ */
+export function normalizeJiraServerApiBaseUrl(
+  value: unknown,
+  allowPrivateNetwork: boolean = isPrivateNetworkAccessAllowed(),
+): string {
+  const instanceUrl = asOptionalString(value);
+  if (!instanceUrl) {
+    throw new ProviderRequestError(400, "baseUrl is required");
+  }
+  const url = assertPublicHttpUrl(instanceUrl, {
+    fieldName: "baseUrl",
+    createError: (message) => new ProviderRequestError(400, message),
+    allowPrivateNetwork,
+  });
+  if (url.username || url.password) {
+    throw new ProviderRequestError(400, "baseUrl must not include credentials");
+  }
+
+  url.hash = "";
+  url.search = "";
+  // Strip a trailing REST API segment the user may have pasted (…/rest/api/2|3|latest) so we do
+  // not double-append and 404 every request, then pin to the v2 API this provider speaks.
+  const path = url.pathname.replace(/\/+$/u, "").replace(/\/rest\/api\/(?:2|3|latest)$/u, "");
+  url.pathname = `${path}/rest/api/2`;
+  return url.toString().replace(/\/$/u, "");
+}
+
+function resolveJiraServerApiBaseUrl(values: Record<string, string>, metadata: Record<string, unknown>): string {
+  return asOptionalString(metadata.apiBaseUrl) ?? normalizeJiraServerApiBaseUrl(values.baseUrl);
+}
+
+function buildJiraServerAccountId(apiBaseUrl: string, accountKey: string): string {
+  const url = new URL(apiBaseUrl);
+  const instancePath = url.pathname.slice(0, -"/rest/api/2".length);
+  return `jira:${url.host}${instancePath}:${accountKey}`;
+}
+
+function requirePersonalAccessToken(values: Record<string, string>): string {
+  const token = asOptionalString(values.personalAccessToken);
+  if (!token) {
+    throw new ProviderRequestError(400, "personalAccessToken is required");
+  }
+  return token;
 }
 
 function readAccessibleResources(payload: unknown) {
@@ -511,7 +707,7 @@ function pickPrimaryResource(resources: JiraAccessibleResource[]) {
   return candidates[0] ?? null;
 }
 
-function buildCreateIssueFields(input: Record<string, unknown>) {
+function buildCreateIssueFields(input: Record<string, unknown>, deployment: JiraActionContext["deployment"]) {
   const extraFields = asOptionalObject(input.extraFields) ?? {};
   const explicitFields = compactObject({
     project: buildProjectReference(input),
@@ -519,10 +715,10 @@ function buildCreateIssueFields(input: Record<string, unknown>) {
     summary: requireString(input.summary, "summary"),
     description:
       input.description !== undefined
-        ? normalizeLooseRecord(input.description, "description")
-        : buildOptionalTextDocument(input.descriptionText),
+        ? formatJiraDocument(normalizeLooseRecord(input.description, "description"), deployment)
+        : buildOptionalTextDocument(input.descriptionText, deployment),
     labels: readStringArray(input.labels),
-    assignee: buildOptionalAccountReference(input.assigneeAccountId),
+    assignee: buildOptionalAccountReference(input.assigneeAccountId, deployment),
     priority: buildOptionalIdReference(input.priorityId),
     duedate: asOptionalString(input.dueDate),
     parent: buildOptionalKeyReference(input.parentIssueKey),
@@ -562,9 +758,12 @@ function buildIssueTypeReference(input: Record<string, unknown>) {
   throw new ProviderRequestError(400, "issueTypeId or issueTypeName is required");
 }
 
-function buildOptionalAccountReference(value: unknown) {
+function buildOptionalAccountReference(value: unknown, deployment: JiraActionContext["deployment"]) {
   const accountId = asOptionalString(value);
-  return accountId ? { accountId } : undefined;
+  if (!accountId) {
+    return undefined;
+  }
+  return deployment === "server" ? { name: accountId } : { accountId };
 }
 
 function buildOptionalIdReference(value: unknown) {
@@ -577,9 +776,16 @@ function buildOptionalKeyReference(value: unknown) {
   return key ? { key } : undefined;
 }
 
-function buildOptionalTextDocument(value: unknown) {
+function buildOptionalTextDocument(value: unknown, deployment: JiraActionContext["deployment"]) {
   const text = asOptionalString(value);
-  return text ? textToAdfDocument(text) : undefined;
+  if (!text) {
+    return undefined;
+  }
+  return deployment === "server" ? text : textToAdfDocument(text);
+}
+
+function formatJiraDocument(value: Record<string, unknown>, deployment: JiraActionContext["deployment"]) {
+  return deployment === "server" ? adfToPlainText(value) : value;
 }
 
 function normalizeProject(record: Record<string, unknown>) {
@@ -652,6 +858,9 @@ function normalizeOptionalUser(value: unknown) {
   return compactObject({
     accountId: asOptionalString(record.accountId),
     accountType: asOptionalString(record.accountType),
+    // Jira Server/Data Center identifies users by name/key rather than a Cloud accountId.
+    name: asOptionalString(record.name),
+    key: asOptionalString(record.key),
     displayName: asOptionalString(record.displayName),
     emailAddress: asOptionalString(record.emailAddress),
     active: optionalBoolean(record.active),
@@ -715,6 +924,53 @@ function textToAdfDocument(text: string) {
             },
           ],
   };
+}
+
+function adfToPlainText(value: Record<string, unknown>): string {
+  const parts: string[] = [];
+  appendAdfText(value, parts);
+  return parts
+    .join("")
+    .replace(/\n{3,}/gu, "\n\n")
+    .trim();
+}
+
+function appendAdfText(value: unknown, parts: string[]): void {
+  const record = asOptionalObject(value);
+  if (!record) {
+    return;
+  }
+
+  const type = asOptionalString(record.type);
+  if (type === "text") {
+    const text = asOptionalString(record.text);
+    if (text) {
+      parts.push(text);
+    }
+  } else if (type === "hardBreak") {
+    parts.push("\n");
+  } else if (type === "mention" || type === "emoji" || type === "date" || type === "status") {
+    // These inline nodes carry their visible text in attrs.text rather than a text child.
+    const attrs = asOptionalObject(record.attrs);
+    const text = asOptionalString(attrs?.text);
+    if (text) {
+      parts.push(text);
+    }
+  } else if (type === "inlineCard") {
+    const attrs = asOptionalObject(record.attrs);
+    const url = asOptionalString(attrs?.url);
+    if (url) {
+      parts.push(url);
+    }
+  }
+
+  const content = Array.isArray(record.content) ? record.content : [];
+  for (const child of content) {
+    appendAdfText(child, parts);
+  }
+  if (content.length > 0 && ["paragraph", "heading", "listItem"].includes(type ?? "")) {
+    parts.push("\n");
+  }
 }
 
 function readScopeArray(value: unknown) {
@@ -845,6 +1101,10 @@ function joinOptionalList(values: string[]) {
   return values.length > 0 ? values.join(",") : undefined;
 }
 
+function optionalStringList(values: string[]) {
+  return values.length > 0 ? values : undefined;
+}
+
 function parseNumericCursor(value: unknown) {
   const cursor = asOptionalString(value);
   if (!cursor) {
@@ -859,8 +1119,11 @@ function parseNumericCursor(value: unknown) {
   return parsed;
 }
 
-function resolveNumericNextCursor(startAt: number, itemCount: number, total?: number) {
+function resolveNumericNextCursor(startAt: number, itemCount: number, total?: number, isLast?: boolean) {
   if (itemCount === 0) {
+    return null;
+  }
+  if (isLast) {
     return null;
   }
   if (typeof total === "number" && startAt + itemCount >= total) {

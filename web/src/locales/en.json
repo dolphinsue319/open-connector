@@ -32,6 +32,7 @@
     "label": "Language",
     "en": "English",
     "zh-CN": "简体中文",
+    "zh-TW": "繁體中文",
     "ja": "日本語",
     "ru": "Русский",
     "fr": "Français"
@@ -39,6 +40,7 @@
   "nav": {
     "overview": "Overview",
     "providers": "Providers",
+    "oauthApps": "OAuth Apps",
     "actions": "Actions",
     "runs": "Runs",
     "access": "API Key",
@@ -65,6 +67,10 @@
       "providers": {
         "title": "Providers",
         "subtitle": "Connect providers and review provider capabilities."
+      },
+      "oauthApps": {
+        "title": "OAuth Apps",
+        "subtitle": "Manage the default OAuth app for each provider."
       },
       "actions": {
         "title": "Actions",
@@ -120,6 +126,7 @@
   },
   "providers": {
     "catalogTitle": "Providers",
+    "brandNotice": "Third-party names, logos, and trademarks belong to their respective owners and are displayed only to identify the corresponding providers. This project does not claim ownership of them. Users who redistribute or commercialize this project are responsible for reviewing the applicable brand guidelines and obtaining any permissions required for their intended use.",
     "searchPlaceholder": "Search providers",
     "statusFilterLabel": "Provider status",
     "filters": {
@@ -147,6 +154,9 @@
     "noSetupBadge": "No setup",
     "unconfiguredBadge": "Not connected",
     "oauthClientRequiredBadge": "OAuth client required",
+    "runtimeUnavailableBadge": "Unavailable",
+    "runtimeUnavailableTitle": "Unavailable in this runtime",
+    "runtimeUnavailableDescription": "{{name}} remains visible for catalog reference, but connections and actions are unavailable in the current runtime.",
     "summary": {
       "actions": "Actions",
       "auth": "Auth",
@@ -156,16 +166,34 @@
       "notUsed": "Not used"
     },
     "connection": "Connection",
+    "connectionCount": "{{count}} connections",
+    "savedConnections": "Saved connections",
+    "defaultConnection": "Default",
+    "connectionName": "Connection name",
+    "connectionNamePlaceholder": "for example, work",
+    "connectionNameDescription": "Use this name to select the account when running actions.",
+    "connectionNameErrors": {
+      "required": "Enter a connection name.",
+      "invalid": "Start with a letter or digit and use at most 64 letters, digits, underscores, or hyphens.",
+      "duplicate": "This name is already in use. Select that connection to update it."
+    },
     "connectionMethod": "Connection method",
+    "oauthAppMode": "OAuth app",
+    "oauthAppModes": {
+      "configured": "Default App",
+      "manual": "Custom App"
+    },
     "connectionDescriptions": {
       "noSetup": "This provider can run without local credentials.",
+      "adding": "Configure a new named connection.",
       "connected": "Local credentials are configured with {{authType}}.",
+      "saved": "Saved connections: {{count}}. Select one to manage or add another.",
       "oauthClientRequired": "{{name}} needs a local OAuth client before OAuth can start.",
-      "notConnected": "Configure local credentials before running credentialed {{name}} actions."
+      "notConnected": "Configure local credentials before running credentialed {{name}} actions.",
+      "unavailable": "Connections cannot be configured in the current runtime."
     },
     "noConnectionMethodTitle": "No connection method",
     "noConnectionMethodDescription": "This provider does not need local credentials.",
-    "oauthClient": "OAuth Client",
     "scopes": "Scopes",
     "scopesDescription": "Scopes requested by this provider's local actions.",
     "actions": "Actions",
@@ -181,6 +209,7 @@
     "connectionMessages": {
       "noAuth": "This provider runs without local credentials.",
       "needsOAuthClient": "{{name}} needs a local OAuth client before it can connect.",
+      "manualOAuthClient": "Connect {{name}} with a custom OAuth app.",
       "connectedOAuth": "{{name}} is connected through OAuth.",
       "connectOAuth": "Connect {{name}} through its OAuth authorization flow.",
       "saving": "Saving connection...",
@@ -194,23 +223,25 @@
       "disconnectFailed": "Disconnect failed."
     },
     "buttons": {
-      "configureOAuthClient": "Configure OAuth Client",
-      "editOAuthClient": "Edit OAuth Client",
+      "configureOAuthClient": "Configure Default App",
+      "editOAuthClient": "Edit Default App",
       "saveConnection": "Save Connection",
+      "addConnection": "Add Connection",
+      "cancel": "Cancel",
+      "clearSelection": "Clear selection",
+      "selected": "Selected",
       "connect": "Connect",
       "details": "Details",
       "manageConnection": "Manage",
       "connectProvider": "Connect {{name}}",
       "reconnectProvider": "Reconnect {{name}}",
       "disconnect": "Disconnect",
-      "saveOAuthClient": "Save OAuth Client",
-      "updateOAuthClient": "Update OAuth Client",
-      "resetOAuthClient": "Reset OAuth Client"
+      "saveOAuthClient": "Save Default App",
+      "updateOAuthClient": "Update Default App",
+      "resetOAuthClient": "Reset Default App"
     },
     "oauthClientSettings": {
-      "configuredTitle": "OAuth client configured",
-      "requiredTitle": "OAuth client required",
-      "missingDescription": "{{name}} needs a local OAuth client before connection.",
+      "callbackUrl": "Callback URL",
       "clientId": "Client ID",
       "clientSecret": "Client Secret",
       "storedSecretHint": "Stored secret is not shown. Enter it again when saving changes.",
@@ -224,9 +255,33 @@
     "execution": {
       "executable": "Executable",
       "catalogOnly": "Catalog only"
+    },
+    "categoryFilterLabel": "Category",
+    "categories": {
+      "all": "All categories"
+    }
+  },
+  "oauthApps": {
+    "title": "Default OAuth Apps",
+    "description": "Manage the OAuth app used by default for each provider.",
+    "searchPlaceholder": "Search providers",
+    "configured": "Configured",
+    "notConfigured": "Not configured",
+    "configure": "Configure",
+    "edit": "Edit",
+    "emptyTitle": "No OAuth providers",
+    "emptyDescription": "The current catalog has no providers that support OAuth.",
+    "noResultsTitle": "No providers found",
+    "noResultsDescription": "Try a different search.",
+    "dialog": {
+      "configureTitle": "Configure {{name}} OAuth App",
+      "editTitle": "Edit {{name}} OAuth App"
     }
   },
   "actions": {
+    "connection": "Connection",
+    "selectConnection": "Select a connection",
+    "connectionRequired": "Choose which connection should run this action.",
     "searchPlaceholder": "Search actions by name, id, or provider",
     "provider": "Provider",
     "allProviders": "All providers",
@@ -255,28 +310,189 @@
     "run": "Run",
     "running": "Running",
     "runningAction": "Running action...",
-    "actionFailed": "Action failed."
+    "actionFailed": "Action failed.",
+    "loadingDetails": "Loading action details..."
   },
   "runs": {
     "noRunsTitle": "No runs yet",
     "noRunsDescription": "Run an action to see recent execution history.",
+    "action": "Action",
+    "actionPlaceholder": "Filter by action ID",
+    "applyActionFilter": "Apply action filter",
     "service": "Service",
     "allServices": "All services",
+    "caller": "Caller",
+    "allCallers": "All callers",
+    "status": "Status",
+    "allStatuses": "All statuses",
+    "copyExecutionId": "Copy execution ID",
+    "expandResult": "Expand result",
+    "collapseResult": "Collapse result",
     "loadMore": "Load more",
     "loadMoreFailed": "Failed to load more runs.",
+    "policyAllowed": "policy allowed",
+    "policyBlocked": "policy blocked",
+    "runtimeToken": "runtime token",
     "table": {
       "action": "Action",
-      "caller": "Caller",
+      "context": "Context",
       "status": "Status",
-      "started": "Started",
-      "duration": "Duration",
+      "timing": "Timing",
       "input": "Input",
-      "error": "Error"
+      "result": "Result"
     }
   },
   "access": {
     "title": "Runtime Tokens",
-    "description": "Issue bearer tokens for /v1 and MCP clients. New tokens are shown once.",
+    "description": "Authenticate /v1 and MCP clients.",
+    "policy": {
+      "title": "Access Policy",
+      "description": "Limit actions and provider proxy requests.",
+      "rulesHint": "Block rules take priority. Non-empty allowlists intersect across deployment, runtime, and token layers. Enter one rule per line.",
+      "deployment": "Deployment policy (read-only)",
+      "runtime": "Runtime policy",
+      "allowedActions": "Allowed actions",
+      "blockedActions": "Blocked actions",
+      "allowedProxies": "Allowed proxies",
+      "blockedProxies": "Blocked proxies",
+      "save": "Save Policy",
+      "saving": "Saving policy...",
+      "saved": "Policy saved.",
+      "saveFailed": "Failed to save policy.",
+      "unrestricted": "No token-specific restrictions",
+      "edit": "Edit Policy",
+      "editToken": "Edit Token Policy",
+      "baseline": {
+        "title": "Current runtime baseline",
+        "healthy": "Policy has available capabilities",
+        "actionsBlocked": "All catalog actions are blocked",
+        "proxiesBlocked": "All current providers are blocked by proxy policy",
+        "allBlocked": "All catalog actions and current providers are blocked",
+        "actions": "Catalog actions",
+        "proxies": "Current providers",
+        "layers": "Configured rules",
+        "allowedCount": "{{allowed}} / {{total}} allowed",
+        "catalogHint": "Evaluated against the current action catalog",
+        "providersHint": "Providers allowed by proxy policy",
+        "layerCount": "Deployment {{deployment}} · Runtime {{runtime}}",
+        "blockPriority": "Block rules take priority"
+      },
+      "tester": {
+        "title": "Permission tester",
+        "description": "Check an action or provider against the same layered policy used at execution time.",
+        "resourceLabel": "Permission type",
+        "action": "Action",
+        "proxy": "Provider proxy",
+        "tokenLabel": "Runtime token",
+        "noToken": "No token layer",
+        "inputLabel": "Action or provider id",
+        "actionPlaceholder": "github.create_issue",
+        "proxyPlaceholder": "github",
+        "test": "Test",
+        "allowed": "Allowed",
+        "blocked": "Blocked",
+        "trace": "Decision trace"
+      },
+      "sources": {
+        "deployment": "Deployment constraint",
+        "runtime": "Runtime policy",
+        "token": "Token policy"
+      },
+      "outcomes": {
+        "unrestricted": "No additional restriction",
+        "allow_match": "Matched allow rule",
+        "allow_miss": "Not included in allow rules",
+        "block_match": "Matched block rule"
+      },
+      "deploymentSummary": {
+        "title": "Deployment constraints",
+        "none": "No rules"
+      },
+      "runtimeSummary": {
+        "title": "Runtime policy",
+        "updated": "Last updated {{date}}",
+        "edit": "Edit policy"
+      },
+      "summary": {
+        "unrestricted": "No additional restriction",
+        "restricted": "Allow rules: {{count}}",
+        "withBlocked": "{{allow}} · Always block: {{count}}"
+      },
+      "layerSummary": "Actions: {{action}} · Proxies: {{proxy}}",
+      "tokenSummary": "Action allow rules {{allowed}} · Action block rules {{blocked}} · Proxy grants {{proxies}} · Further limited by the runtime baseline",
+      "connectionsUnrestricted": "All connections",
+      "connectionsRestricted": "Connections: {{names}}",
+      "editor": {
+        "title": "Edit runtime policy",
+        "description": "Changes are previewed against deployment constraints before you save.",
+        "resourceLabel": "Policy resource",
+        "actionsTab": "Action permissions",
+        "proxiesTab": "Provider proxy",
+        "unsaved": "Unsaved changes",
+        "noChanges": "No unsaved changes",
+        "allowMode": "Allow scope",
+        "unrestricted": "No additional restriction",
+        "restricted": "Only allow the rules below",
+        "actionUnrestrictedHint": "Keep the action scope inherited from deployment constraints.",
+        "proxyUnrestrictedHint": "Keep the provider scope inherited from deployment constraints.",
+        "actionRestrictedHint": "Require every action to match at least one runtime allow rule.",
+        "proxyRestrictedHint": "Require every provider proxy to match at least one runtime allow rule.",
+        "allowedList": "Allow rules",
+        "blockedList": "Always block",
+        "actionAllowedHint": "Use an exact action id, provider.*, or *.",
+        "actionBlockedHint": "Block wins even when the same action is allowed elsewhere.",
+        "proxyAllowedHint": "Use a provider id or *.",
+        "proxyBlockedHint": "Blocked providers cannot receive proxy requests.",
+        "ruleCount": "{{count}} rules",
+        "actionAllowedInput": "Search or enter an allowed action rule",
+        "actionBlockedInput": "Search or enter a blocked action rule",
+        "proxyAllowedInput": "Search or enter an allowed provider",
+        "proxyBlockedInput": "Search or enter a blocked provider",
+        "advanced": "Advanced text editing",
+        "advancedHint": "Enter one raw rule per line. Empty allow rules mean this layer adds no restriction.",
+        "allowedRaw": "Raw allow rules",
+        "blockedRaw": "Raw block rules",
+        "ruleRequired": "Enter a rule before adding it.",
+        "ruleTooLong": "Rules must not exceed 256 UTF-8 bytes.",
+        "ruleInvalid": "Use *, provider.*, an exact provider.action id, or an exact provider id for proxy rules.",
+        "ruleDuplicate": "This rule is already in the list.",
+        "tooManyRules": "A rule list cannot contain more than 128 rules.",
+        "addRule": "Add rule",
+        "unknownRule": "Not found in the current catalog",
+        "allow": "Allow",
+        "block": "Block",
+        "removeRule": "Remove {{rule}}",
+        "noRules": "No rules in this list.",
+        "actionAllowRequired": "Add at least one action allow rule, or choose no additional restriction.",
+        "proxyAllowRequired": "Add at least one provider allow rule, or choose no additional restriction.",
+        "connectionsTitle": "Connection access",
+        "connectionsUnrestrictedHint": "This token can use any stored connection, including default when the request omits a name.",
+        "connectionsRestrictedHint": "This token can use only the selected provider connections.",
+        "connectionsList": "Allowed connections",
+        "connectionsRequired": "Select at least one connection, or choose no additional restriction.",
+        "tooManyConnections": "A connection list cannot contain more than 128 connections.",
+        "connectionCount": "{{count}} connections",
+        "noConnections": "No connections in this list.",
+        "connectionsDefaultHint": "Select a provider's default connection to allow its unnamed HTTP, MCP, or proxy requests.",
+        "discard": "Discard changes",
+        "preview": "Preview impact"
+      },
+      "impact": {
+        "title": "Draft impact",
+        "description": "This preview uses the unsaved runtime rules.",
+        "actionsBlocked": "This draft blocks every action in the current catalog.",
+        "proxiesBlocked": "This draft blocks every current provider from proxy requests.",
+        "allBlocked": "This draft blocks every catalog action and every current provider proxy."
+      },
+      "confirm": {
+        "title": "Save a policy that blocks all capabilities?",
+        "actions": "This policy blocks every action in the current catalog. Runtime clients will not be able to execute actions until the policy changes.",
+        "proxies": "This policy blocks every current provider from proxy requests until the policy changes.",
+        "all": "This policy blocks every catalog action and every current provider proxy until the policy changes.",
+        "save": "Save blocking policy",
+        "keepEditing": "Keep editing"
+      }
+    },
     "name": "Name",
     "namePlaceholder": "Local MCP client",
     "createToken": "Create Token",
@@ -294,11 +510,12 @@
     "copiedToken": "Copied",
     "copyRuntimeToken": "Copy runtime token",
     "copiedRuntimeToken": "Copied runtime token",
-    "noTokensTitle": "No runtime tokens yet",
-    "noTokensDescription": "Create one before connecting an MCP client or local script. The token is shown once.",
+    "noTokensTitle": "No tokens",
+    "noTokensDescription": "Create a token for /v1 or MCP access.",
     "table": {
       "name": "Name",
       "status": "Status",
+      "policy": "Policy",
       "created": "Created",
       "lastUsed": "Last used"
     },

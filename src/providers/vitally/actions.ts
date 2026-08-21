@@ -1,16 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "vitally";
-
-export type VitallyActionName =
-  | "list_accounts"
-  | "get_account"
-  | "create_account"
-  | "update_account"
-  | "delete_account";
 
 const rawAccountSchema = s.looseObject("A raw Vitally account object returned by the REST API.");
 const traitsSchema = s.looseObject(
@@ -26,7 +19,7 @@ const listAccountsOutputSchema = s.actionOutput({
   next: s.nullable(s.string("The cursor for the next page, or null when there are no more pages.")),
 });
 
-export const vitallyActions: ProviderActionDefinition<VitallyActionName>[] = [
+export const vitallyActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_accounts",
     description: "List Vitally accounts with optional status and cursor pagination filters.",

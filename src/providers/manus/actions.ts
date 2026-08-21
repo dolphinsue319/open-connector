@@ -1,29 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "manus";
-
-export type ManusActionName =
-  | "create_task"
-  | "get_task"
-  | "list_tasks"
-  | "list_task_messages"
-  | "send_message"
-  | "stop_task"
-  | "delete_task"
-  | "update_task"
-  | "confirm_task_action"
-  | "create_project"
-  | "list_projects"
-  | "list_connectors"
-  | "list_skills"
-  | "list_agents"
-  | "get_agent"
-  | "update_agent"
-  | "list_online_browser_clients";
 
 const nonEmptyString = (description: string): JsonSchema => s.string(description, { minLength: 1 });
 
@@ -281,7 +261,7 @@ const sendMessageInputSchema = {
   anyOf: [{ required: ["message"] }, { required: ["content"] }],
 } satisfies JsonSchema;
 
-export const manusActions: ProviderActionDefinition<ManusActionName>[] = [
+export const manusActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_task",
     description:

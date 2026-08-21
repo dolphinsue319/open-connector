@@ -130,5 +130,3 @@ export const agoraActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AgoraActionName = (typeof agoraActions)[number]["name"];

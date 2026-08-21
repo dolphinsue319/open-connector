@@ -1,13 +1,15 @@
 import type { CredentialValidators, ProviderExecutors, ProviderProxyExecutor } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderRuntimeHandler } from "../provider-runtime.ts";
 
 import { arrayPayload, requestJson } from "../http-json-runtime.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   defineApiKeyProviderExecutors,
   normalizeProviderProxyHeaders,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
   readProviderProxyErrorMessage,
   readProviderProxyResponse,
   requireApiKeyCredential,
@@ -19,6 +21,9 @@ const apiBaseUrl = "https://developer.zorustech.com";
 const apiVersion = "1.0";
 const validationPath = "/api/customers/search";
 
+// Fixed-host proxy egress (apiBaseUrl); DNS-rebinding check is redundant here.
+const zorusFetch = createProviderFetch({ skipDnsValidation: true });
+
 type Handler = ProviderRuntimeHandler<ApiKeyProviderContext>;
 
 const paths: Record<string, string> = {
@@ -29,7 +34,7 @@ const paths: Record<string, string> = {
   search_active_unblock_requests: "/api/unblock-requests/active/search",
 };
 
-export const zorusActionHandlers: Record<string, Handler> = {
+export const zorusActionHandlers: ProviderActionHandlers<"zorus", Handler> = {
   search_customers(input, context) {
     return searchZorus(paths.search_customers, input, context);
   },
@@ -47,7 +52,9 @@ export const zorusActionHandlers: Record<string, Handler> = {
   },
 };
 
-export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, zorusActionHandlers);
+export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, zorusActionHandlers, {
+  skipDnsValidation: true,
+});
 
 export const proxy: ProviderProxyExecutor = async (input, context) => {
   try {
@@ -70,7 +77,7 @@ export const proxy: ProviderProxyExecutor = async (input, context) => {
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await zorusFetch(url, init);
     if (!response.ok) {
       const text = await readProviderProxyErrorMessage(response, "");
       throw new ProviderRequestError(response.status, text || `Zorus request failed with HTTP ${response.status}`);

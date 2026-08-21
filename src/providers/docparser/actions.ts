@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -87,19 +87,7 @@ const resultsSortBySchema = s.stringEnum("The timestamp field used to sort multi
 ]);
 const resultsSortOrderSchema = s.stringEnum("The sort direction used for multiple-document results.", ["ASC", "DESC"]);
 
-export type DocparserActionName =
-  | "ping"
-  | "list_parsers"
-  | "get_parser_models"
-  | "upload_document_by_content"
-  | "fetch_document_from_url"
-  | "get_document_status"
-  | "get_document_result"
-  | "get_multiple_document_results"
-  | "reparse_documents"
-  | "reintegrate_documents";
-
-export const docparserActions: Array<ProviderActionDefinition<DocparserActionName>> = [
+export const docparserActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "ping",
     description: "Ping the Docparser API to verify that the provided API key is valid.",

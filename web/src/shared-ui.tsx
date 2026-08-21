@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { CircleAlert, Inbox } from "lucide-react";
 import { useState } from "react";
+import providerIconUrls from "virtual:oomol-provider-icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge as UiBadge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -61,14 +62,6 @@ export function ProviderIcon(props: { provider: ProviderDefinition; large?: bool
     return <span className={className}>{letters}</span>;
   }
 
-  if (iconSource.kind == "class") {
-    return (
-      <span className={className}>
-        <i aria-hidden="true" className={`provider-icon-css-icon ${iconSource.value}`} />
-      </span>
-    );
-  }
-
   return (
     <span className={className}>
       <img
@@ -100,58 +93,28 @@ export function providerIconUrl(provider: ProviderDefinition): string | undefine
 }
 
 interface ProviderIconSource {
-  kind: "url" | "class";
+  kind: "url";
   value: string;
 }
 
-const defaultGoogleProviderIconClass = "i-logos-google-icon";
-
-const googleProviderIconClasses: Record<string, string> = {
-  google_analytics: "i-logos-google-analytics",
-  gmail: "i-logos-google-gmail",
-  googlephotos: "i-logos-google-photos",
-  google_search_console: "i-logos-google-search-console",
-  google_cloud_sts: "i-logos-google-cloud",
-  googledrive: "i-logos-google-drive",
-  googlecalendar: "i-logos-google-calendar",
-  google_address_validation: "i-logos-google-maps",
-  google_routes: "i-logos-google-maps",
-};
-
-export function providerIconSource(provider: ProviderDefinition): ProviderIconSource | undefined {
+export function providerIconSource(
+  provider: ProviderDefinition,
+  catalogIconUrls: Readonly<Record<string, string>> = providerIconUrls,
+): ProviderIconSource | undefined {
   const iconUrl = provider.iconUrl?.trim();
   if (iconUrl) {
     return { kind: "url", value: iconUrl };
   }
 
-  const resolvedIconClass = resolveProviderIconClass(provider);
-  if (resolvedIconClass) {
-    return { kind: "class", value: resolvedIconClass };
-  }
-
-  if (import.meta.env.VITE_PROVIDER_ICON_FAVICON_FALLBACK === "false") {
-    return undefined;
+  const catalogIconUrl = catalogIconUrls[provider.service]?.trim();
+  if (catalogIconUrl) {
+    return { kind: "url", value: catalogIconUrl };
   }
 
   const hostname = providerHomepageHostname(provider.homepageUrl);
-  if (!hostname) {
-    return undefined;
-  }
-
-  return { kind: "url", value: `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(hostname)}` };
-}
-
-export function resolveProviderIconClass(provider: ProviderDefinition): string | undefined {
-  const iconClass = googleProviderIconClasses[provider.service];
-  if (iconClass) {
-    return iconClass;
-  }
-
-  if (provider.homepageUrl?.toLowerCase().includes("google")) {
-    return defaultGoogleProviderIconClass;
-  }
-
-  return undefined;
+  return hostname
+    ? { kind: "url", value: `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(hostname)}` }
+    : undefined;
 }
 
 function providerHomepageHostname(homepageUrl: string | undefined): string | undefined {

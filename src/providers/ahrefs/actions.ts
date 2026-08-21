@@ -118,5 +118,3 @@ export const ahrefsActions: ActionDefinition[] = [
     outputSchema: dataWrapperOutput,
   }),
 ];
-
-export type AhrefsActionName = (typeof ahrefsActions)[number]["name"];

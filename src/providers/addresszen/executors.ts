@@ -1,5 +1,5 @@
 import type { CredentialValidators, ExecutionContext, ProviderExecutors } from "../../core/types.ts";
-import type { AddresszenActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
@@ -23,7 +23,7 @@ interface AddresszenActionContext {
 
 type AddresszenActionHandler = (input: Record<string, unknown>, context: AddresszenActionContext) => Promise<unknown>;
 
-export const addresszenActionHandlers: Record<AddresszenActionName, AddresszenActionHandler> = {
+export const addresszenActionHandlers: ProviderActionHandlers<"addresszen", AddresszenActionHandler> = {
   async get_key_availability(_input, context) {
     return requestKeyAvailability(context, "execute");
   },

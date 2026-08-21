@@ -164,5 +164,3 @@ export const knockActions: readonly ActionDefinition[] = [
     ),
   }),
 ];
-
-export type KnockActionName = (typeof knockActions)[number]["name"];

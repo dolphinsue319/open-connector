@@ -1,11 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "boxhero";
-
-export type BoxheroActionName = "get_team_info" | "list_items" | "get_item" | "list_locations";
 
 const nonNegativeIntegerField = (description: string) => s.integer(description, { minimum: 0 });
 
@@ -137,7 +135,7 @@ const listLocationsOutputSchema = s.object("The BoxHero list locations response.
   count: s.number("The number of BoxHero locations in the response."),
 });
 
-export const boxheroActions: ProviderActionDefinition<BoxheroActionName>[] = [
+export const boxheroActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_team_info",
     description: "Get the linked BoxHero team information and team mode.",

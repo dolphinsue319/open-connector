@@ -75,5 +75,3 @@ export const statamicActions: ProviderActionDefinition[] = [
     }),
   }),
 ];
-
-export type StatamicActionName = (typeof statamicActions)[number]["name"];

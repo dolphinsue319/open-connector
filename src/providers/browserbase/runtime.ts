@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ProviderFetch } from "../provider-runtime.ts";
-import type { BrowserbaseActionName } from "./actions.ts";
 
 import { compactObject, optionalBoolean, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
 import { isAbortLikeError, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
@@ -18,7 +18,7 @@ export interface BrowserbaseContext {
   signal?: AbortSignal;
 }
 
-export const browserbaseActionHandlers: Record<BrowserbaseActionName, BrowserbaseActionHandler> = {
+export const browserbaseActionHandlers: ProviderActionHandlers<"browserbase", BrowserbaseActionHandler> = {
   list_projects(_input, context) {
     return listBrowserbaseProjects(context);
   },

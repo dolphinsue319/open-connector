@@ -143,5 +143,3 @@ export const recruitcrmActions: ProviderActionDefinition[] = [
     outputSchema: getJobOutputSchema,
   }),
 ];
-
-export type RecruitcrmActionName = (typeof recruitcrmActions)[number]["name"];

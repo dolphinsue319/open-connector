@@ -2,7 +2,7 @@
 
 <img src="../assets/openconnector-readme-banner.png" alt="OpenConnector - Connect Once. Use Everywhere." width="100%" />
 
-[English](../README.md) | [简体中文](README.zh-CN.md) | [日本語](README.ja.md) | [Русский](README.ru.md) | [Français](README.fr.md)
+[English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [Русский](README.ru.md) | [Français](README.fr.md)
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](../LICENSE.txt)
 ![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-339933)
@@ -15,9 +15,27 @@
 
 </div>
 
-OpenConnector — open-source connector gateway для AI agents и альтернатива Composio. Подключите
+OpenConnector — open-source connector gateway для AI agents и альтернатива Pipedream/Composio. Подключите
 пользовательские аккаунты приложений один раз, а затем откройте общий catalog из 1,000+ providers и
 10 000+ готовых Actions для агентов и приложений.
+
+<table>
+  <tr>
+    <td width="33.33%" align="center"><img src="../assets/deployment-options/oomol.svg" alt="OOMOL" width="140"></td>
+    <td width="33.33%" align="center"><img src="../assets/deployment-options/cloudflare.svg" alt="Cloudflare" width="140"></td>
+    <td width="33.33%" align="center"><img src="../assets/deployment-options/self-hosted.svg" alt="Self-hosted" width="140"></td>
+  </tr>
+  <tr>
+    <td width="33.33%" valign="top">Managed OAuth и hosted runtime готовы к использованию. Не нужно разворачивать runtime или настраивать OAuth apps.</td>
+    <td width="33.33%" valign="top">Workers, D1, R2 и Static Assets в вашем аккаунте Cloudflare. Вы самостоятельно управляете deployment и OAuth apps.</td>
+    <td width="33.33%" valign="top">Запуск локально или в собственной инфраструктуре через Docker или Node.js. Вы управляете storage и OAuth apps.</td>
+  </tr>
+  <tr>
+    <td width="33.33%" align="center">🚀 <a href="https://oomol.com/docs/connector-saas/"><strong>OOMOL Hosted</strong></a></td>
+    <td width="33.33%" align="center"><a href="cloudflare.md"><strong>Развернуть в Cloudflare</strong></a></td>
+    <td width="33.33%" align="center"><a href="https://oomol.com/docs/openconnector-self-hosting/"><strong>Self-host</strong></a></td>
+  </tr>
+</table>
 
 В application code используйте [Connector SDK](https://github.com/oomol-lab/connector-sdk), для
 local-agent relay — [oo CLI](https://github.com/oomol-lab/oo-cli), для agent hosts — MCP, для
@@ -128,6 +146,12 @@ flowchart LR
 
 ## Быстрый Старт
 
+> [!NOTE]
+> Эти шаги запускают self-hosted runtime. Для OAuth providers нужны OAuth client credentials из
+> приложений, которые вы самостоятельно регистрируете у соответствующих providers. Чтобы
+> пользователи могли авторизовать поддерживаемые providers без настройки собственных OAuth apps,
+> используйте [OOMOL-hosted connectors](https://oomol.com/apps).
+
 Запустите runtime из опубликованного образа через Docker Compose:
 
 ```bash
@@ -201,27 +225,25 @@ Fly volume.
 ## Docker-образ (GHCR)
 
 Запускайте OpenConnector из готового образа в GitHub Packages (GHCR): `ghcr.io/oomol-lab/open-connector`.
-Используйте `latest` для новейшего release, закреплённую версию вроде `v1.0.0` для production или `tip`
-для последнего build из `main`.
+Используйте `latest` для новейшего release, закреплённую версию release для production или `tip` для
+последнего build из `main`.
 
 О тегах образа, pull и запуске см. [docker-ghcr.md (на английском)](docker-ghcr.md).
 
-## Хотите Использовать Напрямую?
+## Создайте desktop Agent с Wanta
 
-Пути выше предназначены для команд, которые интегрируют connector в свои продукты, runtimes или
-enterprise infrastructure. Если вы хотите сначала попробовать SaaS connection experience или сразу
-использовать это в работе, вам не обязательно сначала deploy OpenConnector или интегрировать SDK,
-CLI, MCP либо HTTP API.
+OpenConnector и [Wanta](https://github.com/oomol-lab/wanta) — два open-source проекта для AI Agents
+в экосистеме OOMOL. OpenConnector подключает Agents к внешним сервисам, таким как Gmail, Slack и
+Notion. Wanta предоставляет полноценное desktop Agent приложение на базе OpenCode и использует
+OpenConnector для работы с подключенными SaaS сервисами.
 
-[Wanta](https://wanta.ai/) — desktop product entry point с тем же 1,000+ SaaS/provider coverage.
-После подключения accounts можно через natural language искать, организовывать, создавать и
-синхронизировать данные между connected tools.
+- **Локальный запуск:** используйте свою OpenAI-compatible model без учетной записи Wanta.
+- **Собственная разработка:** сделайте fork Wanta и настройте prompts, tools, interface, models и
+  branding.
+- **Hosted-сервисы:** необязательный [hosted-сервис](https://wanta.ai/) предоставляет managed models,
+  OAuth connections и team workspaces.
 
-| Если Вы Хотите                          | Что Дает Wanta                                                                                                          |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Попробовать 1,000+ SaaS connections     | Использовать то же SaaS/provider coverage без runtime deploy или предварительной SDK/CLI integration.                   |
-| Использовать Agents в ежедневной работе | Работать через natural language с email, chat, docs, data, projects, support, developer tools и marketing tools.        |
-| Делиться подключенными capabilities     | Один раз настроить connections и access scopes; teammates используют их без setup, а keys, tokens и credentials скрыты. |
+Issues и pull requests приветствуются.
 
 ## Документация
 
@@ -285,3 +307,27 @@ files в этот repository.
 
 Пожалуйста, делайте issues и pull requests сфокусированными, уважительными и пригодными к
 исполнению. Участие в проекте регулируется [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md).
+
+## Поддержать OpenConnector
+
+Если OpenConnector оказался полезен, поставьте ⭐ — это поможет большему числу разработчиков узнать о проекте.
+
+<div align="center">
+
+<img src="../assets/star-open-connector.gif" alt="Как поставить Star проекту OpenConnector на GitHub" width="760" />
+
+</div>
+
+## Участники
+
+Спасибо всем, кто помогает развивать OpenConnector. Хотите присоединиться? Ознакомьтесь с
+[руководством по участию](../CONTRIBUTING.md).
+
+[![Участники OpenConnector](https://contrib.rocks/image?repo=oomol-lab/open-connector)](https://github.com/oomol-lab/open-connector/graphs/contributors)
+
+## История звёзд
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../assets/star-history/star-history-dark.svg">
+  <img alt="История звёзд" src="../assets/star-history/star-history-light.svg">
+</picture>

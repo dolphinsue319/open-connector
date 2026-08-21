@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -30,9 +30,7 @@ const apiKeyInfoSchema = s.object("Details about the Riveter API key used for th
   created_by: userSchema,
 });
 
-export type RiveterActionName = "get_account" | "scrape";
-
-export const riveterActions: ProviderActionDefinition<RiveterActionName>[] = [
+export const riveterActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description: "Retrieve the Riveter account and API key details for the connected API key.",

@@ -104,5 +104,3 @@ export const cincopaActions: ProviderActionDefinition[] = [
 ] satisfies Array<
   ProviderActionDefinition<"list_galleries" | "list_gallery_items" | "list_assets" | "list_asset_tags">
 >;
-
-export type CincopaActionName = (typeof cincopaActions)[number]["name"];

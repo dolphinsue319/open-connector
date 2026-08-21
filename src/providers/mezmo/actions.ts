@@ -71,5 +71,3 @@ export const mezmoActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type MezmoActionName = (typeof mezmoActions)[number]["name"];

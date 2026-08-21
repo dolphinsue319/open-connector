@@ -72,5 +72,3 @@ export const microsoftClarityActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type MicrosoftClarityActionName = (typeof microsoftClarityActions)[number]["name"];

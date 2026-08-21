@@ -195,5 +195,3 @@ export const affindaActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type AffindaActionName = (typeof affindaActions)[number]["name"];

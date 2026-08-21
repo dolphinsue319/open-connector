@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -77,7 +77,7 @@ const functionCallProperties = {
   format: s.literal("json", { description: "Request JSON result format." }),
 };
 
-export const convexActions: Array<ProviderActionDefinition<ConvexActionName>> = [
+export const convexActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_token_details",
     description: "Return the current Convex token details so you can discover the authorized team or project context.",
@@ -294,7 +294,7 @@ export const convexActions: Array<ProviderActionDefinition<ConvexActionName>> = 
   ...functionActions(),
 ];
 
-function functionActions(): Array<ProviderActionDefinition<ConvexActionName>> {
+function functionActions(): ActionDefinition[] {
   return [
     defineProviderAction(service, {
       name: "run_query",
@@ -366,28 +366,3 @@ function functionInput(kind: string) {
     { required: ["path"], optional: ["args", "format", "deployment_url"] },
   );
 }
-
-export type ConvexActionName =
-  | "get_token_details"
-  | "list_projects"
-  | "create_project"
-  | "get_project_by_id"
-  | "get_project_by_slug"
-  | "delete_project"
-  | "list_deployments"
-  | "get_deployment"
-  | "create_deployment"
-  | "update_deployment"
-  | "delete_deployment"
-  | "list_deployment_classes"
-  | "list_deployment_regions"
-  | "create_deploy_key"
-  | "list_deploy_keys"
-  | "delete_deploy_key"
-  | "list_custom_domains"
-  | "delete_custom_domain"
-  | "run_query"
-  | "run_mutation"
-  | "run_action"
-  | "run_function"
-  | "execute_query_batch";

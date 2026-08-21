@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -99,14 +99,7 @@ const candidateSchema = s.looseRequiredObject(
   },
 );
 
-export type HackerrankWorkActionName =
-  | "list_tests"
-  | "get_test"
-  | "list_test_candidates"
-  | "search_test_candidates"
-  | "get_test_candidate";
-
-export const hackerrankWorkActions: Array<ProviderActionDefinition<HackerrankWorkActionName>> = [
+export const hackerrankWorkActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_tests",
     description: "List the HackerRank tests available to the authenticated account.",

@@ -247,5 +247,3 @@ export const apiverveActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type ApiverveActionName = (typeof apiverveActions)[number]["name"];

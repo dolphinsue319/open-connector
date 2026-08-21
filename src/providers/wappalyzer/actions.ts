@@ -1,11 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "wappalyzer";
-
-export type WappalyzerActionName = "get_credits_balance" | "lookup_technologies" | "find_subdomains" | "verify_email";
 
 const levelValues = ["Very low", "Low", "Medium", "High", "Very high"];
 const reachableValues = ["safe", "risky", "invalid", "unknown"];
@@ -31,7 +29,7 @@ const creditHeadersSchema = s.object("The Wappalyzer credit headers returned wit
   remaining: s.nullable(s.integer("The number of credits remaining after the request.")),
 });
 
-export const wappalyzerActions: ProviderActionDefinition<WappalyzerActionName>[] = [
+export const wappalyzerActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_credits_balance",
     description: "Get the current Wappalyzer API credit balance for the connected account.",

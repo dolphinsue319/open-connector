@@ -1,11 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "grafana_cloud";
-
-export type GrafanaCloudActionName = "list_regions" | "list_stacks" | "get_stack_connectivity" | "get_billed_usage";
 
 const nonEmptyString = (description: string) => s.nonEmptyString(description);
 const rawObjectSchema = s.looseObject("The raw Grafana Cloud API object.");
@@ -49,7 +47,7 @@ const billedUsageSchema = s.object("A normalized Grafana Cloud billed usage item
   raw: rawObjectSchema,
 });
 
-export const grafanaCloudActions: Array<ProviderActionDefinition<GrafanaCloudActionName>> = [
+export const grafanaCloudActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_regions",
     description: "List Grafana Cloud stack regions that can host Grafana Cloud stacks.",

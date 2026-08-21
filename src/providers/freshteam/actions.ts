@@ -1,20 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "freshteam";
-
-export type FreshteamActionName =
-  | "list_employees"
-  | "get_employee"
-  | "list_employee_fields"
-  | "list_job_postings"
-  | "get_job_posting"
-  | "list_job_posting_fields"
-  | "list_applicant_fields"
-  | "list_candidate_sources"
-  | "list_candidate_source_categories";
 
 const positiveIntegerSchema = (description: string) => s.positiveInteger(description);
 const pageSchema = positiveIntegerSchema("Page number for the Freshteam list request.");
@@ -237,7 +226,7 @@ const listCandidateSourceCategoriesInputSchema = s.object(
 
 const candidateSourceCategorySchema = s.looseObject("A Freshteam candidate source category object.");
 
-export const freshteamActions: Array<ProviderActionDefinition<FreshteamActionName>> = [
+export const freshteamActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_employees",
     description: "List Freshteam employees with optional directory filters and pagination.",

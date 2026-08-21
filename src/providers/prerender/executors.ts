@@ -5,10 +5,12 @@ import type {
   ProxyRequestInput,
   ProviderExecutors,
 } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
 
 import { compactObject, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import {
+  createProviderFetch,
   createProviderProxyUrl,
   defineApiKeyProviderExecutors,
   normalizeProviderProxyEndpoint,
@@ -23,13 +25,14 @@ import {
 
 const service = "prerender";
 const prerenderApiBaseUrl = "https://api.prerender.io";
+const prerenderFetch = createProviderFetch({ skipDnsValidation: true });
 const validationEndpoint = "/cache-clear-status/{prerenderToken}";
 
 type PrerenderPhase = "validate" | "execute";
 
 type PrerenderActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const prerenderActionHandlers: Record<string, PrerenderActionHandler> = {
+export const prerenderActionHandlers: ProviderActionHandlers<"prerender", PrerenderActionHandler> = {
   async recache_urls(input: Record<string, unknown>, context: ApiKeyProviderContext): Promise<unknown> {
     const response = await requestPrerender({
       path: "/recache",
@@ -77,7 +80,9 @@ export const prerenderActionHandlers: Record<string, PrerenderActionHandler> = {
   },
 };
 
-export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, prerenderActionHandlers);
+export const executors: ProviderExecutors = defineApiKeyProviderExecutors(service, prerenderActionHandlers, {
+  skipDnsValidation: true,
+});
 
 export const proxy: ProviderProxyExecutor = async (
   input: ProxyRequestInput,
@@ -104,7 +109,7 @@ export const proxy: ProviderProxyExecutor = async (
       }
     }
 
-    const response = await fetch(url, init);
+    const response = await prerenderFetch(url, init);
     if (!response.ok) {
       throw new ProviderRequestError(
         response.status,

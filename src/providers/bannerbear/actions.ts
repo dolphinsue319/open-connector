@@ -193,5 +193,3 @@ export const bannerbearActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type BannerbearActionName = (typeof bannerbearActions)[number]["name"];

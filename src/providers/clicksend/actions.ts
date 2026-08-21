@@ -1,4 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -92,22 +92,7 @@ const contactInputSchema = s.object("A ClickSend contact payload.", contactField
   optional: Object.keys(contactFields),
 });
 
-export type ClicksendActionName =
-  | "get_account"
-  | "send_sms"
-  | "calculate_sms_price"
-  | "list_contact_lists"
-  | "create_contact_list"
-  | "get_contact_list"
-  | "update_contact_list"
-  | "delete_contact_list"
-  | "list_contacts"
-  | "create_contact"
-  | "get_contact"
-  | "update_contact"
-  | "delete_contact";
-
-export const clicksendActions: ProviderActionDefinition<ClicksendActionName>[] = [
+export const clicksendActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description: "Get the ClickSend account profile associated with the configured credentials.",

@@ -1,6 +1,6 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext, ProviderFetch } from "../provider-runtime.ts";
-import type { BugbugActionName } from "./actions.ts";
 
 import { compactObject, optionalInteger, optionalRecord, optionalString } from "../../core/cast.ts";
 import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
@@ -25,7 +25,7 @@ interface BugbugRequestOptions {
   notFoundAsInvalidInput?: boolean;
 }
 
-export const bugbugActionHandlers: Record<BugbugActionName, BugbugActionHandler> = {
+export const bugbugActionHandlers: ProviderActionHandlers<"bugbug", BugbugActionHandler> = {
   list_tests(input, context) {
     return listBugbugTests(input, context);
   },

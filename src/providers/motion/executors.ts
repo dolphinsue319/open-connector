@@ -1,15 +1,21 @@
-import type { CredentialValidationResult, CredentialValidators, ProviderExecutors } from "../../core/types.ts";
+import type {
+  CredentialValidationResult,
+  CredentialValidators,
+  ProviderExecutors,
+  ProviderProxyExecutor,
+} from "../../core/types.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { MotionActionName } from "./actions.ts";
 
 import { optionalRecord, optionalString, requiredString, stringArray } from "../../core/cast.ts";
 import { jsonObject, queryParams } from "../../core/request.ts";
 import {
   createProviderTimeout,
   defineApiKeyProviderExecutors,
+  defineProviderProxy,
   isAbortLikeError,
-  providerUserAgent,
   ProviderRequestError,
+  providerUserAgent,
 } from "../provider-runtime.ts";
 
 const service = "motion";
@@ -33,7 +39,7 @@ type MotionPhase = "validate" | "execute";
 type MotionMethod = "GET" | "POST" | "PATCH" | "DELETE";
 type MotionActionHandler = (input: Record<string, unknown>, context: ApiKeyProviderContext) => Promise<unknown>;
 
-export const motionActionHandlers: Record<MotionActionName, MotionActionHandler> = {
+export const motionActionHandlers: ProviderActionHandlers<"motion", MotionActionHandler> = {
   async list_workspaces(_input, context): Promise<unknown> {
     const payload = await requestMotionJson({
       context,
@@ -392,3 +398,9 @@ function readArrayPayload(value: unknown, key: string, context: string): unknown
   }
   return readArrayProperty(value, key, context);
 }
+
+export const proxy: ProviderProxyExecutor = defineProviderProxy({
+  service,
+  baseUrl: "https://api.usemotion.com/v1",
+  auth: { type: "api_key_header", name: "x-api-key" },
+});

@@ -217,7 +217,7 @@ export const neutrinoActions: ActionDefinition[] = [
     inputSchema: checkIpBlocklistInputSchema,
     outputSchema: checkIpBlocklistOutputSchema,
   }),
-] satisfies ActionDefinition[];
+];
 
 export type NeutrinoActionName =
   | "validate_email"

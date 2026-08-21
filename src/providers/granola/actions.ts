@@ -1,11 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "granola";
-
-export type GranolaActionName = "list_notes" | "get_note" | "list_folders";
 
 const nonEmptyString = (description: string) => s.nonEmptyString(description);
 const cursorSchema = nonEmptyString("Cursor token returned by a previous Granola page.");
@@ -130,7 +128,7 @@ const listFoldersOutputSchema = s.object("Paginated Granola folders response.", 
   nextCursor: s.nullable(s.string("Cursor to pass into the next request, when one is available.")),
 });
 
-export const granolaActions: Array<ProviderActionDefinition<GranolaActionName>> = [
+export const granolaActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_notes",
     description: "List accessible Granola meeting notes with optional date, folder, and cursor filters.",

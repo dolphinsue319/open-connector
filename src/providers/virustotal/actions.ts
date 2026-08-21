@@ -1,5 +1,4 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
@@ -206,25 +205,7 @@ const descriptorResponseSchema = singleResponseSchema(
   "Response containing a VirusTotal object descriptor.",
 );
 
-export type VirustotalActionName =
-  | "search"
-  | "get_metadata"
-  | "get_analysis"
-  | "get_file_report"
-  | "upload_file"
-  | "rescan_file"
-  | "scan_url"
-  | "get_url_report"
-  | "get_domain_report"
-  | "get_domain_relationships"
-  | "get_ip_address_report"
-  | "get_ip_address_relationships"
-  | "get_comments"
-  | "add_comment"
-  | "get_votes"
-  | "add_vote";
-
-export const virustotalActions: ProviderActionDefinition<VirustotalActionName>[] = [
+export const virustotalActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "search",
     description: "Search files, URLs, domains, IPs, and other objects in VirusTotal.",

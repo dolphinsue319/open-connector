@@ -1,24 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
+import type { ActionDefinition } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "kommo";
-
-export type KommoActionName =
-  | "get_account"
-  | "list_leads"
-  | "get_lead"
-  | "list_contacts"
-  | "get_contact"
-  | "list_companies"
-  | "get_company"
-  | "list_tasks"
-  | "get_task"
-  | "list_users"
-  | "get_user"
-  | "list_pipelines"
-  | "get_pipeline";
 
 const idSchema = s.positiveInteger("The Kommo numeric identifier.");
 const pageSchema = s.positiveInteger("The 1-based Kommo result page to fetch.");
@@ -383,7 +368,7 @@ const getByIdOnlyInputSchema = s.object("The input payload for reading one Kommo
   id: idSchema,
 });
 
-export const kommoActions: Array<ProviderActionDefinition<KommoActionName>> = [
+export const kommoActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_account",
     description: "Get Kommo account information for the connected account.",

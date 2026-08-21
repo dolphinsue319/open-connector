@@ -1,12 +1,9 @@
-import type { ProviderActionDefinition } from "../../core/provider-definition.ts";
-import type { JsonSchema } from "../../core/types.ts";
+import type { ActionDefinition, JsonSchema } from "../../core/types.ts";
 
 import { s } from "../../core/json-schema.ts";
 import { defineProviderAction } from "../../core/provider-definition.ts";
 
 const service = "optimoroute";
-
-export type OptimorouteActionName = "create_or_update_orders" | "get_orders" | "delete_orders";
 
 const trimmedString = (description: string): JsonSchema => s.string({ description, minLength: 1 });
 
@@ -211,7 +208,7 @@ const deleteOrdersOutputSchema = s.object("The normalized OptimoRoute delete_ord
   orders: s.array("The per-order delete results returned by OptimoRoute.", bulkOrderDeleteResultSchema),
 });
 
-export const optimorouteActions: ProviderActionDefinition<OptimorouteActionName>[] = [
+export const optimorouteActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "create_or_update_orders",
     description: "Create, update, merge, or sync one or more OptimoRoute orders in one request.",

@@ -149,5 +149,3 @@ export const recruiteeActions: ProviderActionDefinition[] = [
     outputSchema: createCandidateOutputSchema,
   }),
 ];
-
-export type RecruiteeActionName = (typeof recruiteeActions)[number]["name"];

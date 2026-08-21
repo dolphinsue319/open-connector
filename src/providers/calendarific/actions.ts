@@ -126,5 +126,3 @@ export const calendarificActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type CalendarificActionName = (typeof calendarificActions)[number]["name"];

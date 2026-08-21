@@ -309,5 +309,3 @@ export const cannyActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type CannyActionName = (typeof cannyActions)[number]["name"];
