@@ -1,7 +1,8 @@
 import type { CredentialValidators, ExecutionContext, ProviderExecutors } from "../../core/types.ts";
 import type { EvermemActionContext } from "./runtime.ts";
 
-import { defineProviderExecutors, requireApiKeyCredential } from "../provider-runtime.ts";
+import { isPrivateNetworkAccessAllowed } from "../../core/request.ts";
+import { createProviderFetch, defineProviderExecutors, requireApiKeyCredential } from "../provider-runtime.ts";
 import { evermemActionHandlers, resolveEvermemBaseUrl, validateEvermemCredential } from "./runtime.ts";
 
 const service = "evermem";
@@ -22,10 +23,17 @@ export const executors: ProviderExecutors = defineProviderExecutors<EvermemActio
     };
   },
   fallbackMessage: "EverMem request failed.",
+  // Self-hosted target (host.docker.internal / tailnet / LAN): upstream now
+  // guards provider egress, so the deployment opt-in must be forwarded.
+  allowPrivateNetwork: isPrivateNetworkAccessAllowed,
 });
 
 export const credentialValidators: CredentialValidators = {
   async apiKey(input, { fetcher, signal }) {
-    return validateEvermemCredential(input, fetcher, signal);
+    const guardedFetcher = createProviderFetch({
+      fetch: fetcher,
+      allowPrivateNetwork: isPrivateNetworkAccessAllowed,
+    });
+    return validateEvermemCredential(input, guardedFetcher, signal);
   },
 };

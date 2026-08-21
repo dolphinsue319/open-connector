@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiKeyCredential } from "../provider-proxy-loader.test-helpers.ts";
+import { apiKeyCredential } from "../kd-test-helpers.ts";
 import { credentialValidators, executors } from "./executors.ts";
 import { buildEvermemApiUrl, normalizeEvermemBaseUrl } from "./runtime.ts";
 

@@ -1,11 +1,19 @@
 import type { TransitFileWriter } from "../../core/types.ts";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { customCredential } from "../provider-proxy-loader.test-helpers.ts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setPrivateNetworkAccessAllowed } from "../../core/request.ts";
+import { customCredential } from "../kd-test-helpers.ts";
 import { credentialValidators, executors } from "./executors.ts";
 import { defaultOpenscadBaseUrl, normalizeOpenscadBaseUrl, resolveOpenscadBaseUrl } from "./runtime.ts";
 
+// The provider only reaches its self-hosted target when the deployment opts in
+// through OOMOL_CONNECT_ALLOW_PRIVATE_NETWORK; mirror that here.
+beforeEach(() => {
+  setPrivateNetworkAccessAllowed(true);
+});
+
 afterEach(() => {
+  setPrivateNetworkAccessAllowed(false);
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
