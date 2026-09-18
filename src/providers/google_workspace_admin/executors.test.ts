@@ -75,13 +75,12 @@ describe("Google Workspace Admin alias handlers", () => {
     expect(result).toEqual({ aliases: [] });
   });
 
-  it("creates an alias by posting only the alias address", async () => {
+  it("creates an alias by posting only the alias address and tolerates the live response omitting primaryEmail", async () => {
     const { fetcher, requests } = recordingFetcher(() =>
       Response.json({
         kind: "admin#directory#alias",
         id: "1001",
         etag: '"etag-new"',
-        primaryEmail: "owner@example.com",
         alias: "verify-3@example.com",
       }),
     );
@@ -94,7 +93,7 @@ describe("Google Workspace Admin alias handlers", () => {
     expect(requests[0]).toMatchObject({ method: "POST", body: JSON.stringify({ alias: "verify-3@example.com" }) });
     expect(requests[0]?.url.pathname).toBe(aliasesPath);
     expect(result).toEqual({
-      alias: { id: "1001", primaryEmail: "owner@example.com", alias: "verify-3@example.com", etag: '"etag-new"' },
+      alias: { id: "1001", primaryEmail: null, alias: "verify-3@example.com", etag: '"etag-new"' },
     });
   });
 

@@ -27,7 +27,7 @@ interface AliasCollectionPayload {
 
 interface NormalizedAlias {
   id: string;
-  primaryEmail: string;
+  primaryEmail: string | null;
   alias: string;
   etag: string | null;
 }
@@ -105,11 +105,8 @@ function userAliasesPath(userKey: string): string {
 function normalizeAlias(payload: AliasPayload): NormalizedAlias {
   return {
     id: requiredString(payload.id, "Google Workspace alias response field id", upstreamError),
-    primaryEmail: requiredString(
-      payload.primaryEmail,
-      "Google Workspace alias response field primaryEmail",
-      upstreamError,
-    ),
+    // The live users.aliases.insert response omits primaryEmail even though the API reference lists it.
+    primaryEmail: optionalStringOrNull(payload.primaryEmail),
     alias: requiredString(payload.alias, "Google Workspace alias response field alias", upstreamError),
     etag: optionalStringOrNull(payload.etag),
   };

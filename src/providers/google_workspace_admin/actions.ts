@@ -14,7 +14,9 @@ const aliasAddress = s.email(
 );
 const alias = s.requiredObject("A normalized Google Workspace user email alias.", {
   id: s.string("Unique ID of the user who owns the alias."),
-  primaryEmail: s.string("Primary email address of the user who owns the alias."),
+  primaryEmail: s.nullableString(
+    "Primary email address of the user who owns the alias. Null when Google omits it, as it does in the create response.",
+  ),
   alias: s.string("Alias email address."),
   etag: s.nullableString("Entity tag for the alias resource."),
 });
