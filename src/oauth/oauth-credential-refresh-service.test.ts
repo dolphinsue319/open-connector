@@ -2,6 +2,7 @@ import type { ResolvedCredential } from "../core/types.ts";
 import type { OAuthClientConfigService } from "./oauth-client-config-service.ts";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ProviderLoader } from "../providers/provider-loader.ts";
 import { OAuthCredentialRefreshService } from "./oauth-credential-refresh-service.ts";
 
 type OAuthCredential = Extract<ResolvedCredential, { authType: "oauth2" }>;
@@ -54,6 +55,43 @@ describe("OAuthCredentialRefreshService", () => {
     );
 
     expect(refreshed.expiresAt).toBe(new Date(now + 3600_000).toISOString());
+  });
+
+  it("refreshes through a provider OAuth runtime and preserves connection identity", async () => {
+    const providerLoader = new ProviderLoader({
+      example: async () => ({
+        executors: {},
+        oauth: {
+          async refreshAccessToken() {
+            return {
+              accessToken: "provider-refreshed-token",
+              refreshToken: "provider-refreshed-token",
+              tokenType: "Bearer",
+              expiresAt: "2026-12-29T00:00:00.000Z",
+              metadata: { refreshedBy: "provider-runtime" },
+            };
+          },
+        },
+      }),
+    });
+    const credential = expiredCredential({ permissions: "read,write" });
+
+    const refreshed = await new OAuthCredentialRefreshService(clientConfigs, providerLoader).refresh(
+      "example",
+      credential,
+    );
+
+    expect(refreshed).toMatchObject({
+      authType: "oauth2",
+      accessToken: "provider-refreshed-token",
+      refreshToken: "provider-refreshed-token",
+      expiresAt: "2026-12-29T00:00:00.000Z",
+      profile: credential.profile,
+      metadata: {
+        permissions: "read,write",
+        refreshedBy: "provider-runtime",
+      },
+    });
   });
 
   it("uses a connection-scoped OAuth client config before the global config", async () => {
@@ -151,54 +189,18 @@ describe("OAuthCredentialRefreshService", () => {
     expect(refreshed.providerSecret).toEqual(credential.providerSecret);
   });
 
-  it("refreshes Slack's user and bot grants through the provider-specific path", async () => {
-    const requestedRefreshTokens: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_url, init) => {
-        const refreshToken = new URLSearchParams(String(init?.body)).get("refresh_token") ?? "";
-        requestedRefreshTokens.push(refreshToken);
-        const user = refreshToken === "old-user-refresh";
-        return Response.json({
-          ok: true,
-          access_token: user ? "new-user-access" : "new-bot-access",
-          refresh_token: user ? "new-user-refresh" : "new-bot-refresh",
-          token_type: user ? "user" : "bot",
-          expires_in: 43_200,
-          scope: user ? "search:read" : "channels:read,chat:write",
-        });
-      }),
+  it("forwards stored provider parameters during refresh", async () => {
+    const fetcher = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) =>
+      Response.json({ access_token: "new-access-token" }),
     );
+    vi.stubGlobal("fetch", fetcher);
     const credential = {
-      ...expiredCredential({ expires_in: 43_200, scope: "channels:read,chat:write" }),
-      refreshToken: "old-bot-refresh",
-      profile: {
-        accountId: "U123",
-        displayName: "Example workspace",
-        grantedScopes: ["channels:read", "chat:write", "search:read"],
-      },
-      providerSecret: {
-        userGrant: {
-          accessToken: "old-user-access",
-          refreshToken: "old-user-refresh",
-          expiresAt: new Date(Date.now() - 60_000).toISOString(),
-          scopes: ["search:read"],
-        },
-      },
+      ...expiredCredential({ expires_in: 3600 }),
+      providerSecret: { oauthRefreshParameters: { employer: "employer-id" } },
     };
 
-    const refreshed = await new OAuthCredentialRefreshService(clientConfigs).refresh("slack", credential);
+    await new OAuthCredentialRefreshService(clientConfigs).refresh("example", credential);
 
-    expect(requestedRefreshTokens).toEqual(["old-user-refresh", "old-bot-refresh"]);
-    expect(refreshed).toMatchObject({
-      accessToken: "new-bot-access",
-      refreshToken: "new-bot-refresh",
-      providerSecret: {
-        userGrant: {
-          accessToken: "new-user-access",
-          refreshToken: "new-user-refresh",
-        },
-      },
-    });
+    expect(String(fetcher.mock.calls[0]?.[1]?.body)).toContain("employer=employer-id");
   });
 });

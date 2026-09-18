@@ -564,7 +564,3 @@ export const paypalActions: ActionDefinition[] = [
     }),
   }),
 ] as const satisfies ActionDefinition[];
-
-const paypalActionByName = new Map(paypalActions.map((action) => [action.name, action] as const));
-
-export type PayPalActionName = (typeof paypalActions)[number]["name"];

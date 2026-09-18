@@ -232,7 +232,3 @@ export const formstackActions: ActionDefinition[] = [
     }),
   }),
 ] as const satisfies ActionDefinition[];
-
-export type FormstackActionName = (typeof formstackActions)[number]["name"];
-
-const formstackActionByName = new Map(formstackActions.map((action) => [action.name, action] as const));
