@@ -42,7 +42,8 @@ export const googleWorkspaceAdminActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "delete_user_alias",
-    description: "Remove an email alias from a Google Workspace user. Mail sent to the alias afterwards bounces.",
+    description:
+      "Remove an email alias from a Google Workspace user. Mail sent to the alias afterwards bounces. An alias created seconds ago can fail with 400 'Invalid Input: resource_id' until Google finishes propagating it; retry after roughly 20 seconds.",
     requiredScopes: googleWorkspaceAdminAliasWriteScopes,
     providerPermissions: googleWorkspaceAdminAliasWriteScopes,
     inputSchema: s.actionInput({ userKey, alias: aliasAddress }, ["userKey", "alias"]),
