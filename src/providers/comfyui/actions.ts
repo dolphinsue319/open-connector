@@ -126,10 +126,11 @@ export const comfyuiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "run_workflow",
     description:
-      "Run a ComfyUI API-format workflow graph as-is, wait for it to finish, and return every image it saved as a downloadable transit file. Use this for graphs the txt2img, img2img, and inpaint actions cannot express; export the graph from the ComfyUI web UI with 'Save (API Format)'.",
+      "Run a ComfyUI API-format workflow graph, wait for it to finish, and return every image it saved as a downloadable transit file. Use this for graphs the txt2img, img2img, and inpaint actions cannot express; export the graph from the ComfyUI web UI with 'Save (API Format)'. Node inputs accept transit file references in place of input filenames.",
     inputSchema: s.looseRequiredObject("The input payload for this action.", {
       workflow: s.record(s.looseObject({}, { description: "A ComfyUI node: class_type plus its inputs." }), {
-        description: "The API-format workflow graph, keyed by node id.",
+        description:
+          "The API-format workflow graph, keyed by node id. Any node input (for example LoadImage.inputs.image) may be a transit file reference {fileId, name?, mimeType?} instead of a filename; it is uploaded to ComfyUI and replaced by the server-side name before the graph runs.",
       }),
       filename: filenameInput,
       waitSeconds: waitSecondsInput,

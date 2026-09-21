@@ -484,6 +484,52 @@ describe("comfyui.run_workflow", () => {
     expect(JSON.parse(submit[1]!.body as string)).toMatchObject({ prompt: graph });
   });
 
+  it("uploads transit references found in node inputs and substitutes the ComfyUI name", async () => {
+    const fetcher = routedFetcher([
+      [/\/upload\/image$/u, () => json({ name: "source.png", subfolder: "" })],
+      [/\/prompt$/u, () => json({ prompt_id: "p5" })],
+      [/\/history\//u, () => json(finishedHistory("p5"))],
+      [/\/view\?/u, () => png()],
+    ]);
+    vi.stubGlobal("fetch", fetcher);
+
+    const graph = {
+      "1": { class_type: "LoadImage", inputs: { image: { fileId: "file_src" } } },
+      "2": { class_type: "LoadImageMask", inputs: { image: { fileId: "file_mask", name: "m.png" }, channel: "red" } },
+      save: { class_type: "SaveImage", inputs: { images: ["1", 0] } },
+    };
+    const result = await executors["comfyui.run_workflow"]?.({ workflow: graph }, actionContext(fakeTransitFiles()));
+
+    expect(result).toMatchObject({ ok: true, output: { promptId: "p5" } });
+    expect(uploadedNames(fetcher).sort()).toEqual(["file_mask-m.png", "file_src-source.png"]);
+
+    const submit = fetcher.mock.calls.find(([url]) => String(url).endsWith("/prompt"))!;
+    expect(JSON.parse(submit[1]!.body as string)).toMatchObject({
+      prompt: {
+        "1": { inputs: { image: "source.png" } },
+        "2": { inputs: { image: "source.png", channel: "red" } },
+        save: { inputs: { images: ["1", 0] } },
+      },
+    });
+    // The caller's graph is not mutated.
+    expect(graph["1"].inputs.image).toEqual({ fileId: "file_src" });
+  });
+
+  it("names the node input when a transit upload is rejected", async () => {
+    const fetcher = routedFetcher([
+      [/\/upload\/image$/u, () => new Response("input folder is read-only", { status: 500 })],
+    ]);
+    vi.stubGlobal("fetch", fetcher);
+
+    const graph = { "7": { class_type: "LoadImage", inputs: { image: { fileId: "file_src" } } } };
+    const result = await executors["comfyui.run_workflow"]?.({ workflow: graph }, actionContext(fakeTransitFiles()));
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "provider_error", message: expect.stringContaining("7.image upload") },
+    });
+  });
+
   it("rejects a missing workflow before calling ComfyUI", async () => {
     const fetcher = jsonFetcher({});
     vi.stubGlobal("fetch", fetcher);

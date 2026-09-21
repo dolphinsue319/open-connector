@@ -232,10 +232,51 @@ async function buildWorkflow(
 async function runWorkflow(input: Record<string, unknown>, context: ComfyuiActionContext): Promise<unknown> {
   const jobContext = requireTransitFiles(context);
   const started = Date.now();
-  const workflow = requiredRecord(input.workflow, "workflow", invalidInput);
+  const workflow = await resolveWorkflowInputs(requiredRecord(input.workflow, "workflow", invalidInput), context);
   const promptId = await submitWorkflow(context, workflow);
   const images = await collectImages(promptId, readJobOptions(input), jobContext);
   return { promptId, images, durationMs: Date.now() - started };
+}
+
+/**
+ * Upload every transit file reference found in a node input and replace it
+ * with the ComfyUI-side name, so a caller-built graph takes images the same
+ * way img2img/inpaint do. An API-format node input is otherwise a scalar or a
+ * `[nodeId, outputIndex]` link, never an object, so `{fileId}` is unambiguous.
+ * Nodes without a reference are passed through by reference.
+ */
+async function resolveWorkflowInputs(
+  workflow: Record<string, unknown>,
+  context: ComfyuiActionContext,
+): Promise<Record<string, unknown>> {
+  const resolved = { ...workflow };
+  const uploads: Promise<void>[] = [];
+
+  for (const [nodeId, node] of Object.entries(workflow)) {
+    const record = optionalRecord(node);
+    const inputs = optionalRecord(record?.inputs);
+    if (!inputs) {
+      continue;
+    }
+    let replaced: Record<string, unknown> | undefined;
+    for (const [name, value] of Object.entries(inputs)) {
+      if (typeof optionalRecord(value)?.fileId !== "string") {
+        continue;
+      }
+      const target = (replaced ??= { ...inputs });
+      uploads.push(
+        uploadInputImage(value, `${nodeId}.${name}`, context).then((imageName) => {
+          target[name] = imageName;
+        }),
+      );
+    }
+    if (replaced) {
+      resolved[nodeId] = { ...record, inputs: replaced };
+    }
+  }
+
+  await Promise.all(uploads);
+  return resolved;
 }
 
 function readJobOptions(input: Record<string, unknown>): ComfyuiJobOptions {
