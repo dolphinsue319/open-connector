@@ -57,6 +57,7 @@ function defineRenderAction(
 ): ActionDefinition {
   return defineProviderAction(service, {
     name,
+    operationType: "write",
     description: options.description,
     inputSchema: s.looseRequiredObject(
       "The input payload for this action.",
@@ -78,6 +79,7 @@ function defineRenderAction(
 export const openscadActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "info",
+    operationType: "read",
     description: "Report the headless OpenSCAD render service health and version.",
     inputSchema: s.looseObject({}, { description: "The input payload for this action." }),
     outputSchema: s.looseRequiredObject(
@@ -109,6 +111,7 @@ export const openscadActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "render_preview",
+    operationType: "write",
     description: "Render an OpenSCAD scene to a PNG preview image and return a downloadable transit file.",
     inputSchema: s.looseRequiredObject(
       "The input payload for this action.",
@@ -130,5 +133,3 @@ export const openscadActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type OpenscadActionName = "info" | "render_model" | "render_2d" | "render_preview";

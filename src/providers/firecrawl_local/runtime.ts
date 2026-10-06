@@ -1,5 +1,5 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { FirecrawlLocalActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalRecord, optionalString } from "../../core/cast.ts";
 import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
@@ -29,9 +29,9 @@ type FirecrawlLocalActionHandler = (
 /**
  * Action handlers keyed by the local action name (no service prefix). Entries
  * are added per implementation phase and must stay in sync with
- * `FirecrawlLocalActionName` in actions.ts.
+ * the generated action contracts.
  */
-export const firecrawlLocalActionHandlers: Record<FirecrawlLocalActionName, FirecrawlLocalActionHandler> = {
+export const firecrawlLocalActionHandlers: ProviderActionHandlers<"firecrawl_local", FirecrawlLocalActionHandler> = {
   scrape: firecrawlLocalPostAction("/v2/scrape", buildDirectBody),
   search: firecrawlLocalPostAction("/v2/search", buildSearchBody),
   map: firecrawlLocalPostAction("/v2/map", buildDirectBody),

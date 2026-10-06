@@ -105,6 +105,7 @@ function ownerFields(): Record<string, JsonSchema> {
 export const evermemActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "add_memory",
+    operationType: "write",
     description:
       "Add a memory to EverOS. Appends a message to the session buffer and, unless disabled, flushes to force extraction.",
     requiredScopes: [],
@@ -128,6 +129,7 @@ export const evermemActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "flush_memory",
+    operationType: "write",
     description: "Flush an EverOS session buffer to force memory extraction now.",
     requiredScopes: [],
     inputSchema: s.object(
@@ -143,6 +145,7 @@ export const evermemActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "search_memory",
+    operationType: "read",
     description: "Search EverOS memories for a user or agent with ranked hybrid retrieval.",
     requiredScopes: [],
     inputSchema: s.object(
@@ -181,6 +184,7 @@ export const evermemActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_memories",
+    operationType: "read",
     description: "List EverOS memories for a user or agent, paginated and sorted (no ranking).",
     requiredScopes: [],
     inputSchema: s.object(
@@ -213,6 +217,7 @@ export const evermemActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "trigger_maintenance",
+    operationType: "write",
     description:
       "Run an EverOS memory-maintenance strategy now (for example reflect_episodes). Returns immediately with the run outcome.",
     requiredScopes: [],
@@ -228,10 +233,3 @@ export const evermemActions: ActionDefinition[] = [
     outputSchema: triggerResultSchema,
   }),
 ];
-
-export type EvermemActionName =
-  | "add_memory"
-  | "flush_memory"
-  | "search_memory"
-  | "list_memories"
-  | "trigger_maintenance";

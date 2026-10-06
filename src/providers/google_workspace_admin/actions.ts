@@ -24,6 +24,7 @@ const alias = s.requiredObject("A normalized Google Workspace user email alias."
 export const googleWorkspaceAdminActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_user_aliases",
+    operationType: "read",
     description:
       "List the email aliases attached to a Google Workspace user. Mail sent to any alias is delivered to the user's primary inbox and can be read with the Gmail provider action fetch_emails using the query to:<alias>.",
     requiredScopes: googleWorkspaceAdminAliasReadScopes,
@@ -33,6 +34,7 @@ export const googleWorkspaceAdminActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "create_user_alias",
+    operationType: "write",
     description:
       "Add an email alias to a Google Workspace user. Mail sent to the alias lands in the user's primary inbox, so it can be read with the Gmail provider action fetch_emails using the query to:<alias>. Each user can hold at most 30 aliases.",
     requiredScopes: googleWorkspaceAdminAliasWriteScopes,
@@ -42,6 +44,7 @@ export const googleWorkspaceAdminActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "delete_user_alias",
+    operationType: "destructive",
     description:
       "Remove an email alias from a Google Workspace user. Mail sent to the alias afterwards bounces. An alias created seconds ago can fail with 400 'Invalid Input: resource_id' until Google finishes propagating it; retry after roughly 20 seconds.",
     requiredScopes: googleWorkspaceAdminAliasWriteScopes,

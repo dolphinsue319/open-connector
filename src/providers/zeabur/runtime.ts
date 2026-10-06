@@ -1,8 +1,7 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { ApiKeyProviderContext } from "../provider-runtime.ts";
-import type { ZeaburActionName } from "./actions.ts";
+import type { ApiKeyProviderContext, ProviderActionHandlers } from "../provider-runtime.ts";
 
-import { compactObject, optionalRawString, optionalRecord, optionalString } from "../../core/cast.ts";
+import { compactObject, looseArray, optionalRawString, optionalRecord, optionalString } from "../../core/cast.ts";
 import {
   createProviderTimeout,
   isAbortLikeError,
@@ -11,7 +10,6 @@ import {
 } from "../provider-runtime.ts";
 
 export const zeaburApiUrl = "https://api.zeabur.com/graphql";
-const defaultTimeoutMs = 30_000;
 
 type ZeaburRequestPhase = "validate" | "execute";
 type ZeaburContext = Pick<ApiKeyProviderContext, "apiKey" | "fetcher" | "signal">;
@@ -78,7 +76,7 @@ export async function validateZeaburCredential(
 
 export async function zeaburGraphqlRequest<TData>(context: ZeaburContext, input: ZeaburGraphqlInput): Promise<TData> {
   const phase = input.phase ?? "execute";
-  const timeout = createProviderTimeout(context.signal, defaultTimeoutMs);
+  const timeout = createProviderTimeout(context.signal);
   let response: Response;
   try {
     response = await context.fetcher(zeaburApiUrl, {
@@ -94,10 +92,7 @@ export async function zeaburGraphqlRequest<TData>(context: ZeaburContext, input:
     });
   } catch (error) {
     if (timeout.didTimeout() || isAbortLikeError(error)) {
-      throw new ProviderRequestError(
-        504,
-        `Zeabur request timed out after ${Math.ceil(defaultTimeoutMs / 1000)} seconds`,
-      );
+      throw new ProviderRequestError(504, "Zeabur request timed out after 30 seconds");
     }
     throw new ProviderRequestError(
       502,
@@ -213,8 +208,8 @@ function normalizeProject(value: unknown): Record<string, unknown> {
     description: optionalString(project.description),
     createdAt: optionalString(project.createdAt),
     region: optionalString(optionalRecord(project.region)?.id),
-    environments: asArray(project.environments).map((environment) => normalizeEnvironment(environment)),
-    services: asArray(project.services).map((service) => normalizeServiceRef(service)),
+    environments: looseArray(project.environments).map((environment) => normalizeEnvironment(environment)),
+    services: looseArray(project.services).map((service) => normalizeServiceRef(service)),
   });
 }
 
@@ -233,10 +228,6 @@ function normalizeServiceRef(value: unknown): Record<string, unknown> {
     name: optionalString(service.name),
     template: optionalString(service.template),
   });
-}
-
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
 }
 
 const serviceFields = `
@@ -338,7 +329,7 @@ async function readEnvVars(
     query,
     variables: { id: target.serviceId, environmentId: target.environmentId },
   });
-  return asArray(data.service?.variables);
+  return looseArray(data.service?.variables);
 }
 
 async function readEnvVarKeys(
@@ -369,7 +360,7 @@ async function countEnvVars(
   }
 }
 
-export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler> = {
+export const zeaburActionHandlers: ProviderActionHandlers<"zeabur", ZeaburActionHandler> = {
   async list_projects(input, context) {
     const data = await zeaburGraphqlRequest<{ projects?: { edges?: unknown[] } }>(context, {
       query: `query ListProjects($skip: Int, $limit: Int) {
@@ -379,7 +370,7 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
       }`,
       variables: { skip: input.skip, limit: input.limit },
     });
-    const edges = asArray(data.projects?.edges);
+    const edges = looseArray(data.projects?.edges);
     return { projects: edges.map((edge) => normalizeProject(optionalRecord(edge)?.node)) };
   },
 
@@ -402,7 +393,7 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
       }`,
       variables: { projectId: input.projectId, skip: input.skip, limit: input.limit },
     });
-    const edges = asArray(data.services?.edges);
+    const edges = looseArray(data.services?.edges);
     return { services: edges.map((edge) => normalizeService(optionalRecord(edge)?.node)) };
   },
 
@@ -426,7 +417,7 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
       }`,
       variables: { projectId: input.projectId },
     });
-    return { environments: asArray(data.environments).map((environment) => normalizeEnvironment(environment)) };
+    return { environments: looseArray(data.environments).map((environment) => normalizeEnvironment(environment)) };
   },
 
   async list_deployments(input, context) {
@@ -457,7 +448,7 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
         filter: input.filter,
       },
     });
-    return { deployments: asArray(data.deployments?.edges).map((edge) => normalizeDeployment(edge)) };
+    return { deployments: looseArray(data.deployments?.edges).map((edge) => normalizeDeployment(edge)) };
   },
 
   async list_env_vars(input, context) {
@@ -483,7 +474,7 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
         timestampCursor: input.timestampCursor,
       },
     });
-    return { logs: asArray(data.buildLogs).map((log) => normalizeLog(log)) };
+    return { logs: looseArray(data.buildLogs).map((log) => normalizeLog(log)) };
   },
 
   async get_runtime_logs(input, context) {
@@ -508,7 +499,7 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
         timestampCursor: input.timestampCursor,
       },
     });
-    return { logs: asArray(data.runtimeLogs).map((log) => normalizeLog(log)) };
+    return { logs: looseArray(data.runtimeLogs).map((log) => normalizeLog(log)) };
   },
 
   async search_runtime_logs(input, context) {
@@ -542,7 +533,7 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
         endTime: input.endTime,
       },
     });
-    return { logs: asArray(data.searchRuntimeLogs).map((log) => normalizeLog(log)) };
+    return { logs: looseArray(data.searchRuntimeLogs).map((log) => normalizeLog(log)) };
   },
 
   async set_env_var(input, context) {
@@ -572,7 +563,7 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
         }`,
         variables: { ...target, oldKey: key, newKey: key, value: input.value },
       });
-      return { key, created: false, variableCount: asArray(data.updateSingleEnvironmentVariable).length };
+      return { key, created: false, variableCount: looseArray(data.updateSingleEnvironmentVariable).length };
     }
 
     await zeaburGraphqlRequest<{ createEnvironmentVariable?: unknown }>(context, {
@@ -597,7 +588,7 @@ export const zeaburActionHandlers: Record<ZeaburActionName, ZeaburActionHandler>
     });
     // The mutation answers with the variables that survive, so report whether the key is really gone
     // instead of assuming a non-error response means it was there to delete.
-    const remaining = asArray(data.deleteSingleEnvironmentVariable).map((variable) =>
+    const remaining = looseArray(data.deleteSingleEnvironmentVariable).map((variable) =>
       optionalString(optionalRecord(variable)?.key),
     );
     return { key, deleted: !remaining.includes(key), variableCount: remaining.length };

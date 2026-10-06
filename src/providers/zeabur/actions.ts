@@ -70,6 +70,7 @@ const serviceTarget = {
 export const zeaburActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "list_projects",
+    operationType: "read",
     description:
       "List Zeabur projects for the authenticated account, including each project's environments and services. Use this first to discover the projectId, environmentId, and serviceId that other Zeabur actions require.",
     inputSchema: s.actionInput(
@@ -84,6 +85,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "get_project",
+    operationType: "read",
     description:
       "Get one Zeabur project with its environments and services. Look it up by projectId, or by owner plus name.",
     inputSchema: s.actionInput(
@@ -99,6 +101,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_services",
+    operationType: "read",
     description: "List the services in one Zeabur project.",
     inputSchema: s.actionInput(
       {
@@ -113,12 +116,14 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "get_service",
+    operationType: "read",
     description: "Get one Zeabur service, including its current running status in the given environment.",
     inputSchema: s.actionInput(serviceTarget, ["serviceId", "environmentId"], "Identify the service and environment."),
     outputSchema: serviceSchema,
   }),
   defineProviderAction(service, {
     name: "list_environments",
+    operationType: "read",
     description: "List the environments in one Zeabur project.",
     inputSchema: s.actionInput(
       { projectId: s.nonEmptyString("The project id.") },
@@ -129,6 +134,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_deployments",
+    operationType: "read",
     description: "List deployments for one Zeabur service, newest first.",
     inputSchema: s.actionInput(
       {
@@ -154,6 +160,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_env_vars",
+    operationType: "read",
     description:
       "List the environment variables of one Zeabur service. Values are masked by default because they routinely hold database passwords, JWT secrets, and API keys. Set reveal to true only when the plaintext is actually needed.",
     inputSchema: s.actionInput(
@@ -172,6 +179,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "get_build_logs",
+    operationType: "read",
     description: "Get the build logs of one Zeabur deployment.",
     inputSchema: s.actionInput(
       {
@@ -186,6 +194,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "get_runtime_logs",
+    operationType: "read",
     description:
       "Get the runtime logs of one Zeabur service. Zeabur retains runtime logs for a limited window, so an empty result can mean the service has simply been quiet.",
     inputSchema: s.actionInput(
@@ -201,6 +210,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "search_runtime_logs",
+    operationType: "read",
     description:
       "Search the runtime logs of one Zeabur service for a query string. Zeabur gates this behind the Pro and Team plans; on other plans it fails with a permission error and get_runtime_logs is the alternative.",
     inputSchema: s.actionInput(
@@ -219,6 +229,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "set_env_var",
+    operationType: "write",
     description:
       "Create or update one environment variable on a Zeabur service, leaving every other variable untouched. Zeabur does not restart the service afterwards: the running container keeps serving the old value until restart_service or redeploy_service runs.",
     inputSchema: s.actionInput(
@@ -245,6 +256,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "delete_env_var",
+    operationType: "destructive",
     description:
       "Delete one environment variable from a Zeabur service, leaving every other variable untouched. The running container keeps the old value until the service restarts.",
     inputSchema: s.actionInput(
@@ -261,6 +273,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "restart_service",
+    operationType: "write",
     description:
       "Restart a running Zeabur service. This interrupts the service briefly and is how environment variable changes take effect.",
     inputSchema: s.actionInput(serviceTarget, ["serviceId", "environmentId"], "Identify the service and environment."),
@@ -268,6 +281,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "redeploy_service",
+    operationType: "write",
     description:
       "Redeploy a Zeabur service, rebuilding it from its current source. Slower than restart_service and it replaces the running deployment.",
     inputSchema: s.actionInput(serviceTarget, ["serviceId", "environmentId"], "Identify the service and environment."),
@@ -275,6 +289,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "update_service_image_tag",
+    operationType: "write",
     description:
       "Point a Docker-image-backed Zeabur service at a different image tag. Zeabur redeploys the service onto the new tag.",
     inputSchema: s.actionInput(
@@ -286,6 +301,7 @@ export const zeaburActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "rollback_deployment",
+    operationType: "write",
     description:
       "Roll a Zeabur service back to an earlier deployment. Pass a deploymentId from list_deployments; it becomes the live deployment again.",
     inputSchema: s.actionInput(
@@ -296,5 +312,3 @@ export const zeaburActions: ActionDefinition[] = [
     outputSchema: s.actionOutput({ success: s.boolean("Whether Zeabur accepted the rollback.") }),
   }),
 ];
-
-export type ZeaburActionName = (typeof zeaburActions)[number]["name"];

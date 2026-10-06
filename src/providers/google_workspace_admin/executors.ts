@@ -2,8 +2,8 @@ import type { CredentialValidators, ProviderExecutors } from "../../core/types.t
 import type { OAuthProviderContext, ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { optionalStringOrNull, requiredString } from "../../core/cast.ts";
-import { googleJsonRequest, googleRequest } from "../google-runtime.ts";
-import { defineOAuthProviderExecutors, ProviderRequestError } from "../provider-runtime.ts";
+import { defineOAuthProviderExecutors, providerInputError, providerResponseError } from "../provider-runtime.ts";
+import { googleJsonRequest, googleRequest } from "./runtime-request.ts";
 
 const service = "google_workspace_admin";
 const directoryApiBaseUrl = "https://admin.googleapis.com/admin/directory/v1";
@@ -56,7 +56,7 @@ export const credentialValidators: CredentialValidators = {
       email?: string;
       name?: string;
       sub?: string;
-    }>(googleUserInfoUrl, { ...context, service });
+    }>(googleUserInfoUrl, context);
     // A live Google token is not enough: the account must also be allowed to call the Admin SDK for its domain.
     // Reading the account's own aliases is the cheapest Directory call covered by the requested scopes.
     if (profile.email) {
@@ -75,14 +75,14 @@ export const credentialValidators: CredentialValidators = {
 };
 
 async function listUserAliases(input: Record<string, unknown>, context: OAuthProviderContext) {
-  const userKey = requiredString(input.userKey, "userKey", inputError);
+  const userKey = requiredString(input.userKey, "userKey", providerInputError);
   const payload = await directoryJsonRequest<AliasCollectionPayload>(userAliasesPath(userKey), { context });
   return { aliases: (payload.aliases ?? []).map(normalizeAlias) };
 }
 
 async function createUserAlias(input: Record<string, unknown>, context: OAuthProviderContext) {
-  const userKey = requiredString(input.userKey, "userKey", inputError);
-  const alias = requiredString(input.alias, "alias", inputError);
+  const userKey = requiredString(input.userKey, "userKey", providerInputError);
+  const alias = requiredString(input.alias, "alias", providerInputError);
   const payload = await directoryJsonRequest<AliasPayload>(userAliasesPath(userKey), {
     context,
     method: "POST",
@@ -92,8 +92,8 @@ async function createUserAlias(input: Record<string, unknown>, context: OAuthPro
 }
 
 async function deleteUserAlias(input: Record<string, unknown>, context: OAuthProviderContext) {
-  const userKey = requiredString(input.userKey, "userKey", inputError);
-  const alias = requiredString(input.alias, "alias", inputError);
+  const userKey = requiredString(input.userKey, "userKey", providerInputError);
+  const alias = requiredString(input.alias, "alias", providerInputError);
   await directoryRequest(`${userAliasesPath(userKey)}/${encodeURIComponent(alias)}`, { context, method: "DELETE" });
   return { deleted: true, alias };
 }
@@ -104,10 +104,10 @@ function userAliasesPath(userKey: string): string {
 
 function normalizeAlias(payload: AliasPayload): NormalizedAlias {
   return {
-    id: requiredString(payload.id, "Google Workspace alias response field id", upstreamError),
+    id: requiredString(payload.id, "Google Workspace alias response field id", providerResponseError),
     // The live users.aliases.insert response omits primaryEmail even though the API reference lists it.
     primaryEmail: optionalStringOrNull(payload.primaryEmail),
-    alias: requiredString(payload.alias, "Google Workspace alias response field alias", upstreamError),
+    alias: requiredString(payload.alias, "Google Workspace alias response field alias", providerResponseError),
     etag: optionalStringOrNull(payload.etag),
   };
 }
@@ -119,19 +119,10 @@ function directoryRequest(path: string, input: DirectoryRequestInput): Promise<R
     signal: input.context.signal,
     method: input.method,
     body: input.body,
-    service,
   });
 }
 
 async function directoryJsonRequest<T>(path: string, input: DirectoryRequestInput): Promise<T> {
   const response = await directoryRequest(path, input);
   return (await response.json()) as T;
-}
-
-function inputError(message: string): ProviderRequestError {
-  return new ProviderRequestError(400, message);
-}
-
-function upstreamError(message: string): ProviderRequestError {
-  return new ProviderRequestError(502, message);
 }

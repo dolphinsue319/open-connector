@@ -277,6 +277,7 @@ const crawlInput = s.looseRequiredObject(
 export const firecrawlLocalActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "scrape",
+    operationType: "read",
     description:
       "Scrape a single URL with self-hosted Firecrawl and return the extracted content in the requested formats.",
     inputSchema: scrapeInput,
@@ -284,6 +285,7 @@ export const firecrawlLocalActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "search",
+    operationType: "read",
     description:
       "Search the web with self-hosted Firecrawl and optionally scrape the top results in the requested formats.",
     inputSchema: s.looseRequiredObject(
@@ -303,6 +305,7 @@ export const firecrawlLocalActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "map",
+    operationType: "read",
     description: "Discover URLs from a website with self-hosted Firecrawl's map endpoint.",
     inputSchema: s.looseRequiredObject(
       "The input payload for this action.",
@@ -322,24 +325,28 @@ export const firecrawlLocalActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "crawl",
+    operationType: "write",
     description: "Start a self-hosted Firecrawl crawl job and return the async job ID.",
     inputSchema: crawlInput,
     outputSchema: jobStartSchema,
   }),
   defineProviderAction(service, {
     name: "crawl_get",
+    operationType: "read",
     description: "Get the current status and paged results of a self-hosted Firecrawl crawl job by job ID.",
     inputSchema: idInput,
     outputSchema: pagedJobStatusSchema,
   }),
   defineProviderAction(service, {
     name: "crawl_cancel",
+    operationType: "destructive",
     description: "Cancel a running self-hosted Firecrawl crawl job by job ID.",
     inputSchema: idInput,
     outputSchema: cancelResultSchema,
   }),
   defineProviderAction(service, {
     name: "batch_scrape",
+    operationType: "write",
     description: "Start a self-hosted Firecrawl batch scrape job for multiple URLs and return the async job ID.",
     inputSchema: s.looseRequiredObject(
       "The input payload for this action.",
@@ -379,12 +386,14 @@ export const firecrawlLocalActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "batch_scrape_get",
+    operationType: "read",
     description: "Get the current status and paged results of a self-hosted Firecrawl batch scrape job by job ID.",
     inputSchema: idInput,
     outputSchema: pagedJobStatusSchema,
   }),
   defineProviderAction(service, {
     name: "crawl_list_active",
+    operationType: "read",
     description: "List the currently active Firecrawl crawl jobs on the self-hosted instance.",
     inputSchema: s.looseObject({}, { description: "The input payload for this action." }),
     outputSchema: s.requiredObject("The output payload for this action.", {
@@ -393,14 +402,3 @@ export const firecrawlLocalActions: ActionDefinition[] = [
     }),
   }),
 ];
-
-export type FirecrawlLocalActionName =
-  | "scrape"
-  | "search"
-  | "map"
-  | "crawl"
-  | "crawl_get"
-  | "crawl_cancel"
-  | "batch_scrape"
-  | "batch_scrape_get"
-  | "crawl_list_active";

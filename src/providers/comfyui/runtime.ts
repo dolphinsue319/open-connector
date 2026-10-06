@@ -14,6 +14,7 @@ import {
 } from "../../core/cast.ts";
 import { encodePathSegment } from "../../core/request.ts";
 import {
+  providerInputError,
   ProviderRequestError,
   providerUserAgent,
   readProviderErrorTextBody,
@@ -176,7 +177,7 @@ async function generate(
   const started = Date.now();
   const seed = optionalInteger(input.seed) ?? randomSeed();
   const sampling: Omit<ComfyuiSamplingOptions, "checkpoint"> = {
-    prompt: requiredString(input.prompt, "prompt", invalidInput),
+    prompt: requiredString(input.prompt, "prompt", providerInputError),
     negative: optionalString(input.negative) ?? defaultNegativePrompt,
     seed,
     steps: optionalInteger(input.steps) ?? defaultSteps,
@@ -232,7 +233,7 @@ async function buildWorkflow(
 async function runWorkflow(input: Record<string, unknown>, context: ComfyuiActionContext): Promise<unknown> {
   const jobContext = requireTransitFiles(context);
   const started = Date.now();
-  const workflow = await resolveWorkflowInputs(requiredRecord(input.workflow, "workflow", invalidInput), context);
+  const workflow = await resolveWorkflowInputs(requiredRecord(input.workflow, "workflow", providerInputError), context);
   const promptId = await submitWorkflow(context, workflow);
   const images = await collectImages(promptId, readJobOptions(input), jobContext);
   return { promptId, images, durationMs: Date.now() - started };
@@ -606,8 +607,4 @@ function readStatusMessages(status: Record<string, unknown> | undefined): string
     return "no error detail reported";
   }
   return JSON.stringify(messages).slice(0, 800);
-}
-
-function invalidInput(message: string): ProviderRequestError {
-  return new ProviderRequestError(400, message);
 }

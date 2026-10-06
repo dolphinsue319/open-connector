@@ -57,6 +57,7 @@ const samplingInputs: Record<string, JsonSchema> = {
 export const comfyuiActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "system_stats",
+    operationType: "read",
     description:
       "Report the self-hosted ComfyUI instance status, including its version, OS, RAM, and the torch devices it can use.",
     inputSchema: emptyInput,
@@ -70,6 +71,7 @@ export const comfyuiActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_models",
+    operationType: "read",
     description:
       "List the checkpoints, samplers, and schedulers installed on the ComfyUI instance, for use as the checkpoint, sampler, and scheduler inputs of the generation actions.",
     inputSchema: emptyInput,
@@ -81,6 +83,7 @@ export const comfyuiActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "txt2img",
+    operationType: "write",
     description:
       "Generate an image from a text prompt with the self-hosted ComfyUI instance, wait for the job to finish, and return the result as a downloadable transit file.",
     inputSchema: s.looseRequiredObject("The input payload for this action.", {
@@ -95,6 +98,7 @@ export const comfyuiActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "img2img",
+    operationType: "write",
     description:
       "Restyle an existing image with a text prompt (image-to-image) on the self-hosted ComfyUI instance and return the result as a downloadable transit file. The output keeps the input image size.",
     inputSchema: s.looseRequiredObject("The input payload for this action.", {
@@ -111,6 +115,7 @@ export const comfyuiActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "inpaint",
+    operationType: "write",
     description:
       "Repaint the masked region of an image from a text prompt on the self-hosted ComfyUI instance and return the result as a downloadable transit file. The mask must be the same size as the image, where white marks the region to regenerate.",
     inputSchema: s.looseRequiredObject("The input payload for this action.", {
@@ -125,6 +130,7 @@ export const comfyuiActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "run_workflow",
+    operationType: "write",
     description:
       "Run a ComfyUI API-format workflow graph, wait for it to finish, and return every image it saved as a downloadable transit file. Use this for graphs the txt2img, img2img, and inpaint actions cannot express; export the graph from the ComfyUI web UI with 'Save (API Format)'. Node inputs accept transit file references in place of input filenames.",
     inputSchema: s.looseRequiredObject("The input payload for this action.", {

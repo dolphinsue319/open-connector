@@ -1,5 +1,5 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { EvermemActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import {
   compactObject,
@@ -7,10 +7,14 @@ import {
   optionalIntegerLike,
   optionalRecord,
   optionalString,
-  requiredString,
 } from "../../core/cast.ts";
 import { assertPublicHttpUrl } from "../../core/request.ts";
-import { createProviderTimeout, providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import {
+  createProviderTimeout,
+  ProviderRequestError,
+  providerUserAgent,
+  requiredInputString,
+} from "../provider-runtime.ts";
 
 // EverOS ships no authentication of its own; the bearer token is enforced by
 // the reverse proxy in front of it. Validate against a cheap, parameter-free
@@ -57,9 +61,9 @@ type EvermemActionHandler = (input: Record<string, unknown>, context: EvermemAct
 /**
  * Action handlers keyed by the local action name (no service prefix). Entries
  * are added per implementation phase and must stay in sync with
- * `EvermemActionName` in actions.ts.
+ * the generated action contracts.
  */
-export const evermemActionHandlers: Record<EvermemActionName, EvermemActionHandler> = {
+export const evermemActionHandlers: ProviderActionHandlers<"evermem", EvermemActionHandler> = {
   add_memory(input, context) {
     return addMemory(input, context);
   },
@@ -138,7 +142,7 @@ async function addMemory(input: Record<string, unknown>, context: EvermemActionC
     sender_name: optionalString(input.senderName),
     role: optionalString(input.role) ?? "user",
     timestamp: readOptionalPositiveInteger(input.timestamp, "timestamp") ?? Date.now(),
-    content: requireInputString(input.content, "content"),
+    content: requiredInputString(input.content, "content"),
   });
 
   const { payload } = await requestEvermemJson<unknown>({
@@ -231,7 +235,7 @@ async function searchMemory(input: Record<string, unknown>, context: EvermemActi
     agent_id: owner.agent_id,
     app_id: optionalString(input.appId) ?? defaultAppId,
     project_id: optionalString(input.projectId) ?? defaultProjectId,
-    query: requireInputString(input.query, "query"),
+    query: requiredInputString(input.query, "query"),
     method: optionalString(input.method) ?? "hybrid",
     top_k: readOptionalTopK(input.topK) ?? 10,
     radius: readOptionalNumber(input.radius, "radius"),
@@ -285,7 +289,7 @@ async function listMemories(input: Record<string, unknown>, context: EvermemActi
 
 async function triggerMaintenance(input: Record<string, unknown>, context: EvermemActionContext): Promise<unknown> {
   const body = compactObject({
-    name: requireInputString(input.name, "name"),
+    name: requiredInputString(input.name, "name"),
     timeout: readOptionalNumber(input.timeout, "timeout") ?? defaultTriggerTimeout,
     force: optionalBoolean(input.force) ?? false,
   });
@@ -458,10 +462,6 @@ function extractEvermemMessage(payload: unknown): string | undefined {
 function unwrapData(payload: unknown): unknown {
   const record = optionalRecord(payload);
   return record && record.data !== undefined ? record.data : payload;
-}
-
-function requireInputString(value: unknown, fieldName: string): string {
-  return requiredString(value, fieldName, (message) => new ProviderRequestError(400, message));
 }
 
 function readOptionalPositiveInteger(value: unknown, fieldName: string): number | undefined {

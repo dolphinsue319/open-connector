@@ -185,6 +185,7 @@ const emptyInputSchema = s.object("The input payload for this action.", {});
 export const redmineActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "get_current_user",
+    operationType: "read",
     description: "Get the Redmine user that owns the configured API key.",
     requiredScopes: [],
     inputSchema: emptyInputSchema,
@@ -193,6 +194,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_issues",
+    operationType: "read",
     description: "List issues with optional filters such as project, tracker, status, and assignee.",
     requiredScopes: [],
     inputSchema: s.object(
@@ -237,6 +239,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "get_issue",
+    operationType: "read",
     description: "Get one Redmine issue by ID, including journals, attachments, and relations by default.",
     requiredScopes: [],
     inputSchema: s.object(
@@ -252,6 +255,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "create_issue",
+    operationType: "write",
     description: "Create a new Redmine issue in a project.",
     requiredScopes: [],
     inputSchema: s.object(
@@ -298,6 +302,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "update_issue",
+    operationType: "write",
     description:
       "Update a Redmine issue. Pass notes to append a journal entry, or change status, assignee, and other fields.",
     requiredScopes: [],
@@ -348,6 +353,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_projects",
+    operationType: "read",
     description: "List Redmine projects visible to the API key.",
     requiredScopes: [],
     inputSchema: s.object(
@@ -364,6 +370,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "get_project",
+    operationType: "read",
     description: "Get one Redmine project by numeric ID or identifier.",
     requiredScopes: [],
     inputSchema: s.object(
@@ -379,6 +386,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "create_time_entry",
+    operationType: "write",
     description: "Log a time entry against an issue or project.",
     requiredScopes: [],
     inputSchema: s.object(
@@ -398,6 +406,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_time_entries",
+    operationType: "read",
     description: "List time entries with optional user, project, issue, and date filters.",
     requiredScopes: [],
     inputSchema: s.object(
@@ -418,6 +427,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "search",
+    operationType: "read",
     description: "Search across Redmine records such as issues, projects, wiki pages, and news.",
     requiredScopes: [],
     inputSchema: s.object(
@@ -460,6 +470,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_trackers",
+    operationType: "read",
     description: "List issue trackers configured on the Redmine instance.",
     requiredScopes: [],
     inputSchema: emptyInputSchema,
@@ -467,6 +478,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_issue_statuses",
+    operationType: "read",
     description: "List issue statuses configured on the Redmine instance.",
     requiredScopes: [],
     inputSchema: emptyInputSchema,
@@ -474,6 +486,7 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_issue_priorities",
+    operationType: "read",
     description: "List issue priority enumeration values configured on the Redmine instance.",
     requiredScopes: [],
     inputSchema: emptyInputSchema,
@@ -481,25 +494,10 @@ export const redmineActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "list_time_entry_activities",
+    operationType: "read",
     description: "List time entry activity enumeration values configured on the Redmine instance.",
     requiredScopes: [],
     inputSchema: emptyInputSchema,
     outputSchema: enumerationListSchema("time_entry_activities", "Time entry activities configured on the instance."),
   }),
 ];
-
-export type RedmineActionName =
-  | "get_current_user"
-  | "list_issues"
-  | "get_issue"
-  | "create_issue"
-  | "update_issue"
-  | "list_projects"
-  | "get_project"
-  | "create_time_entry"
-  | "list_time_entries"
-  | "search"
-  | "list_trackers"
-  | "list_issue_statuses"
-  | "list_issue_priorities"
-  | "list_time_entry_activities";

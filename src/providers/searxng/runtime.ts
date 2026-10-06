@@ -1,5 +1,5 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { SearxngActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalNumber, optionalRawString, optionalRecord, optionalString } from "../../core/cast.ts";
 import { providerUserAgent, ProviderRequestError, setSearchParams } from "../provider-runtime.ts";
@@ -29,9 +29,9 @@ type SearxngActionHandler = (input: Record<string, unknown>, context: SearxngAct
 /**
  * Action handlers keyed by the local action name (no service prefix). Entries
  * are added per implementation phase and must stay in sync with
- * `SearxngActionName` in actions.ts.
+ * the generated action contracts.
  */
-export const searxngActionHandlers: Record<SearxngActionName, SearxngActionHandler> = {
+export const searxngActionHandlers: ProviderActionHandlers<"searxng", SearxngActionHandler> = {
   config: searxngGetAction(() => ({ path: searxngValidationPath })),
   search: searxngGetAction((input) => ({ path: "/search", query: buildSearchQuery(input) })),
 };

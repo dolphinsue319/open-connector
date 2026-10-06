@@ -1,5 +1,5 @@
 import type { CredentialValidationResult } from "../../core/types.ts";
-import type { RedmineActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import {
   compactObject,
@@ -9,10 +9,9 @@ import {
   optionalRecord,
   optionalString,
   positiveInteger,
-  requiredString,
 } from "../../core/cast.ts";
 import { assertPublicHttpUrl } from "../../core/request.ts";
-import { providerUserAgent, ProviderRequestError } from "../provider-runtime.ts";
+import { ProviderRequestError, providerUserAgent, requiredInputString } from "../provider-runtime.ts";
 
 const redmineValidationPath = "/users/current.json";
 const maxListLimit = 100;
@@ -29,7 +28,7 @@ export interface RedmineActionContext {
 
 type RedmineActionHandler = (input: Record<string, unknown>, context: RedmineActionContext) => Promise<unknown>;
 
-export const redmineActionHandlers: Record<RedmineActionName, RedmineActionHandler> = {
+export const redmineActionHandlers: ProviderActionHandlers<"redmine", RedmineActionHandler> = {
   get_current_user(_input, context) {
     return getCurrentUser(context);
   },
@@ -173,7 +172,7 @@ async function getIssue(input: Record<string, unknown>, context: RedmineActionCo
 async function createIssue(input: Record<string, unknown>, context: RedmineActionContext): Promise<unknown> {
   const issue = compactObject({
     project_id: requireIdLike(input.projectId, "projectId"),
-    subject: requireInputString(input.subject, "subject"),
+    subject: requiredInputString(input.subject, "subject"),
     description: optionalString(input.description),
     tracker_id: readOptionalPositiveInteger(input.trackerId, "trackerId"),
     status_id: readOptionalPositiveInteger(input.statusId, "statusId"),
@@ -336,7 +335,7 @@ async function search(input: Record<string, unknown>, context: RedmineActionCont
     baseUrl: context.baseUrl,
     path: "/search.json",
     query: compactObject({
-      q: requireInputString(input.query, "query"),
+      q: requiredInputString(input.query, "query"),
       scope: optionalString(input.scope),
       all_words: searchFlag(input.allWords),
       titles_only: searchFlag(input.titlesOnly),
@@ -520,10 +519,6 @@ function normalizeListEnvelope(payload: unknown, key: string): Record<string, un
   });
 }
 
-function requireInputString(value: unknown, fieldName: string): string {
-  return requiredString(value, fieldName, (message) => new ProviderRequestError(400, message));
-}
-
 function requirePositiveInteger(value: unknown, fieldName: string): number {
   return positiveInteger(value, fieldName, (message) => new ProviderRequestError(400, message));
 }
@@ -601,7 +596,7 @@ function joinCsvStrings(value: unknown, fieldName: string): string | undefined {
     return optionalString(value);
   }
   if (Array.isArray(value)) {
-    const parts = value.map((item) => requireInputString(item, fieldName));
+    const parts = value.map((item) => requiredInputString(item, fieldName));
     return parts.length > 0 ? parts.join(",") : undefined;
   }
   throw new ProviderRequestError(400, `${fieldName} must be a string or array of strings`);

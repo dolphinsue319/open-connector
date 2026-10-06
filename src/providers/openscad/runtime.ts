@@ -1,9 +1,9 @@
 import type { CredentialValidationResult, TransitFileWriter } from "../../core/types.ts";
-import type { OpenscadActionName } from "./actions.ts";
+import type { ProviderActionHandlers } from "../provider-runtime.ts";
 
 import { compactObject, optionalRecord, optionalString, requiredString } from "../../core/cast.ts";
 import { readBoundedResponseBytes } from "../../core/request.ts";
-import { ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
+import { providerInputError, ProviderRequestError, providerUserAgent } from "../provider-runtime.ts";
 
 // Both the connector container and the self-hosted OpenSCAD render microservice
 // run in the same OrbStack host, so the default targets the renderer over the
@@ -24,13 +24,13 @@ type OpenscadActionHandler = (input: Record<string, unknown>, context: OpenscadA
 
 /**
  * Action handlers keyed by the local action name (no service prefix). Must stay
- * in sync with `OpenscadActionName` in actions.ts.
+ * in sync with the generated action contracts.
  */
-export const openscadActionHandlers: Record<OpenscadActionName, OpenscadActionHandler> = {
+export const openscadActionHandlers: ProviderActionHandlers<"openscad", OpenscadActionHandler> = {
   info: (_input, context) => openscadGetJson(context, openscadHealthPath),
   render_model: (input, context) => renderToTransit(input, context, optionalString(input.format) ?? "stl", false),
   render_2d: (input, context) =>
-    renderToTransit(input, context, requiredString(input.format, "format", invalidInput), false),
+    renderToTransit(input, context, requiredString(input.format, "format", providerInputError), false),
   render_preview: (input, context) => renderToTransit(input, context, "png", true),
 };
 
@@ -102,7 +102,7 @@ async function renderToTransit(
     throw new ProviderRequestError(400, "Transit file storage is not enabled.");
   }
 
-  const source = requiredString(input.source, "source", invalidInput);
+  const source = requiredString(input.source, "source", providerInputError);
   const params = optionalRecord(input.params);
   const body = isPreview
     ? compactObject({
@@ -207,8 +207,4 @@ function safeJsonParse(text: string): unknown | undefined {
   } catch {
     return undefined;
   }
-}
-
-function invalidInput(message: string): ProviderRequestError {
-  return new ProviderRequestError(400, message);
 }

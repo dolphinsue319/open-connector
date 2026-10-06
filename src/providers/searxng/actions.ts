@@ -52,6 +52,7 @@ const listParam = (description: string) =>
 export const searxngActions: ActionDefinition[] = [
   defineProviderAction(service, {
     name: "config",
+    operationType: "read",
     description:
       "Get the self-hosted SearXNG instance configuration, including the enabled engines, categories, and plugins.",
     inputSchema: emptyInput,
@@ -59,6 +60,7 @@ export const searxngActions: ActionDefinition[] = [
   }),
   defineProviderAction(service, {
     name: "search",
+    operationType: "read",
     description:
       "Search the web with the self-hosted SearXNG metasearch instance and return aggregated JSON results from the enabled engines.",
     inputSchema: s.looseRequiredObject(
@@ -80,5 +82,3 @@ export const searxngActions: ActionDefinition[] = [
     outputSchema: searchResultSchema,
   }),
 ];
-
-export type SearxngActionName = "config" | "search";
