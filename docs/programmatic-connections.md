@@ -5,6 +5,19 @@ management through the same HTTP paths and envelopes as OOMOL Hosted Connector. 
 OAuth authorization, polling one authorization attempt, connection details, and synchronous
 API-key or custom-credential creation and replacement.
 
+## SaaS OAuth sources
+
+For a service configured with a SaaS source, the connection endpoints below authorize remotely
+without a local OAuth client. Reconnecting an existing connection retains its source.
+Read the four setup fields inside oauthClient: SaaS sets customClientAvailable to false,
+uses its callback URL and requires no local client fields. Send no OAuth overrides in SaaS mode.
+
+An explicit valid administrator Bearer GET synchronizes a known SaaS request; cookie-only GET
+does not. Poll at least two seconds apart and honor Retry-After. Browser clients use the protected
+same-origin POST described in [SaaS OAuth](saas-oauth.md#programmatic-authorization).
+Never replay link creation after an unknown result. Completed connections use the same execution
+selectors and policies, with provider credentials and execution remaining on SaaS.
+
 ## Authentication
 
 Use the local administrator bearer token (`OOMOL_CONNECT_ADMIN_TOKEN`) to manage connections.
@@ -24,15 +37,47 @@ hidden from execution discovery. It excludes virtual no-auth and Marketplace ent
 ## Discover setup requirements
 
 `GET /v1/providers/:service/setup` describes what a provider needs before it can be connected:
-the credential fields of each supported credential type, the OAuth client inputs, the scopes the
-connector requests, the provider's registration steps, the callback URL to register, and which
-OAuth client inputs are still missing. It never returns saved values, so a host can build its own
-connection form from it and submit through the endpoints below.
+the credential fields of each supported credential type, the OAuth client inputs, the default
+scopes (`scopes`), the additional scopes available for explicit selection (`optionalScopes`),
+the provider's registration steps, the callback URL to register, and which OAuth client inputs
+are still missing. It never returns saved values, so a host can build its own connection form
+from it and submit through the endpoints below.
 
 ## Start and track OAuth
 
-Configure your provider's OAuth client through the console or `/api/oauth/configs/:service`
-first. The registered callback URL remains `/oauth/callback` on this runtime.
+For local OAuth, configure your provider's OAuth client through the console or
+`/api/oauth/configs/:service` first. Register `/oauth/callback` on this runtime as the callback URL.
+
+Omit `requestedScopes` to request every default scope and no optional scopes. When provided,
+`requestedScopes` replaces the default scope list: only the listed scopes are requested, and
+each must appear in the provider's `scopes` or `optionalScopes`. Include any identity scopes
+needed by the provider's credential validator; defaults are not added automatically.
+
+For example, a Google Calendar OAuth client config for editing events, listing calendars, and
+querying availability can use:
+
+```json
+{
+  "clientId": "your-google-client-id",
+  "clientSecret": "your-google-client-secret",
+  "requestedScopes": [
+    "openid",
+    "email",
+    "profile",
+    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+    "https://www.googleapis.com/auth/calendar.events.freebusy"
+  ]
+}
+```
+
+This config omits `calendar.readonly` and all other unlisted default scopes. Choose scopes
+that grant the minimum access needed for your application's features.
+
+For SaaS OAuth, configure the cloud project and select the provider configuration instead.
+The provider's OAuth callback is hosted by SaaS; after authorization, SaaS returns to a
+Connect-generated `/oauth/saas/complete` URL. The final `returnUri` stays in Connect and is
+used after synchronization, rather than being passed to SaaS.
 
 ```sh
 curl -sS -X POST http://localhost:3000/v1/connections/github/connect \
@@ -91,12 +136,12 @@ OAuth inputs can include:
 
 - `returnUri`: optional `http:`, `https:`, or `oomol:` URL. The callback adds `status` and `service`,
   and safe `code` and `message` fields on failure.
-- `authorizationOptionIds`: provider-declared option IDs. GitHub and Slack expose selectable
+- `authorizationOptionIds` (local OAuth only): provider-declared option IDs. GitHub and Slack expose selectable
   provider-native scopes in their OAuth definitions. Required options are always included.
   Omission preserves the configured scopes; unknown options or options on unsupported providers
   return `invalid_input`. `requires` describes selection dependencies for clients; the server
   preserves the explicitly selected options and required options.
-- `extra` and `secretExtra`: provider-declared OAuth configuration fields, merged for this
+- `extra` and `secretExtra` (local OAuth only): provider-declared OAuth configuration fields, merged for this
   authorization attempt without changing the saved client configuration.
 
 ## Inspect and reconnect

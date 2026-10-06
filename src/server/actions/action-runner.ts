@@ -1,16 +1,26 @@
 import type { CatalogStore } from "../../catalog-store.ts";
 import type { ConnectionService, ConnectionSummary, ExecutionConnection } from "../../connection-service.ts";
 import type { ActionPolicyDecision, ActionPolicySnapshot } from "../../core/action-policy.ts";
+import type { ProviderHttpDispatchOptions } from "../../core/provider-http-dispatch.ts";
 import type { RuntimeLogger, ExecutionContext, ExecutionResult, TransitFileWriter } from "../../core/types.ts";
 import type { MarketplaceService } from "../../marketplace/marketplace-service.ts";
 import type { IProviderLoader } from "../../providers/provider-loader.ts";
+import type { SaasExecutionService } from "../../saas/saas-execution-service.ts";
 import type { IRunLogStore, RunLog, RunLogCaller, RunLogListInput, RunLogPage } from "../storage/runtime-store.ts";
 
 import { ConnectionError } from "../../connection-service.ts";
 import { executeAction as executeProviderAction } from "../../core/execution.ts";
+import { withProviderHttpDispatch } from "../../core/provider-http-dispatch.ts";
+import {
+  ProviderDispatchRequestError,
+  toProviderExecutionError,
+  withProviderHttpDispatchResult,
+} from "../../providers/provider-runtime.ts";
+import { SaasError } from "../../saas/saas-client.ts";
 import { safeRunLogError, summarizeForRunLog } from "./run-log-summary.ts";
 
 export interface ActionRunnerOptions {
+  providerHttpDispatch?: ProviderHttpDispatchOptions;
   catalog: CatalogStore;
   providerLoader: IProviderLoader;
   connections: ConnectionService;
@@ -18,6 +28,7 @@ export interface ActionRunnerOptions {
   transitFiles?: TransitFileWriter;
   logger?: RuntimeLogger;
   marketplace?: MarketplaceService;
+  saas?: SaasExecutionService;
 }
 
 export interface RunActionInput {
@@ -25,6 +36,7 @@ export interface RunActionInput {
   input: unknown;
   caller: RunLogCaller;
   connectionName?: string;
+  connectionId?: string;
   policy: ActionPolicySnapshot;
   runtimeTokenId?: string;
   signal?: AbortSignal;
@@ -33,6 +45,9 @@ export interface RunActionInput {
 export interface ActionRunResult {
   executionId: string;
   auditPersisted: boolean;
+  remoteExecutionId?: string;
+  failureStatus?: SaasError["status"];
+  retryAfter?: string;
   result: ExecutionResult;
   connection?: ConnectionSummary;
 }
@@ -48,6 +63,15 @@ export class ActionRunner {
   }
 
   async run(input: RunActionInput): Promise<ActionRunResult | undefined> {
+    const action = this.options.catalog.actionsById.get(input.actionId);
+    return withProviderHttpDispatch(
+      { operation: "action", service: action?.service, actionId: action?.id },
+      () => this.runAction(input),
+      this.options.providerHttpDispatch,
+    );
+  }
+
+  private async runAction(input: RunActionInput): Promise<ActionRunResult | undefined> {
     const action = this.options.catalog.actionsById.get(input.actionId);
     if (!action) {
       this.options.logger?.warn(
@@ -74,13 +98,20 @@ export class ActionRunner {
     let policy: ActionPolicyDecision = input.policy.evaluate(action);
     let connection: ExecutionConnection | undefined;
     let result: ExecutionResult;
+    let remoteExecutionId: string | undefined;
+    let failureStatus: SaasError["status"] | undefined;
+    let retryAfter: string | undefined;
     if (!policy.allowed) {
       result = { ok: false, error: { code: policy.code, message: policy.message } };
     } else if (input.signal?.aborted) {
       result = cancelledExecutionResult();
     } else {
       try {
-        const summary = await this.options.connections.getConnectionSummary(action.service, input.connectionName);
+        const summary = await this.options.connections.getConnectionSummary(
+          action.service,
+          input.connectionName,
+          input.connectionId,
+        );
         input.signal?.throwIfAborted();
         const connectionPolicy =
           summary?.authType === "no_auth" ? undefined : input.policy.evaluateConnection(summary?.id);
@@ -96,10 +127,22 @@ export class ActionRunner {
             },
           };
         } else {
-          connection = await this.options.connections.resolveForExecution(action.service, input.connectionName);
+          connection = await this.options.connections.resolveForExecution(
+            action.service,
+            input.connectionName,
+            input.connectionId,
+          );
           input.signal?.throwIfAborted();
+          const targetPolicy =
+            connection.summary?.authType === "no_auth"
+              ? undefined
+              : input.policy.evaluateConnection(connection.summary?.id);
+          if (targetPolicy && !targetPolicy.allowed) {
+            policy = targetPolicy;
+            throw new ConnectionError(targetPolicy.code, targetPolicy.message);
+          }
           const executor =
-            action.execution.locallyExecutable && !connection.marketplace
+            action.execution.locallyExecutable && connection.kind === "local"
               ? await this.options.providerLoader.loadActionExecutor(
                   action.service,
                   action.id,
@@ -107,13 +150,44 @@ export class ActionRunner {
                 )
               : undefined;
           input.signal?.throwIfAborted();
-          result = await executeProviderAction(
-            action,
-            connection.marketplace
-              ? (actionInput) => this.options.marketplace!.execute(action.id, actionInput, input.signal)
-              : executor,
-            input.input,
-            this.createExecutionContext(connection.getCredential, input.signal),
+          const saasReference = connection.kind === "saas" ? connection.reference : undefined;
+          const resolvedConnection = connection;
+          result = await withProviderHttpDispatchResult(
+            {
+              operation: "action",
+              service: action.service,
+              actionId: action.id,
+              executionId,
+              connectionId: connection.summary?.id,
+              connectionName: connection.summary?.connectionName,
+            },
+            () =>
+              executeProviderAction(
+                action,
+                saasReference
+                  ? async (actionInput) => {
+                      if (!this.options.saas)
+                        throw new SaasError("oauth_source_unavailable", "SaaS execution is unavailable.", 503);
+                      const remote = await this.options.saas.executeAction(
+                        saasReference,
+                        action.service,
+                        action.id,
+                        actionInput,
+                        input.signal,
+                      );
+                      remoteExecutionId = remote.executionId;
+                      return { ok: true, output: remote.output };
+                    }
+                  : resolvedConnection.kind === "marketplace"
+                    ? (actionInput) => this.options.marketplace!.execute(action.id, actionInput, input.signal)
+                    : executor,
+                input.input,
+                this.createExecutionContext(
+                  resolvedConnection.kind === "local" ? resolvedConnection.getCredential : async () => undefined,
+                  input.signal,
+                ),
+              ),
+            this.options.providerHttpDispatch,
           );
           if (input.signal?.aborted) {
             result = cancelledExecutionResult();
@@ -129,6 +203,13 @@ export class ActionRunner {
         } else if (missingConnectionPolicy && !missingConnectionPolicy.allowed) {
           policy = missingConnectionPolicy;
           result = { ok: false, error: { code: policy.code, message: policy.message } };
+        } else if (error instanceof SaasError) {
+          remoteExecutionId = error.remoteExecutionId;
+          failureStatus = error.status;
+          retryAfter = error.retryAfter;
+          result = { ok: false, error: { code: error.code, message: error.message } };
+        } else if (error instanceof ProviderDispatchRequestError) {
+          result = toProviderExecutionError(error, error.message);
         } else {
           result =
             error instanceof ConnectionError
@@ -145,6 +226,7 @@ export class ActionRunner {
     const auditError = safeRunLogError(result.error);
     const runLog: RunLog = {
       id: executionId,
+      remoteExecutionId,
       service: action.service,
       actionId: input.actionId,
       caller: input.caller,
@@ -174,6 +256,7 @@ export class ActionRunner {
 
     const completedLogContext = {
       ...logContext,
+      remoteExecutionId,
       connectionId: connection?.summary?.id,
       durationMs,
       ok: result.ok,
@@ -188,7 +271,15 @@ export class ActionRunner {
       this.options.logger?.warn(completedLogContext, "action run failed");
     }
 
-    return { executionId, auditPersisted, result, connection: connection?.summary };
+    return {
+      executionId,
+      remoteExecutionId,
+      failureStatus,
+      retryAfter,
+      auditPersisted,
+      result,
+      connection: connection?.summary,
+    };
   }
 
   listRuns(input?: RunLogListInput): Promise<RunLogPage> {
@@ -200,7 +291,7 @@ export class ActionRunner {
   }
 
   private createExecutionContext(
-    getCredential: ExecutionConnection["getCredential"],
+    getCredential: ExecutionContext["getCredential"],
     signal: AbortSignal | undefined,
   ): ExecutionContext {
     const context: ExecutionContext = {

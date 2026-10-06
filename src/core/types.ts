@@ -1,3 +1,5 @@
+import type { TriggerKeySnapshot } from "../triggers/common/types.ts";
+import type { TriggerPermission } from "../triggers/metadata.ts";
 /**
  * JSON Schema object used for action input and output contracts.
  *
@@ -22,8 +24,8 @@ export type AuthType = "no_auth" | "api_key" | "custom_credential" | "oauth2";
 export type ProviderScenario =
   | "ai"
   | "cross-border-ecommerce"
+  | "investment"
   | "communication"
-  | "docs"
   | "productivity"
   | "marketing"
   | "data-storage"
@@ -132,8 +134,20 @@ export type OAuth2AuthDefinition = {
   tokenUrl: string;
   /** Provider token endpoint used to refresh an access token. Defaults to tokenUrl. */
   refreshTokenUrl?: string;
-  /** OAuth scopes joined with spaces into the authorization URL `scope` parameter. */
+  /**
+   * Provider token revocation endpoint (RFC 7009). When set, a disconnect that
+   * asks for it (`revoke: true`) posts the connection's refresh token (else its
+   * access token) there once the credential is deleted, so the grant ends at
+   * the provider as well as here. Inert otherwise.
+   */
+  revocationUrl?: string;
+  /** Default OAuth scopes when no requestedScopes or authorization options are selected. */
   scopes: string[];
+  /**
+   * Additional scopes available for explicit selection through requestedScopes or authorization
+   * options. requestedScopes replaces the default list; default scopes are not added automatically.
+   */
+  optionalScopes?: string[];
   /** Selectable provider-native OAuth scopes for programmatic connections. */
   authorizationOptions?: OAuthAuthorizationOption[];
   /** Separator used when joining OAuth scopes. Defaults to a space. */
@@ -210,6 +224,9 @@ export type ProviderAuthDefinition =
   | CustomCredentialAuthDefinition
   | OAuth2AuthDefinition;
 
+/** How an action affects provider state. */
+export type ActionOperationType = "read" | "write" | "destructive";
+
 /**
  * Public metadata and schema contract for one action.
  *
@@ -225,6 +242,8 @@ export type ActionDefinition = {
   name: string;
   /** Human-readable action summary for catalogs, docs, and tool descriptions. */
   description: string;
+  /** Whether the action reads, changes, or destructively changes provider state. */
+  operationType: ActionOperationType;
   /** Provider-native OAuth scopes, permission names, or capability strings needed for this action. */
   requiredScopes: string[];
   /** Provider-native permissions or scopes users must grant. */
@@ -268,6 +287,8 @@ export type ProviderDefinition = {
   iconUrl?: string;
   /** Public action catalog for this provider. */
   actions: readonly ActionDefinition[];
+  triggers?: readonly TriggerKeySnapshot[];
+  triggerPermissions?: readonly TriggerPermission[];
 };
 
 /**
@@ -331,9 +352,19 @@ export interface TransitFileRead {
   mimeType: string;
 }
 
+/** A byte stream consumed with backpressure; failed or cancelled writes must leave no file behind. */
+export interface TransitFileStream {
+  body: ReadableStream<Uint8Array>;
+  name: string;
+  mimeType: string;
+  signal?: AbortSignal;
+}
+
 export interface TransitFileStore {
   readonly maxBytes: number;
   create(file: File): Promise<TransitFileUpload>;
+  /** Available only on backends that can store unknown-length streams without buffering the file. */
+  createFromStream?(file: TransitFileStream): Promise<TransitFileUpload>;
   read(fileId: string): Promise<TransitFileRead>;
   delete(fileId: string): Promise<boolean>;
 }

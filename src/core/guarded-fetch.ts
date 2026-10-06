@@ -1,3 +1,5 @@
+import type { GuardedHttpDispatcher } from "./provider-http-dispatch.ts";
+
 import { assertPublicHttpUrl, classifyIpAddress, isEgressTrustedHost, isIpAddress, isIpv4Address } from "./request.ts";
 
 /**
@@ -16,6 +18,8 @@ export interface ResolvedAddress {
 export type GuardedFetchDnsLookup = (hostname: string) => Promise<ResolvedAddress[]>;
 
 export interface GuardedFetchOptions {
+  /** Optional dispatcher at the screened raw-transport seam; every redirect hop passes through it. */
+  dispatchAttempt?: GuardedHttpDispatcher;
   /**
    * Base transport issuing the actual requests. Defaults to the global fetch,
    * resolved per call so test stubs installed later still apply.
@@ -28,8 +32,12 @@ export interface GuardedFetchOptions {
    * load are honored.
    */
   allowPrivateNetwork?: boolean | (() => boolean);
+  /** Whether deployment trusted hosts may bypass private DNS answers. Defaults to true. */
+  allowTrustedHosts?: boolean;
   /** Error factory for guard violations. Defaults to TypeError. */
   createError?: (message: string) => Error;
+  /** Error factory for DNS lookup failures. Defaults to createError. */
+  createResolutionError?: (message: string) => Error;
   /** Maximum redirect hops followed before the request fails. */
   maxRedirects?: number;
   /**
@@ -134,6 +142,8 @@ const bodyHeaders = ["content-encoding", "content-language", "content-length", "
 
 /** Base transport behind each guarded fetch (undefined = global fetch) so re-wrapping never stacks guards. */
 const guardedFetchBases = new WeakMap<typeof fetch, typeof fetch | undefined>();
+/** Retain admission when a caller replaces the egress policy without stacking guards. */
+const guardedFetchDispatchers = new WeakMap<typeof fetch, GuardedHttpDispatcher | undefined>();
 
 let defaultLookupOverridden = false;
 let defaultLookupOverride: GuardedFetchDnsLookup | null = null;
@@ -186,25 +196,49 @@ export function unwrapGuardedFetch(fetcher: typeof fetch | undefined): typeof fe
  *   so this layer applies there too. Only on a runtime without `node:dns` does it
  *   degrade to a no-op, leaving the URL-literal and redirect-`Location` checks.
  *
- * Callers that pass `redirect: "manual"` or `redirect: "error"` keep native
- * semantics: the first response (or native redirect error) is returned after
- * the initial URL and its resolved addresses are validated.
+ * Callers that pass `redirect: "manual"` keep native semantics: the first
+ * response, including an unfollowed 3xx, is returned after the initial URL and
+ * its resolved addresses are validated, so the caller's `!response.ok` check
+ * rejects a redirect. Use "manual" rather than `redirect: "error"` to refuse
+ * redirects: Cloudflare Workers does not implement "error" and throws
+ * `TypeError: Invalid redirect value` before sending the request.
  */
 export function createGuardedFetch(options: GuardedFetchOptions = {}): typeof fetch {
   const baseFetch = unwrapGuardedFetch(options.fetch);
+  const dispatchAttempt = options.dispatchAttempt ?? (options.fetch && guardedFetchDispatchers.get(options.fetch));
   const createError = options.createError ?? ((message: string) => new TypeError(message));
   const maxRedirects = options.maxRedirects ?? defaultMaxRedirects;
   const guardedFetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const transport = baseFetch ?? globalThis.fetch;
+    const requestId = dispatchAttempt ? crypto.randomUUID() : "";
+    let redirectHop = 0;
     const fetchTransport = async (
       transportInput: RequestInfo | URL,
       transportInit?: RequestInit,
     ): Promise<Response> => {
-      try {
-        return await transport(transportInput, transportInit);
-      } catch (error) {
-        throw options.mapTransportError?.(error) ?? error;
-      }
+      const send = async (): Promise<Response> => {
+        try {
+          return await transport(transportInput, transportInit);
+        } catch (error) {
+          throw options.mapTransportError?.(error) ?? error;
+        }
+      };
+      const transportRequest = transportInput instanceof Request ? transportInput : undefined;
+      return dispatchAttempt
+        ? dispatchAttempt(
+            Object.freeze({
+              requestId,
+              redirectHop,
+              origin: url.origin,
+              method: (transportInit?.method ?? transportRequest?.method ?? "GET").toUpperCase(),
+            }),
+            transportInit?.signal ?? transportRequest?.signal ?? undefined,
+            send,
+            async () => {
+              await guardHop(url.toString(), "request URL");
+            },
+          )
+        : send();
     };
     const allowPrivateNetwork =
       typeof options.allowPrivateNetwork === "function"
@@ -216,14 +250,25 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): typeof fe
         ? await resolveDefaultLookup()
         : options.lookup;
     const guardHop = (value: string, fieldName: string): Promise<URL> =>
-      assertGuardedEgressUrl(value, { fieldName, createError, allowPrivateNetwork, lookup });
+      assertGuardedEgressUrl(value, {
+        fieldName,
+        createError,
+        allowPrivateNetwork,
+        lookup,
+        allowTrustedHosts: options.allowTrustedHosts,
+        createResolutionError: options.createResolutionError,
+      });
 
     const request = input instanceof Request ? input : undefined;
     let url = await guardHop(request?.url ?? (input instanceof URL ? input.href : String(input)), "request URL");
 
     const redirectMode = init?.redirect ?? request?.redirect ?? "follow";
     if (redirectMode !== "follow") {
-      return fetchTransport(input, init);
+      // Keep the screened URL and method stable while admission is queued. A
+      // caller may otherwise mutate a URL or RequestInit before transport runs.
+      return dispatchAttempt
+        ? fetchTransport(request ?? (input instanceof URL ? new URL(url) : url.toString()), init ? { ...init } : init)
+        : fetchTransport(input, init);
     }
 
     let method = (init?.method ?? request?.method ?? "GET").toUpperCase();
@@ -231,6 +276,7 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): typeof fe
     let body: BodyInit | null | undefined = init?.body !== undefined ? init.body : request?.body;
 
     for (let redirects = 0; ; redirects++) {
+      redirectHop = redirects;
       const response =
         redirects === 0
           ? request
@@ -291,10 +337,12 @@ export function createGuardedFetch(options: GuardedFetchOptions = {}): typeof fe
   }) as typeof fetch;
 
   guardedFetchBases.set(guardedFetch, baseFetch);
+  guardedFetchDispatchers.set(guardedFetch, dispatchAttempt);
   return guardedFetch;
 }
 
 export interface GuardedEgressUrlOptions {
+  allowTrustedHosts?: boolean;
   /** Field name used in guard violation messages, e.g. `"request URL"`. */
   fieldName: string;
   /** Error factory for guard violations. */
@@ -351,11 +399,13 @@ export async function resolveGuardedEgressTarget(
     createError: options.createError,
     createResolutionError: options.createResolutionError ?? options.createError,
     lookup,
+    allowTrustedHosts: options.allowTrustedHosts !== false,
   });
   return { url, addresses };
 }
 
 interface ResolvedAddressPolicy {
+  allowTrustedHosts: boolean;
   allowPrivateNetwork: boolean;
   createError: (message: string) => Error;
   createResolutionError: (message: string) => Error;
@@ -397,7 +447,7 @@ async function assertResolvedAddressesAllowed(
   // Deployment-level trusted-host setting, resolved per request so a bootstrap that
   // configures it after module load is honored. It may open private and
   // VPN-mapped results, while unsafe special-use targets remain blocked.
-  const trustedHost = isEgressTrustedHost(hostname);
+  const trustedHost = policy.allowTrustedHosts && isEgressTrustedHost(hostname);
   for (const entry of results) {
     if (entry && typeof entry.address === "string") {
       const addressClass = classifyIpAddress(entry.address);
@@ -420,8 +470,9 @@ async function assertResolvedAddressesAllowed(
       // src/mail/imap-smtp/host-pinning.test.ts asserts.
       throw policy.createError(
         `${fieldName} must not resolve to private or reserved IP addresses ` +
-          `(if this host is reached through a corporate VPN or split DNS, add it to ` +
-          `OOMOL_CONNECT_EGRESS_TRUSTED_HOSTS)`,
+          (policy.allowTrustedHosts
+            ? `(if this host is reached through a corporate VPN or split DNS, add it to OOMOL_CONNECT_EGRESS_TRUSTED_HOSTS)`
+            : `(check proxy Fake-IP and DNS settings; this request requires a public address)`),
       );
     }
   }
